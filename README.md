@@ -2,7 +2,9 @@
 
 **A multi-asset staking ETF platform on Core blockchain for CORE and lstBTC yield optimization.**
 
-StakeBasket is a decentralized ETF (Exchange-Traded Fund) that allows users to deposit assets and automatically receive exposure to optimized staking strategies across the Core blockchain ecosystem. Users deposit ETH/CORE and receive BASKET tokens representing their proportional share of the fund's diversified staking portfolio.
+StakeBasket is a decentralized ETF (Exchange-Traded Fund) that allows users to deposit assets and automatically receive exposure to optimized staking strategies across the Core blockchain ecosystem. Users deposit native CORE tokens and receive BASKET tokens representing their proportional share of the fund's diversified staking portfolio.
+
+![](https://i.imgur.com/1KEKVst.png)
 
 ## 🎯 Features
 
