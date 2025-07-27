@@ -3,9 +3,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ContractAddress } from './ui/contract-address'
 import { MobileTransactionCard } from './ui/mobile-transaction-card'
-import { TransactionHistory } from './TransactionHistory'
 import { useState, useEffect } from 'react'
-import { TrendingUp, Wallet, DollarSign, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
+import { TrendingUp, Wallet, DollarSign, RefreshCw, ExternalLink } from 'lucide-react'
 import { useContractData } from '../hooks/useContractData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useTransactionHistory } from '../hooks/useTransactionHistory'
@@ -15,7 +14,7 @@ import { getNetworkByChainId } from '../config/contracts'
 export function DashboardV3() {
   const { address } = useAccount()
   const chainId = useChainId()
-  const { network, config } = getNetworkByChainId(chainId)
+  const { config } = getNetworkByChainId(chainId)
   
   const {
     coreBalance,
@@ -98,8 +97,8 @@ export function DashboardV3() {
                 Current network: {config.name} (Chain ID: {chainId})
               </p>
               {chainId !== 1114 && (
-                <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800 rounded-lg">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <div className="p-4 border border-border bg-accent/50 rounded-lg">
+                  <p className="text-sm text-accent-foreground">
                     ⚠️ Please switch to Core Testnet2 (Chain ID: 1114) to see your contracts and portfolio data.
                   </p>
                 </div>
@@ -157,7 +156,7 @@ export function DashboardV3() {
             </div>
             
             {priceError && (
-              <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+              <div className="p-2 bg-accent/50 border border-border rounded text-xs text-accent-foreground">
                 ⚠️ {priceError}
               </div>
             )}
@@ -257,8 +256,8 @@ export function DashboardV3() {
               ℹ️ This ETF uses native CORE tokens (not MockCORE ERC-20). Your wallet balance shows your native CORE.
             </div>
             {parseFloat(depositAmount) > 0 && (
-              <div className="p-3 bg-blue-50 rounded-md">
-                <p className="text-sm text-blue-800">
+              <div className="p-3 bg-primary/10 rounded-md">
+                <p className="text-sm text-primary">
                   You will receive approximately {(parseFloat(depositAmount) / 1.085).toFixed(4)} BASKET tokens
                 </p>
               </div>
@@ -304,8 +303,8 @@ export function DashboardV3() {
               Available: {basketBalance.toFixed(4)} BASKET (${portfolioValueUSD.toFixed(2)})
             </div>
             {parseFloat(withdrawAmount) > 0 && (
-              <div className="p-3 bg-green-50 rounded-md">
-                <p className="text-sm text-green-800">
+              <div className="p-3 bg-secondary/50 rounded-md">
+                <p className="text-sm text-secondary-foreground">
                   You will receive approximately {(parseFloat(withdrawAmount) * 1.085).toFixed(4)} CORE
                 </p>
               </div>
@@ -370,7 +369,7 @@ export function DashboardV3() {
             <div className="space-y-3">
               {/* Show pending transactions if they exist */}
               {depositSuccess && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">⏳</span>
@@ -397,7 +396,7 @@ export function DashboardV3() {
                 </div>
               )}
               {redeemSuccess && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">⏳</span>
@@ -492,7 +491,7 @@ export function DashboardV3() {
             <div className="space-y-3">
               {/* Show pending transactions if they exist */}
               {depositSuccess && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">⏳</span>
@@ -519,7 +518,7 @@ export function DashboardV3() {
                 </div>
               )}
               {redeemSuccess && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">⏳</span>

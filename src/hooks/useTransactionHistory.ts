@@ -5,7 +5,7 @@ import { getNetworkByChainId } from '../config/contracts'
 interface Transaction {
   hash: string
   method: string
-  type: 'deposit' | 'redeem' | 'unknown'
+  type: 'deposit' | 'redeem' | 'other'
   timestamp: number
   value: string
   status: 'success' | 'failed'
@@ -15,7 +15,7 @@ interface Transaction {
 export function useTransactionHistory() {
   const { address } = useAccount()
   const chainId = useChainId()
-  const { config, contracts } = getNetworkByChainId(chainId)
+  const { contracts } = getNetworkByChainId(chainId)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,13 +128,13 @@ function getMethodName(input: string): string {
   return methods[methodId] || 'Transfer'
 }
 
-function getTransactionType(input: string): 'deposit' | 'redeem' | 'unknown' {
-  if (!input || input === '0x' || input === 'null' || input === null) return 'unknown'
+function getTransactionType(input: string): 'deposit' | 'redeem' | 'other' {
+  if (!input || input === '0x' || input === 'null' || input === null) return 'other'
   
   const methodId = input.slice(0, 10)
   
   if (methodId === '0xb6b55f25') return 'deposit'
   if (methodId === '0xdb006a75') return 'redeem'
   
-  return 'unknown'
+  return 'other'
 }

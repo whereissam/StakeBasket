@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useReadContract, useWriteContract } from 'wagmi'
 import { formatEther, parseEther } from 'viem'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Progress } from './ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Clock, AlertCircle, CheckCircle, Timer } from 'lucide-react'
 import { getContractAddress } from '../config/contracts'
 
@@ -38,7 +35,7 @@ export default function UnbondingQueue() {
 
   // Get queue information
   const { data: queueData } = useReadContract({
-    address: getContractAddress('UnbondingQueue') as `0x${string}`,
+    address: getContractAddress('StakeBasket') as `0x${string}`,
     abi: [
       {
         name: 'getQueueInfo',
@@ -69,7 +66,7 @@ export default function UnbondingQueue() {
 
   // Get pending requests
   const { data: pendingData } = useReadContract({
-    address: getContractAddress('UnbondingQueue') as `0x${string}`,
+    address: getContractAddress('StakeBasket') as `0x${string}`,
     abi: [
       {
         name: 'getUserPendingRequests',
@@ -99,7 +96,7 @@ export default function UnbondingQueue() {
 
   // Check instant withdrawal availability
   const { data: canWithdrawInstantly } = useReadContract({
-    address: getContractAddress('UnbondingQueue') as `0x${string}`,
+    address: getContractAddress('StakeBasket') as `0x${string}`,
     abi: [
       {
         name: 'canWithdrawInstantly',
@@ -130,7 +127,14 @@ export default function UnbondingQueue() {
 
   useEffect(() => {
     if (pendingData) {
-      setPendingRequests(pendingData.map((request: any) => ({
+      setPendingRequests(pendingData.map((request: {
+        user: string;
+        amount: bigint;
+        requestTime: bigint;
+        unlockTime: bigint;
+        processed: boolean;
+        assetType: string;
+      }) => ({
         user: request.user,
         amount: formatEther(request.amount),
         requestTime: new Date(Number(request.requestTime) * 1000).toISOString(),
@@ -148,7 +152,7 @@ export default function UnbondingQueue() {
       if (withdrawalType === 'instant' && canWithdrawInstantly) {
         // Process instant withdrawal
         writeContract({
-          address: getContractAddress('UnbondingQueue') as `0x${string}`,
+          address: getContractAddress('StakeBasket') as `0x${string}`,
           abi: [
             {
               name: 'processInstantWithdrawal',
@@ -167,7 +171,7 @@ export default function UnbondingQueue() {
       } else {
         // Queue withdrawal
         writeContract({
-          address: getContractAddress('UnbondingQueue') as `0x${string}`,
+          address: getContractAddress('StakeBasket') as `0x${string}`,
           abi: [
             {
               name: 'requestUnbonding',
@@ -222,72 +226,86 @@ export default function UnbondingQueue() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={withdrawalType} onValueChange={(value) => setWithdrawalType(value as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="instant" className="flex items-center gap-2">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
+              <button
+                className={`flex items-center justify-center gap-2 p-2 rounded text-sm transition-colors ${
+                  withdrawalType === 'instant' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
+                }`}
+                onClick={() => setWithdrawalType('instant')}
+              >
                 <CheckCircle className="h-4 w-4" />
                 Instant
-              </TabsTrigger>
-              <TabsTrigger value="queue" className="flex items-center gap-2">
+              </button>
+              <button
+                className={`flex items-center justify-center gap-2 p-2 rounded text-sm transition-colors ${
+                  withdrawalType === 'queue' ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:bg-primary/10 hover:text-foreground'
+                }`}
+                onClick={() => setWithdrawalType('queue')}
+              >
                 <Clock className="h-4 w-4" />
                 Queue ({getUnbondingPeriod(assetType)})
-              </TabsTrigger>
-            </TabsList>
+              </button>
+            </div>
 
-            <TabsContent value="instant" className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-green-800 font-medium mb-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Instant Withdrawal Available
-                </div>
-                <p className="text-green-700 text-sm">
-                  Withdraw immediately from available liquidity pool. 
-                  {canWithdrawInstantly ? 
-                    ` ${amount} ${assetType} can be withdrawn instantly.` :
-                    ' Amount exceeds available instant liquidity.'
-                  }
-                </p>
-              </div>
-
-              {!canWithdrawInstantly && amount && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Instant Withdrawal Not Available
+            {withdrawalType === 'instant' && (
+              <div className="space-y-4">
+                <div className="bg-secondary/50 border border-border rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-primary font-medium mb-2">
+                    <CheckCircle className="h-4 w-4" />
+                    Instant Withdrawal Available
                   </div>
-                  <p className="text-yellow-700 text-sm">
-                    Amount exceeds available instant liquidity. Consider reducing amount or using queue withdrawal.
+                  <p className="text-foreground text-sm">
+                    Withdraw immediately from available liquidity pool. 
+                    {canWithdrawInstantly ? 
+                      ` ${amount} ${assetType} can be withdrawn instantly.` :
+                      ' Amount exceeds available instant liquidity.'
+                    }
                   </p>
                 </div>
-              )}
-            </TabsContent>
 
-            <TabsContent value="queue" className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-blue-800 font-medium mb-2">
-                  <Clock className="h-4 w-4" />
-                  Unbonding Period Required
-                </div>
-                <p className="text-blue-700 text-sm">
-                  {assetType} requires a {getUnbondingPeriod(assetType)} unbonding period. 
-                  Your withdrawal will be available after this period.
-                </p>
+                {!canWithdrawInstantly && amount && (
+                  <div className="bg-accent/50 border border-border rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-accent-foreground font-medium mb-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Instant Withdrawal Not Available
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      Amount exceeds available instant liquidity. Consider reducing amount or using queue withdrawal.
+                    </p>
+                  </div>
+                )}
               </div>
+            )}
 
-              {queueInfo && queueInfo.position > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Queue Position</span>
-                    <span>#{queueInfo.position}</span>
+            {withdrawalType === 'queue' && (
+              <div className="space-y-4">
+                <div className="bg-primary/10 border border-border rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-primary font-medium mb-2">
+                    <Clock className="h-4 w-4" />
+                    Unbonding Period Required
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Estimated Wait Time</span>
-                    <span>{Math.floor(queueInfo.averageWaitTime / 3600)} hours</span>
-                  </div>
+                  <p className="text-foreground text-sm">
+                    {assetType} requires a {getUnbondingPeriod(assetType)} unbonding period. 
+                    Your withdrawal will be available after this period.
+                  </p>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
+
+                {queueInfo && queueInfo.position > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Queue Position</span>
+                      <span>#{queueInfo.position}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Estimated Wait Time</span>
+                      <span>{Math.floor(queueInfo.averageWaitTime / 3600)} hours</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="space-y-4 mt-6">
             <div className="grid grid-cols-2 gap-4">
@@ -295,7 +313,7 @@ export default function UnbondingQueue() {
                 <label className="text-sm font-medium">Asset Type</label>
                 <select 
                   value={assetType} 
-                  onChange={(e) => setAssetType(e.target.value as any)}
+                  onChange={(e) => setAssetType(e.target.value as 'CORE' | 'lstBTC')}
                   className="w-full mt-1 p-2 border rounded-md"
                 >
                   <option value="CORE">CORE</option>
@@ -368,11 +386,13 @@ export default function UnbondingQueue() {
                         Requested {new Date(request.requestTime).toLocaleDateString()}
                       </div>
                     </div>
-                    <Badge variant={
-                      new Date(request.unlockTime) <= new Date() ? 'default' : 'secondary'
-                    }>
+                    <span className={`px-2 py-1 text-xs rounded ${
+                      new Date(request.unlockTime) <= new Date() 
+                        ? 'bg-primary/20 text-primary' 
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
                       {new Date(request.unlockTime) <= new Date() ? 'Ready' : 'Pending'}
-                    </Badge>
+                    </span>
                   </div>
                   
                   <div className="space-y-2">
@@ -388,13 +408,17 @@ export default function UnbondingQueue() {
                   
                   {/* Progress bar */}
                   <div className="mt-3">
-                    <Progress 
-                      value={Math.max(0, Math.min(100, 
-                        (Date.now() - new Date(request.requestTime).getTime()) / 
-                        (new Date(request.unlockTime).getTime() - new Date(request.requestTime).getTime()) * 100
-                      ))}
-                      className="h-2"
-                    />
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-primary h-2 rounded-full"
+                        style={{
+                          width: `${Math.max(0, Math.min(100, 
+                            (Date.now() - new Date(request.requestTime).getTime()) / 
+                            (new Date(request.unlockTime).getTime() - new Date(request.requestTime).getTime()) * 100
+                          ))}%`
+                        }}
+                      />
+                    </div>
                   </div>
                   
                   {new Date(request.unlockTime) <= new Date() && (
