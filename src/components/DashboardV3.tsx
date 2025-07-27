@@ -1,9 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { ContractAddress } from './ui/contract-address'
+import { MobileTransactionCard } from './ui/mobile-transaction-card'
 import { TransactionHistory } from './TransactionHistory'
 import { useState, useEffect } from 'react'
-import { TrendingUp, Wallet, DollarSign, RefreshCw, AlertCircle } from 'lucide-react'
+import { TrendingUp, Wallet, DollarSign, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
 import { useContractData } from '../hooks/useContractData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useTransactionHistory } from '../hooks/useTransactionHistory'
@@ -82,11 +84,11 @@ export function DashboardV3() {
 
   if (!isConnected) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <Card>
           <CardHeader>
-            <CardTitle>Connect to Core Network</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg sm:text-xl">Connect to Core Network</CardTitle>
+            <CardDescription className="text-sm sm:text-base">
               Please connect your wallet to Core Testnet2 to view your dashboard
             </CardDescription>
           </CardHeader>
@@ -96,8 +98,8 @@ export function DashboardV3() {
                 Current network: {config.name} (Chain ID: {chainId})
               </p>
               {chainId !== 1114 && (
-                <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-md">
-                  <p className="text-sm text-yellow-800">
+                <div className="p-4 border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     ⚠️ Please switch to Core Testnet2 (Chain ID: 1114) to see your contracts and portfolio data.
                   </p>
                 </div>
@@ -110,7 +112,7 @@ export function DashboardV3() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Network Status */}
       <Card>
         <CardHeader>
@@ -164,7 +166,7 @@ export function DashboardV3() {
       </Card>
 
       {/* Portfolio Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Portfolio Value</CardTitle>
@@ -224,17 +226,18 @@ export function DashboardV3() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Amount to Deposit</label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <Input
                   type="number"
                   placeholder="Enter native CORE amount"
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
+                  className="flex-1"
                 />
                 <Button 
                   onClick={handleDeposit} 
                   disabled={isDepositing || !depositAmount}
-                  className="whitespace-nowrap"
+                  className="w-full sm:w-auto sm:whitespace-nowrap min-h-[44px]"
                 >
                   {isDepositing ? (
                     <>
@@ -272,18 +275,19 @@ export function DashboardV3() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">BASKET Tokens to Redeem</label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <Input
                   type="number"
                   placeholder="Enter BASKET amount"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
+                  className="flex-1"
                 />
                 <Button 
                   onClick={handleWithdraw} 
                   disabled={isRedeeming || !withdrawAmount}
                   variant="outline"
-                  className="whitespace-nowrap"
+                  className="w-full sm:w-auto sm:whitespace-nowrap min-h-[44px]"
                 >
                   {isRedeeming ? (
                     <>
@@ -319,51 +323,27 @@ export function DashboardV3() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">StakeBasket Contract</p>
-              <a 
-                href={`${config.explorer}/address/${contracts.StakeBasket}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-primary hover:underline"
-              >
-                {contracts.StakeBasket}
-              </a>
-            </div>
-            <div>
-              <p className="text-muted-foreground">BASKET Token</p>
-              <a 
-                href={`${config.explorer}/address/${contracts.StakeBasketToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-primary hover:underline"
-              >
-                {contracts.StakeBasketToken}
-              </a>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Core Oracle</p>
-              <a 
-                href={`${config.explorer}/address/${contracts.CoreOracle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-primary hover:underline"
-              >
-                {contracts.CoreOracle}
-              </a>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Mock CORE Token</p>
-              <a 
-                href={`${config.explorer}/address/${contracts.MockCORE}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs break-all text-primary hover:underline"
-              >
-                {contracts.MockCORE}
-              </a>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ContractAddress
+              label="StakeBasket Contract"
+              address={contracts.StakeBasket}
+              explorerUrl={`${config.explorer}/address/${contracts.StakeBasket}`}
+            />
+            <ContractAddress
+              label="BASKET Token"
+              address={contracts.StakeBasketToken}
+              explorerUrl={`${config.explorer}/address/${contracts.StakeBasketToken}`}
+            />
+            <ContractAddress
+              label="Core Oracle"
+              address={contracts.CoreOracle}
+              explorerUrl={`${config.explorer}/address/${contracts.CoreOracle}`}
+            />
+            <ContractAddress
+              label="Mock CORE Token"
+              address={contracts.MockCORE}
+              explorerUrl={`${config.explorer}/address/${contracts.MockCORE}`}
+            />
           </div>
         </CardContent>
       </Card>
@@ -387,141 +367,215 @@ export function DashboardV3() {
               ⚠️ {txError}
             </div>
           ) : transactions.length > 0 ? (
-            <div className="space-y-2">
-              {/* Show pending transaction if exists */}
+            <div className="space-y-3">
+              {/* Show pending transactions if they exist */}
               {depositSuccess && (
-                <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      ⏳ <strong>Deposit Pending</strong> - Transaction submitted
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">⏳</span>
+                      <div>
+                        <p className="font-medium text-sm">Deposit Pending</p>
+                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                      </div>
                     </div>
-                    <a 
-                      href={`${config.explorer}/tx/${depositHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-2"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 w-8 p-0"
                     >
-                      View Tx
-                    </a>
+                      <a 
+                        href={`${config.explorer}/tx/${depositHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
                   </div>
                 </div>
               )}
               {redeemSuccess && (
-                <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      ⏳ <strong>Redeem Pending</strong> - Transaction submitted
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">⏳</span>
+                      <div>
+                        <p className="font-medium text-sm">Redeem Pending</p>
+                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                      </div>
                     </div>
-                    <a 
-                      href={`${config.explorer}/tx/${redeemHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-2"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 w-8 p-0"
                     >
-                      View Tx
-                    </a>
+                      <a 
+                        href={`${config.explorer}/tx/${redeemHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
                   </div>
                 </div>
               )}
               
-              {/* Show real blockchain transactions */}
-              {transactions.map((tx) => (
-                <div key={tx.hash} className="p-3 bg-accent/10 border border-accent/20 rounded text-xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-foreground">
-                      {tx.type === 'deposit' ? '✅' : tx.type === 'redeem' ? '💰' : '🔄'} 
-                      <strong> {tx.method}</strong> - {new Date(tx.timestamp).toLocaleDateString()}
-                      {tx.status === 'failed' && ' (Failed)'}
+              {/* Mobile-optimized transaction cards */}
+              <div className="sm:hidden space-y-3">
+                {transactions.map((tx) => (
+                  <MobileTransactionCard
+                    key={tx.hash}
+                    transaction={tx}
+                    explorerUrl={config.explorer}
+                  />
+                ))}
+              </div>
+              
+              {/* Desktop transaction list */}
+              <div className="hidden sm:block space-y-2">
+                {transactions.map((tx) => (
+                  <div key={tx.hash} className="p-3 bg-accent/10 border border-accent/20 rounded text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-foreground">
+                        {tx.type === 'deposit' ? '✅' : tx.type === 'redeem' ? '💰' : '🔄'} 
+                        <strong> {tx.method}</strong> - {new Date(tx.timestamp).toLocaleDateString()}
+                        {tx.status === 'failed' && ' (Failed)'}
+                      </div>
+                      <a 
+                        href={`${config.explorer}/tx/${tx.hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        View Tx
+                      </a>
                     </div>
-                    <a 
-                      href={`${config.explorer}/tx/${tx.hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      View Tx
-                    </a>
+                    <div className="text-muted-foreground mt-1">
+                      Hash: {tx.hash.slice(0, 8)}...{tx.hash.slice(-6)}
+                    </div>
                   </div>
-                  <div className="text-muted-foreground mt-1">
-                    Hash: {tx.hash.slice(0, 8)}...{tx.hash.slice(-6)}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
               
               {/* Link to view all transactions on explorer */}
-              <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+              <div className="p-3 bg-muted border border-border rounded-lg">
                 <div className="flex items-center justify-between">
-                  <div>
-                    📊 <strong>View All Transactions</strong> - See complete history on blockchain explorer
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">📊</span>
+                    <div>
+                      <p className="font-medium text-sm">View All Transactions</p>
+                      <p className="text-xs text-muted-foreground">Complete history on blockchain explorer</p>
+                    </div>
                   </div>
-                  <a 
-                    href={`${config.explorer}/address/${address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline ml-2"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    className="h-8 w-8 p-0"
                   >
-                    View Explorer
-                  </a>
+                    <a 
+                      href={`${config.explorer}/address/${address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Show pending transaction if exists */}
+              {/* Show pending transactions if they exist */}
               {depositSuccess && (
-                <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      ⏳ <strong>Deposit Pending</strong> - Transaction submitted
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">⏳</span>
+                      <div>
+                        <p className="font-medium text-sm">Deposit Pending</p>
+                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                      </div>
                     </div>
-                    <a 
-                      href={`${config.explorer}/tx/${depositHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-2"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 w-8 p-0"
                     >
-                      View Tx
-                    </a>
+                      <a 
+                        href={`${config.explorer}/tx/${depositHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
                   </div>
                 </div>
               )}
               {redeemSuccess && (
-                <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      ⏳ <strong>Redeem Pending</strong> - Transaction submitted
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">⏳</span>
+                      <div>
+                        <p className="font-medium text-sm">Redeem Pending</p>
+                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                      </div>
                     </div>
-                    <a 
-                      href={`${config.explorer}/tx/${redeemHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline ml-2"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 w-8 p-0"
                     >
-                      View Tx
-                    </a>
+                      <a 
+                        href={`${config.explorer}/tx/${redeemHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
                   </div>
                 </div>
               )}
               
               {/* Link to view all transactions on explorer when no transactions found */}
-              <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
+              <div className="p-3 bg-muted border border-border rounded-lg">
                 <div className="flex items-center justify-between">
-                  <div>
-                    📊 <strong>View Complete Transaction History</strong> - See all your ETF transactions on the blockchain explorer
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">📊</span>
+                    <div>
+                      <p className="font-medium text-sm">View Complete History</p>
+                      <p className="text-xs text-muted-foreground">See all ETF transactions on explorer</p>
+                    </div>
                   </div>
-                  <a 
-                    href={`${config.explorer}/address/${address}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline ml-2"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    className="h-8 w-8 p-0"
                   >
-                    View on Explorer
-                  </a>
+                    <a 
+                      href={`${config.explorer}/address/${address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
                 </div>
               </div>
               
-              <div className="text-center py-4 text-muted-foreground">
-                <p className="text-xs">No recent ETF transactions found. Your deposit/redeem history will appear above.</p>
+              <div className="text-center py-6 text-muted-foreground">
+                <p className="text-sm">No recent ETF transactions found.</p>
+                <p className="text-xs mt-1">Your deposit/redeem history will appear above.</p>
               </div>
             </div>
           )}

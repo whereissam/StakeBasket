@@ -27,45 +27,45 @@ export function MobileNav() {
       </Button>
 
       {isOpen && (
-        <div className={`absolute top-16 left-0 right-0 shadow-xl z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border`}>
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col space-y-4">
+        <div className={`fixed top-16 left-0 right-0 shadow-xl z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border-b`}>
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex flex-col space-y-6">
               <Link 
                 to="/" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 cursor-pointer ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
                 onClick={() => setIsOpen(false)}
               >
                 Home
               </Link>
               <Link 
                 to="/dashboard" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 cursor-pointer ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
                 onClick={() => setIsOpen(false)}
               >
                 Dashboard
               </Link>
               <Link 
                 to="/about" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 cursor-pointer ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
                 onClick={() => setIsOpen(false)}
               >
                 About
               </Link>
               <Link 
                 to="/features" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 cursor-pointer ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
                 onClick={() => setIsOpen(false)}
               >
                 Features
               </Link>
               <Link 
                 to="/contracts" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-2 cursor-pointer ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
                 onClick={() => setIsOpen(false)}
               >
                 Contracts
               </Link>
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <ConnectWallet />
               </div>
             </div>

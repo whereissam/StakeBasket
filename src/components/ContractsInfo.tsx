@@ -75,7 +75,7 @@ export function ContractsInfo() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Verified smart contracts powering the StakeBasket protocol
           </p>
-          {isLocalNetwork() && (
+          {isLocalNetwork && (
             <div className="mt-4 inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-4 py-2 rounded-lg">
               <AlertCircle className="h-4 w-4" />
               Local Network - Development Mode
@@ -173,7 +173,7 @@ export function ContractsInfo() {
         </Card>
 
         {/* Mock Contracts (Local Network Only) */}
-        {isLocalNetwork() && (
+        {isLocalNetwork && (
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export function ContractsInfo() {
                 <div>
                   <h4 className="font-medium">Smart Contract Verification</h4>
                   <p className="text-sm text-muted-foreground">
-                    All contracts are {isLocalNetwork() ? 'deployed locally for testing' : 'verified on the blockchain explorer'}
+                    All contracts are {isLocalNetwork ? 'deployed locally for testing' : 'verified on the blockchain explorer'}
                   </p>
                 </div>
               </div>
@@ -245,7 +245,7 @@ export function ContractsInfo() {
                 </div>
               </div>
               
-              {!isLocalNetwork() && (
+              {!isLocalNetwork && (
                 <div className="flex items-start gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
