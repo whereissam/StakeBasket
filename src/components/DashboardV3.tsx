@@ -333,11 +333,13 @@ export function DashboardV3() {
               address={contracts.StakeBasketToken}
               explorerUrl={`${config.explorer}/address/${contracts.StakeBasketToken}`}
             />
-            <ContractAddress
-              label="Core Oracle"
-              address={contracts.CoreOracle}
-              explorerUrl={`${config.explorer}/address/${contracts.CoreOracle}`}
-            />
+            {contracts.CoreOracle && (
+              <ContractAddress
+                label="Core Oracle"
+                address={contracts.CoreOracle}
+                explorerUrl={`${config.explorer}/address/${contracts.CoreOracle}`}
+              />
+            )}
             <ContractAddress
               label="Mock CORE Token"
               address={contracts.MockCORE}
