@@ -136,30 +136,32 @@ export function ContractsInfo() {
             <div className="space-y-6">
               {contractList.map((contract) => (
                 <div key={contract.name} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                  <div className="space-y-4">
+                    <div>
                       <h3 className="font-medium text-foreground">{contract.name}</h3>
                       <p className="text-sm text-muted-foreground mt-1">
                         {contract.description}
                       </p>
-                      <div className="flex items-center gap-2 mt-3">
-                        <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center gap-2 flex-1">
+                        <code className="bg-muted px-2 py-1 rounded text-xs font-mono break-all">
                           {contract.address}
                         </code>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => copyToClipboard(contract.address)}
+                          className="shrink-0"
                         >
                           <Copy className="h-3 w-3" />
                         </Button>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => window.open(getExplorerUrl(contract.address), '_blank')}
+                        className="w-full sm:w-auto"
                       >
                         <ExternalLink className="h-4 w-4 mr-1" />
                         View on Explorer
@@ -188,24 +190,25 @@ export function ContractsInfo() {
               <div className="space-y-6">
                 {mockContracts.map((contract) => (
                   <div key={contract.name} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="space-y-4">
+                      <div>
                         <h3 className="font-medium text-foreground">{contract.name}</h3>
                         <p className="text-sm text-muted-foreground mt-1">
                           {contract.description}
                         </p>
-                        <div className="flex items-center gap-2 mt-3">
-                          <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
-                            {contract.address}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(contract.address)}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-muted px-2 py-1 rounded text-xs font-mono break-all flex-1">
+                          {contract.address}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(contract.address)}
+                          className="shrink-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>
