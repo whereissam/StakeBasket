@@ -63,10 +63,14 @@ StakeBasket is a decentralized ETF (Exchange-Traded Fund) that allows users to d
    
    # Terminal 3: Start frontend
    npm run dev
+   
+   # Terminal 4 (Optional): Start backend services
+   cd backend && bun install && bun run dev
    ```
 
 3. **Access the Application**:
    - Frontend: `http://localhost:5173`
+   - Backend API: `http://localhost:3001`
    - Local blockchain: `http://127.0.0.1:8545`
    - Chain ID: `31337` (Hardhat local)
 
@@ -91,6 +95,8 @@ stakebasket/
 ## 🧪 Testing
 
 ### Run Comprehensive Tests
+
+#### Smart Contract Tests
 ```bash
 # Basic ETF functionality
 npx hardhat run test/SimpleETFTest.cjs --network localhost
@@ -100,6 +106,21 @@ npx hardhat run test/FinalETFTest.cjs --network localhost
 
 # All integration tests
 npx hardhat run test/FullIntegration.test.cjs --network localhost
+```
+
+#### Backend Service Tests
+```bash
+cd backend
+
+# Test all backend services
+bun run test/test-backend.ts
+
+# Test automation systems
+bun run test/test-automation.ts
+
+# Test specific endpoints
+curl http://localhost:3001/health
+curl http://localhost:3001/api/monitoring/metrics
 ```
 
 ### Test Results
@@ -128,6 +149,13 @@ npx hardhat run test/FullIntegration.test.cjs --network localhost
 - **Shadcn/ui** - Beautiful, accessible components
 - **Zustand** - Lightweight state management
 
+### Backend Services
+- **Bun** - Fast JavaScript runtime and package manager
+- **Hono** - Lightweight, fast web framework
+- **Node-cron** - Automated task scheduling
+- **WebSocket** - Real-time data streaming
+- **Viem** - Blockchain client for contract interaction
+
 ### Web3 Integration
 - **Wagmi** - React hooks for Core/Ethereum
 - **Viem** - Type-safe blockchain client
@@ -139,11 +167,18 @@ npx hardhat run test/FullIntegration.test.cjs --network localhost
 ## 📋 Available Scripts
 
 ```bash
-# Development
+# Frontend Development
 npm run dev          # Start development server
 npm run build        # Build for production
 npm run preview      # Preview production build
 npm run lint         # Run code quality checks
+
+# Backend Services
+cd backend
+bun install          # Install backend dependencies
+bun run dev          # Start backend with hot reload
+bun run start        # Start backend in production
+bun run build        # Build backend for production
 
 # Blockchain
 npx hardhat node     # Start local blockchain
@@ -175,6 +210,101 @@ npx hardhat test     # Run smart contract tests
 - StakingManager: `0x0165878A594ca255338adfa4d48449f69242Eb8F`
 
 *See [src/config/contracts.ts](./src/config/contracts.ts) for complete address configuration.*
+
+## 🔧 Backend Services (Optional)
+
+The StakeBasket backend provides enterprise-grade monitoring, automation, and operational intelligence. **The ETF works without the backend**, but it adds professional fund management capabilities.
+
+### What the Backend Provides
+
+#### 🤖 **Automated Operations**
+- **Auto-Rebalancing** - Maintains target portfolio allocation (60% CORE, 40% lstBTC)
+- **Liquidity Management** - Ensures optimal liquidity ratios for redemptions
+- **Dynamic Fee Adjustment** - Responds to market volatility automatically
+- **Risk Management** - Automated emergency responses and risk mitigation
+
+#### 📊 **Real-time Monitoring**
+- **Contract Metrics** - Live AUM, NAV, performance tracking
+- **Validator Performance** - Core network validator monitoring and scoring
+- **Price Feed Health** - Oracle reliability and freshness monitoring
+- **Alert System** - Intelligent alerts with categorization and cooldowns
+
+#### 🌐 **API Services**
+- **REST Endpoints** - `/api/monitoring`, `/api/alerts`, `/api/automation`
+- **WebSocket Streaming** - Real-time data updates at `ws://localhost:8080`
+- **Core Integration** - Direct Core blockchain API integration
+- **Management Interface** - Administrative controls and configurations
+
+### Backend Setup
+
+#### Prerequisites
+```bash
+# Install Bun (if not already installed)
+curl -fsSL https://bun.sh/install | bash
+```
+
+#### Quick Start
+```bash
+cd backend
+bun install
+bun run dev          # Starts on http://localhost:3001
+```
+
+#### Environment Configuration
+```bash
+# Create backend/.env (optional for enhanced features)
+CORE_API_KEY=your_core_api_key                    # For Core API integration
+AUTOMATION_PRIVATE_KEY=0x...                      # For automated transactions
+ORACLE_CONTRACT_ADDRESS=0x...                     # For oracle updates
+```
+
+#### API Endpoints
+```bash
+# Health & Status
+GET  /health                                       # Service health check
+GET  /api/monitoring/status                        # System status
+
+# Monitoring
+GET  /api/monitoring/metrics                       # Current contract metrics
+GET  /api/monitoring/prices                        # Price feed data
+GET  /api/monitoring/events                        # Recent contract events
+
+# Alerts
+GET  /api/alerts                                   # List active alerts
+GET  /api/alerts/stats                             # Alert statistics
+PATCH /api/alerts/:id/acknowledge                  # Acknowledge alert
+
+# Automation
+GET  /api/automation/tasks                         # List automation tasks
+PATCH /api/automation/tasks/:id/toggle             # Enable/disable automation
+GET  /api/automation/rebalancing/strategy          # Get rebalancing config
+
+# Validators
+GET  /api/validators                               # Core validator metrics
+GET  /api/validators/top/10                        # Top 10 validators
+GET  /api/validators/performance/summary           # Performance overview
+```
+
+### Backend Testing
+```bash
+# Comprehensive backend tests
+bun run test/test-backend.ts
+
+# Test automation engine
+bun run test/test-automation.ts
+
+# Test API endpoints manually
+curl http://localhost:3001/health
+curl http://localhost:3001/api/monitoring/metrics
+curl http://localhost:3001/api/validators/top/5
+```
+
+### Integration with Frontend
+The backend automatically enhances the frontend when running:
+- Real-time metrics via WebSocket connections
+- Enhanced monitoring dashboards
+- Professional-grade analytics and insights
+- Automated operational status updates
 
 ## 📚 Documentation
 
