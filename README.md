@@ -41,8 +41,8 @@ StakeBasket is a decentralized ETF (Exchange-Traded Fund) that allows users to d
 
 2. **Connect Your Wallet**:
    - Install MetaMask or your preferred Web3 wallet
-   - Connect to Core network
-   - Start depositing and earning yield!
+   - Connect to Core Testnet2 (Chain ID: 1114)
+   - Start depositing native CORE tokens and earning yield!
 
 ### For Developers (Full Setup)
 
@@ -81,7 +81,9 @@ stakebasket/
 ├── 📁 src/                        # Frontend React app
 ├── 📁 test/                       # Comprehensive test suite
 ├── 📁 scripts/                    # Deployment scripts
-└── 📁 config-files/               # Configuration files
+├── 📁 backend/                    # Backend services and automation
+├── 📁 config-files/               # Configuration files
+└── 📁 artifacts/                  # Compiled contract artifacts
 ```
 
 **👀 See [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) for detailed folder organization.**
@@ -124,13 +126,15 @@ npx hardhat run test/FullIntegration.test.cjs --network localhost
 - **Vite** - Lightning-fast build tool and dev server
 - **TailwindCSS v4** - Utility-first CSS framework
 - **Shadcn/ui** - Beautiful, accessible components
+- **Zustand** - Lightweight state management
 
 ### Web3 Integration
-- **Wagmi** - React hooks for Ethereum
-- **Viem** - Type-safe Ethereum client
+- **Wagmi** - React hooks for Core/Ethereum
+- **Viem** - Type-safe blockchain client
 - **RainbowKit** - Wallet connection interface
 - **TanStack Router** - Type-safe routing
 - **TanStack Query** - Server state management
+- **Sonner** - Toast notifications for user feedback
 
 ## 📋 Available Scripts
 
@@ -154,10 +158,16 @@ npx hardhat test     # Run smart contract tests
 | Network | Chain ID | Status |
 |---------|----------|--------|
 | Hardhat Local | 31337 | ✅ Ready |
-| Core Testnet | 1115 | 🔄 Planned |
+| Core Testnet2 | 1114 | ✅ Deployed |
 | Core Mainnet | 1116 | 🎯 Target |
 
 ### Contract Addresses
+
+**Core Testnet2 (Chain ID: 1114)**:
+- StakeBasket: `0x4f57eaEF37eAC9A61f5dFaba62fE8BafcC11E422`
+- StakeBasketToken: `0x65507FCcfe3daE3cfb456Eb257a2eaefd463336B`
+- StakingManager: `0x4dE3513095f841b06A01CC3FFd5C25b1dfb69019`
+- CoreOracle: `0xf630BC778a0030dd658F116b40cB23B4dd37051E`
 
 **Local Development (Hardhat)**:
 - StakeBasket: `0xa513E6E4b8f2a923D98304ec87F64353C4D5C853`
