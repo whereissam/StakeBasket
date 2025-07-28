@@ -1,7 +1,6 @@
 // Test script to verify Core API integration
 import axios from 'axios';
 
-const CORE_API_KEY = '206fcf6379b641f5b12b3ccbbb933180';
 const BASE_URL = 'https://openapi.coredao.org/api';
 
 console.log('🧪 Testing Core API Integration...\n');
@@ -14,7 +13,7 @@ async function testCorePrice() {
       params: {
         module: 'stats',
         action: 'coreprice',
-        apikey: CORE_API_KEY
+        apikey: process.env.CORE_API_KEY
       }
     });
     
@@ -42,7 +41,7 @@ async function testValidators() {
       params: {
         module: 'stats',
         action: 'validators',
-        apikey: CORE_API_KEY
+        apikey: process.env.CORE_API_KEY
       }
     });
     
@@ -87,7 +86,7 @@ async function testCoreSupply() {
       params: {
         module: 'stats',
         action: 'coresupply',
-        apikey: CORE_API_KEY
+        apikey: process.env.CORE_API_KEY
       }
     });
     
@@ -112,9 +111,9 @@ async function testMarketStats() {
     
     // Get price and supply in parallel
     const [priceResp, supplyResp, validatorsResp] = await Promise.all([
-      axios.get(BASE_URL, { params: { module: 'stats', action: 'coreprice', apikey: CORE_API_KEY } }),
-      axios.get(BASE_URL, { params: { module: 'stats', action: 'coresupply', apikey: CORE_API_KEY } }),
-      axios.get(BASE_URL, { params: { module: 'stats', action: 'validators', apikey: CORE_API_KEY } })
+      axios.get(BASE_URL, { params: { module: 'stats', action: 'coreprice', apikey: process.env.CORE_API_KEY } }),
+      axios.get(BASE_URL, { params: { module: 'stats', action: 'coresupply', apikey: process.env.CORE_API_KEY } }),
+      axios.get(BASE_URL, { params: { module: 'stats', action: 'validators', apikey: process.env.CORE_API_KEY } })
     ]);
     
     if (priceResp.data.status === '1' && supplyResp.data.status === '1' && validatorsResp.data.status === '1') {

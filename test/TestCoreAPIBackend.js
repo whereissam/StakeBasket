@@ -2,7 +2,6 @@
 import axios from 'axios';
 
 const BASE_URL = 'http://localhost:3001/api'; // Backend server
-const CORE_API_KEY = '206fcf6379b641f5b12b3ccbbb933180';
 
 console.log('🧪 Testing Core API Backend Integration...\n');
 
