@@ -45,7 +45,6 @@ export function GovernanceInterface() {
   
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [votingPower, setVotingPower] = useState('0')
-  const [selectedProposal, setSelectedProposal] = useState<number | null>(null)
   const [isVoting, setIsVoting] = useState(false)
   const [showCreateProposal, setShowCreateProposal] = useState(false)
   
