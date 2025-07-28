@@ -52,40 +52,40 @@ export function StakingInterface() {
       threshold: '0',
       multiplier: '1x',
       benefits: ['No special benefits'],
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100'
+      color: 'text-muted-foreground',
+      bgColor: 'bg-muted'
     },
     [Tier.Bronze]: {
       name: 'Bronze',
       threshold: '100',
       multiplier: '1x',
       benefits: ['5% fee reduction', 'Basic support'],
-      color: 'text-amber-700',
-      bgColor: 'bg-amber-100'
+      color: 'text-chart-4',
+      bgColor: 'bg-chart-4/20'
     },
     [Tier.Silver]: {
       name: 'Silver', 
       threshold: '1,000',
       multiplier: '1.1x',
       benefits: ['10% fee reduction', '1.1x voting power', 'Priority support'],
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100'
+      color: 'text-chart-2',
+      bgColor: 'bg-chart-2/20'
     },
     [Tier.Gold]: {
       name: 'Gold',
       threshold: '10,000', 
       multiplier: '1.25x',
       benefits: ['25% fee reduction', '1.25x voting power', 'Early access to strategies'],
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100'
+      color: 'text-chart-1',
+      bgColor: 'bg-chart-1/20'
     },
     [Tier.Platinum]: {
       name: 'Platinum',
       threshold: '100,000',
       multiplier: '1.5x',
       benefits: ['50% fee reduction', '1.5x voting power', 'Exclusive strategies', 'Premium support'],
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      color: 'text-chart-5',
+      bgColor: 'bg-chart-5/20'
     }
   }
 
