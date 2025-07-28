@@ -107,21 +107,21 @@ oracle.get('/price', async (c) => {
  * @route GET /api/oracle/network-stats
  * @desc Get comprehensive network statistics
  */
-router.get('/network-stats', async (req, res) => {
+oracle.get('/network-stats', async (c) => {
   try {
     const stats = await coreAPI.getNetworkStats();
     
-    res.json({
+    return c.json({
       success: true,
       data: stats,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error fetching network stats:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to fetch network statistics'
-    });
+    }, 500);
   }
 });
 
@@ -129,22 +129,23 @@ router.get('/network-stats', async (req, res) => {
  * @route POST /api/oracle/start-updater
  * @desc Start the automated oracle price updater service
  */
-router.post('/start-updater', async (req, res) => {
+oracle.post('/start-updater', async (c) => {
   try {
     if (oracleUpdater && oracleUpdater.getStatus().isRunning) {
-      return res.json({
+      return c.json({
         success: false,
         message: 'Oracle updater is already running'
       });
     }
     
     // Oracle contract address from environment or request body
-    const contractAddress = req.body.contractAddress || process.env.ORACLE_CONTRACT_ADDRESS;
+    const body = await c.req.json().catch(() => ({}));
+    const contractAddress = body.contractAddress || process.env.ORACLE_CONTRACT_ADDRESS;
     if (!contractAddress) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Oracle contract address required'
-      });
+      }, 400);
     }
     
     const config = {
@@ -158,18 +159,18 @@ router.post('/start-updater', async (req, res) => {
     await oracleUpdater.startUpdating();
     oracleUpdater.setupEventListeners();
     
-    res.json({
+    return c.json({
       success: true,
       message: 'Oracle updater started successfully',
       status: oracleUpdater.getStatus()
     });
   } catch (error) {
     console.error('Error starting oracle updater:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to start oracle updater',
       message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, 500);
   }
 });
 
@@ -177,26 +178,26 @@ router.post('/start-updater', async (req, res) => {
  * @route POST /api/oracle/stop-updater
  * @desc Stop the automated oracle price updater service
  */
-router.post('/stop-updater', (req, res) => {
+oracle.post('/stop-updater', async (c) => {
   try {
     if (oracleUpdater) {
       oracleUpdater.stopUpdating();
-      res.json({
+      return c.json({
         success: true,
         message: 'Oracle updater stopped successfully'
       });
     } else {
-      res.json({
+      return c.json({
         success: false,
         message: 'Oracle updater was not running'
       });
     }
   } catch (error) {
     console.error('Error stopping oracle updater:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to stop oracle updater'
-    });
+    }, 500);
   }
 });
 
@@ -204,10 +205,10 @@ router.post('/stop-updater', (req, res) => {
  * @route GET /api/oracle/status
  * @desc Get oracle updater service status
  */
-router.get('/status', async (req, res) => {
+oracle.get('/status', async (c) => {
   try {
     if (!oracleUpdater) {
-      return res.json({
+      return c.json({
         success: true,
         data: {
           isRunning: false,
@@ -228,7 +229,7 @@ router.get('/status', async (req, res) => {
       }
     }
     
-    res.json({
+    return c.json({
       success: true,
       data: {
         ...status,
@@ -237,10 +238,10 @@ router.get('/status', async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting oracle status:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to get oracle status'
-    });
+    }, 500);
   }
 });
 
@@ -248,28 +249,28 @@ router.get('/status', async (req, res) => {
  * @route POST /api/oracle/manual-update
  * @desc Manually trigger a price update
  */
-router.post('/manual-update', async (req, res) => {
+oracle.post('/manual-update', async (c) => {
   try {
     if (!oracleUpdater) {
-      return res.status(400).json({
+      return c.json({
         success: false,
         error: 'Oracle updater not initialized'
-      });
+      }, 400);
     }
     
     await oracleUpdater.updateAllPrices();
     
-    res.json({
+    return c.json({
       success: true,
       message: 'Manual price update completed successfully'
     });
   } catch (error) {
     console.error('Error in manual update:', error);
-    res.status(500).json({
+    return c.json({
       success: false,
       error: 'Failed to update prices manually',
       message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, 500);
   }
 });
 
@@ -277,23 +278,23 @@ router.post('/manual-update', async (req, res) => {
  * @route GET /api/oracle/validator/:address
  * @desc Get detailed information for a specific validator
  */
-router.get('/validator/:address', async (req, res) => {
+oracle.get('/validator/:address', async (c) => {
+  const address = c.req.param('address');
   try {
-    const { address } = req.params;
     const metrics = await coreAPI.getValidatorPerformanceMetrics(address);
     
-    res.json({
+    return c.json({
       success: true,
       data: metrics,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error(`Error fetching validator ${req.params.address}:`, error);
-    res.status(404).json({
+    console.error(`Error fetching validator ${address}:`, error);
+    return c.json({
       success: false,
       error: 'Validator not found or API error',
       message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, 404);
   }
 });
 

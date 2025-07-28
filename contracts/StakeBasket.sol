@@ -9,6 +9,10 @@ import "./StakeBasketToken.sol";
 import "./StakingManager.sol";
 import "./PriceFeed.sol";
 
+interface IBasketStaking {
+    function getFeeReduction(address user) external view returns (uint256);
+}
+
 /**
  * @title StakeBasket
  * @dev Main contract for the StakeBasket multi-asset staking ETF
@@ -25,11 +29,15 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     uint256 public managementFeeBasisPoints = 50; // 0.5%
     uint256 public performanceFeeBasisPoints = 1000; // 10%
     address public feeRecipient;
+    address public protocolTreasury;
+    address public basketStaking;
     uint256 public lastFeeCollection;
+    uint256 public protocolFeePercentage = 2000; // 20% of fees go to protocol
     
     // Fee tracking
     uint256 public accumulatedManagementFees;
     uint256 public accumulatedPerformanceFees;
+    uint256 public totalProtocolFeesCollected;
     
     // Events
     event Deposited(address indexed user, uint256 coreAmount, uint256 sharesIssued);
@@ -38,12 +46,16 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     event StakingManagerSet(address indexed newManager);
     event PriceFeedSet(address indexed newPriceFeed);
     event RewardsCompounded(uint256 totalRewards);
+    event ProtocolTreasurySet(address indexed newTreasury);
+    event BasketStakingSet(address indexed newStaking);
+    event ProtocolFeesDistributed(uint256 amount);
     
     constructor(
         address _etfToken,
         address payable _stakingManager,
         address _priceFeed,
         address _feeRecipient,
+        address _protocolTreasury,
         address initialOwner
     ) Ownable(initialOwner) {
         require(_etfToken != address(0), "StakeBasket: invalid ETF token address");
@@ -57,11 +69,12 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
             priceFeed = PriceFeed(_priceFeed);
         }
         feeRecipient = _feeRecipient;
+        protocolTreasury = _protocolTreasury;
         lastFeeCollection = block.timestamp;
     }
     
     /**
-     * @dev Deposit CORE tokens and receive ETF shares
+     * @dev Deposit CORE tokens and receive ETF shares (with tiered fee reduction)
      * @param amount Amount of CORE tokens to deposit
      */
     function deposit(uint256 amount) external payable nonReentrant whenNotPaused {
@@ -72,10 +85,21 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         // For this POC, we're simulating with native CORE (ETH-like behavior on Core chain)
         require(msg.value == amount, "StakeBasket: sent value must equal amount");
         
-        // Calculate shares to mint
-        uint256 sharesToMint = _calculateSharesToMint(amount);
+        // Apply tiered fee reduction if BasketStaking is set
+        uint256 effectiveAmount = amount;
+        if (basketStaking != address(0)) {
+            uint256 feeReduction = IBasketStaking(basketStaking).getFeeReduction(msg.sender);
+            if (feeReduction > 0) {
+                uint256 implicitFee = (amount * managementFeeBasisPoints) / 10000;
+                uint256 reducedFee = (implicitFee * feeReduction) / 10000;
+                effectiveAmount = amount + reducedFee; // Effectively reduces the fee burden
+            }
+        }
         
-        // Update state
+        // Calculate shares to mint based on effective amount
+        uint256 sharesToMint = _calculateSharesToMint(effectiveAmount);
+        
+        // Update state with actual amount
         totalPooledCore += amount;
         
         // Mint ETF tokens to user
@@ -280,9 +304,32 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
             accumulatedManagementFees += managementFee;
             accumulatedPerformanceFees += performanceFee;
             
+            // Calculate protocol fee share
+            uint256 protocolFeeAmount = (totalFees * protocolFeePercentage) / 10000;
+            uint256 feeRecipientAmount = totalFees - protocolFeeAmount;
+            
             // Mint fee tokens to fee recipient
-            uint256 feeShares = _calculateSharesToMint(totalFees);
-            etfToken.mint(feeRecipient, feeShares);
+            if (feeRecipientAmount > 0) {
+                uint256 feeShares = _calculateSharesToMint(feeRecipientAmount);
+                etfToken.mint(feeRecipient, feeShares);
+            }
+            
+            // Handle protocol fees
+            if (protocolFeeAmount > 0) {
+                totalProtocolFeesCollected += protocolFeeAmount;
+                
+                // If BasketStaking contract is set, send fees there for distribution
+                if (basketStaking != address(0)) {
+                    (bool success, ) = payable(basketStaking).call{value: protocolFeeAmount}("");
+                    if (success) {
+                        emit ProtocolFeesDistributed(protocolFeeAmount);
+                    }
+                } else if (protocolTreasury != address(0)) {
+                    // Otherwise send to protocol treasury
+                    (bool success, ) = payable(protocolTreasury).call{value: protocolFeeAmount}("");
+                    require(success, "StakeBasket: protocol fee transfer failed");
+                }
+            }
             
             emit FeesCollected(feeRecipient, totalFees);
         }
@@ -326,6 +373,33 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     function setManagementFee(uint256 _feeBasisPoints) external onlyOwner {
         require(_feeBasisPoints <= 1000, "StakeBasket: fee too high"); // Max 10%
         managementFeeBasisPoints = _feeBasisPoints;
+    }
+    
+    /**
+     * @dev Set protocol treasury address
+     * @param _protocolTreasury New protocol treasury address
+     */
+    function setProtocolTreasury(address _protocolTreasury) external onlyOwner {
+        protocolTreasury = _protocolTreasury;
+        emit ProtocolTreasurySet(_protocolTreasury);
+    }
+    
+    /**
+     * @dev Set BasketStaking contract address
+     * @param _basketStaking New BasketStaking contract address
+     */
+    function setBasketStaking(address _basketStaking) external onlyOwner {
+        basketStaking = _basketStaking;
+        emit BasketStakingSet(_basketStaking);
+    }
+    
+    /**
+     * @dev Set protocol fee percentage
+     * @param _percentage New protocol fee percentage in basis points
+     */
+    function setProtocolFeePercentage(uint256 _percentage) external onlyOwner {
+        require(_percentage <= 5000, "StakeBasket: protocol fee too high"); // Max 50%
+        protocolFeePercentage = _percentage;
     }
     
     /**

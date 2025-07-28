@@ -48,6 +48,18 @@ export const Route = createRootRoute({
                 >
                   Contracts
                 </Link>
+                <Link 
+                  to="/staking" 
+                  className="text-muted-foreground hover:text-foreground [&.active]:text-primary [&.active]:font-medium transition-colors cursor-pointer"
+                >
+                  Staking
+                </Link>
+                <Link 
+                  to="/governance" 
+                  className="text-muted-foreground hover:text-foreground [&.active]:text-primary [&.active]:font-medium transition-colors cursor-pointer"
+                >
+                  Governance
+                </Link>
               </div>
             </div>
             <div className="flex items-center space-x-2">

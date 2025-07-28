@@ -65,6 +65,20 @@ export function MobileNav() {
               >
                 Contracts
               </Link>
+              <Link 
+                to="/staking" 
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                onClick={() => setIsOpen(false)}
+              >
+                Staking
+              </Link>
+              <Link 
+                to="/governance" 
+                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                onClick={() => setIsOpen(false)}
+              >
+                Governance
+              </Link>
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <ConnectWallet />
               </div>

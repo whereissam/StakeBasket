@@ -9,12 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as StakingRouteImport } from './routes/staking'
+import { Route as GovernanceRouteImport } from './routes/governance'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
+const StakingRoute = StakingRouteImport.update({
+  id: '/staking',
+  path: '/staking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GovernanceRoute = GovernanceRouteImport.update({
+  id: '/governance',
+  path: '/governance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
@@ -47,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/features': typeof FeaturesRoute
+  '/governance': typeof GovernanceRoute
+  '/staking': typeof StakingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +68,8 @@ export interface FileRoutesByTo {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/features': typeof FeaturesRoute
+  '/governance': typeof GovernanceRoute
+  '/staking': typeof StakingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +78,37 @@ export interface FileRoutesById {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/features': typeof FeaturesRoute
+  '/governance': typeof GovernanceRoute
+  '/staking': typeof StakingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/contracts' | '/dashboard' | '/features'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/contracts'
+    | '/dashboard'
+    | '/features'
+    | '/governance'
+    | '/staking'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/contracts' | '/dashboard' | '/features'
-  id: '__root__' | '/' | '/about' | '/contracts' | '/dashboard' | '/features'
+  to:
+    | '/'
+    | '/about'
+    | '/contracts'
+    | '/dashboard'
+    | '/features'
+    | '/governance'
+    | '/staking'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/contracts'
+    | '/dashboard'
+    | '/features'
+    | '/governance'
+    | '/staking'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,10 +117,26 @@ export interface RootRouteChildren {
   ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
   FeaturesRoute: typeof FeaturesRoute
+  GovernanceRoute: typeof GovernanceRoute
+  StakingRoute: typeof StakingRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/staking': {
+      id: '/staking'
+      path: '/staking'
+      fullPath: '/staking'
+      preLoaderRoute: typeof StakingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/governance': {
+      id: '/governance'
+      path: '/governance'
+      fullPath: '/governance'
+      preLoaderRoute: typeof GovernanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/features': {
       id: '/features'
       path: '/features'
@@ -125,6 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
   FeaturesRoute: FeaturesRoute,
+  GovernanceRoute: GovernanceRoute,
+  StakingRoute: StakingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

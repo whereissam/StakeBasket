@@ -5,13 +5,23 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// Core staking contract interface (placeholder - to be replaced with actual interface)
+// Core staking contract interface
 interface ICoreStaking {
-        function delegate(address validator, uint256 amount) external;
-        function undelegate(address validator, uint256 amount) external;
-        function claimRewards(address validator) external returns (uint256);
-        function getDelegatedAmount(address delegator, address validator) external view returns (uint256);
-        function getRewards(address delegator, address validator) external view returns (uint256);
+    function delegate(address validator, uint256 amount) external;
+    function undelegate(address validator, uint256 amount) external;
+    function redelegate(address fromValidator, address toValidator, uint256 amount) external;
+    function claimRewards(address validator) external returns (uint256);
+    function getDelegatedAmount(address delegator, address validator) external view returns (uint256);
+    function getRewards(address delegator, address validator) external view returns (uint256);
+    function getAllValidatorAddresses() external view returns (address[] memory);
+    function getValidatorInfo(address validator) external view returns (
+        uint256 delegatedCore,
+        uint256 commissionRate,
+        uint256 hybridScore,
+        bool isActive
+    );
+    function getValidatorEffectiveAPY(address validator) external view returns (uint256);
+    function getValidatorRiskScore(address validator) external view returns (uint256);
 }
 
 // lstBTC contract interface (placeholder - to be replaced with actual interface) 
@@ -32,6 +42,7 @@ contract StakingManager is Ownable, ReentrancyGuard {
     ICoreStaking public coreStakingContract;
     ILstBTC public lstBTCContract;
     IERC20 public coreBTCContract;
+    IERC20 public coreToken; // Added CORE token interface
     
     // Validator management
     address[] public activeCoreValidators;
@@ -39,17 +50,39 @@ contract StakingManager is Ownable, ReentrancyGuard {
     mapping(address => bool) public isActiveValidator;
     mapping(address => uint256) public stakedLstBTC;
     
+    // Rebalancing parameters
+    uint256 public rebalanceThresholdAPY = 50; // 0.5% APY difference threshold
+    uint256 public rebalanceThresholdRisk = 600; // Risk score threshold
+    address public automationBot; // Authorized bot for automated rebalancing
+    
     // Events
     event CoreDelegated(address indexed validator, uint256 amount);
     event CoreUndelegated(address indexed validator, uint256 amount);
+    event CoreRedelegated(address indexed fromValidator, address indexed toValidator, uint256 amount);
     event CoreRewardsClaimed(address indexed validator, uint256 amount);
     event LstBTCMinted(uint256 coreBTCAmount, uint256 lstBTCAmount);
     event LstBTCRedeemed(uint256 lstBTCAmount, uint256 coreBTCAmount);
     event ValidatorAdded(address indexed validator);
     event ValidatorRemoved(address indexed validator);
+    event CoreStakingRebalanced(
+        address[] undelegatedFrom,
+        uint256[] undelegatedAmounts,
+        address[] delegatedTo,
+        uint256[] delegatedAmounts
+    );
+    event AutomationBotSet(address indexed newBot);
+    event RebalanceThresholdsUpdated(uint256 apyThreshold, uint256 riskThreshold);
     
     modifier onlyStakeBasket() {
         require(msg.sender == stakeBasketContract, "StakingManager: caller is not StakeBasket contract");
+        _;
+    }
+    
+    modifier onlyAuthorized() {
+        require(
+            msg.sender == owner() || msg.sender == automationBot || msg.sender == stakeBasketContract,
+            "StakingManager: caller not authorized"
+        );
         _;
     }
     
@@ -58,6 +91,7 @@ contract StakingManager is Ownable, ReentrancyGuard {
         address _coreStakingContract,
         address _lstBTCContract,
         address _coreBTCContract,
+        address _coreToken,
         address initialOwner
     ) Ownable(initialOwner) {
         require(_stakeBasketContract != address(0), "StakingManager: invalid StakeBasket contract");
@@ -71,6 +105,9 @@ contract StakingManager is Ownable, ReentrancyGuard {
         }
         if (_coreBTCContract != address(0)) {
             coreBTCContract = IERC20(_coreBTCContract);
+        }
+        if (_coreToken != address(0)) {
+            coreToken = IERC20(_coreToken);
         }
     }
     
@@ -87,9 +124,11 @@ contract StakingManager is Ownable, ReentrancyGuard {
         require(isActiveValidator[validatorAddress], "StakingManager: validator not active");
         require(amount > 0, "StakingManager: amount must be greater than 0");
         
-        // Transfer CORE from StakeBasket to this contract
-        // Note: Assuming CORE is native token, use address(this).balance
-        // In production, this would interact with actual Core staking contract
+        // Transfer CORE tokens from StakeBasket to this contract for delegation
+        if (address(coreToken) != address(0)) {
+            coreToken.transferFrom(stakeBasketContract, address(this), amount);
+            coreToken.approve(address(coreStakingContract), amount);
+        }
         
         if (address(coreStakingContract) != address(0)) {
             coreStakingContract.delegate(validatorAddress, amount);
@@ -289,6 +328,10 @@ contract StakingManager is Ownable, ReentrancyGuard {
         coreBTCContract = IERC20(_coreBTCContract);
     }
     
+    function setCoreTokenContract(address _coreToken) external onlyOwner {
+        coreToken = IERC20(_coreToken);
+    }
+    
     /**
      * @dev Emergency function to recover accidentally sent tokens
      * @param tokenAddress Address of the token to recover
@@ -303,6 +346,207 @@ contract StakingManager is Ownable, ReentrancyGuard {
             // Recover ERC20 tokens
             IERC20(tokenAddress).transfer(owner(), amount);
         }
+    }
+    
+    /**
+     * @dev Automated validator rebalancing function
+     * @param validatorsToUndelegate Validators to undelegate from
+     * @param amountsToUndelegate Amounts to undelegate from each validator
+     * @param validatorsToDelegate Validators to delegate to
+     * @param amountsToDelegate Amounts to delegate to each validator
+     */
+    function rebalanceCoreStaking(
+        address[] calldata validatorsToUndelegate,
+        uint256[] calldata amountsToUndelegate,
+        address[] calldata validatorsToDelegate,
+        uint256[] calldata amountsToDelegate
+    ) external onlyAuthorized nonReentrant {
+        require(
+            validatorsToUndelegate.length == amountsToUndelegate.length,
+            "StakingManager: mismatched undelegate arrays"
+        );
+        require(
+            validatorsToDelegate.length == amountsToDelegate.length,
+            "StakingManager: mismatched delegate arrays"
+        );
+        require(
+            validatorsToUndelegate.length == validatorsToDelegate.length,
+            "StakingManager: mismatched rebalance arrays"
+        );
+        
+        if (address(coreStakingContract) == address(0)) {
+            revert("StakingManager: core staking contract not set");
+        }
+        
+        // Perform redelegations
+        for (uint256 i = 0; i < validatorsToUndelegate.length; i++) {
+            if (amountsToUndelegate[i] > 0) {
+                require(
+                    delegatedCoreByValidator[validatorsToUndelegate[i]] >= amountsToUndelegate[i],
+                    "StakingManager: insufficient delegation to undelegate"
+                );
+                
+                // Use redelegate for direct transfer between validators
+                coreStakingContract.redelegate(
+                    validatorsToUndelegate[i],
+                    validatorsToDelegate[i],
+                    amountsToUndelegate[i]
+                );
+                
+                // Update internal tracking
+                delegatedCoreByValidator[validatorsToUndelegate[i]] -= amountsToUndelegate[i];
+                delegatedCoreByValidator[validatorsToDelegate[i]] += amountsToUndelegate[i];
+                
+                emit CoreRedelegated(
+                    validatorsToUndelegate[i],
+                    validatorsToDelegate[i],
+                    amountsToUndelegate[i]
+                );
+            }
+        }
+        
+        emit CoreStakingRebalanced(
+            validatorsToUndelegate,
+            amountsToUndelegate,
+            validatorsToDelegate,
+            amountsToDelegate
+        );
+    }
+    
+    /**
+     * @dev Get optimal validator distribution based on current performance
+     * @return validators Array of recommended validators
+     * @return allocations Recommended allocation percentages (basis points)
+     */
+    function getOptimalValidatorDistribution() external view returns (
+        address[] memory validators,
+        uint256[] memory allocations
+    ) {
+        if (address(coreStakingContract) == address(0)) {
+            return (new address[](0), new uint256[](0));
+        }
+        
+        address[] memory allValidators = coreStakingContract.getAllValidatorAddresses();
+        uint256 validCount = 0;
+        
+        // First pass: count valid validators
+        for (uint256 i = 0; i < allValidators.length; i++) {
+            (, , , bool isActive) = coreStakingContract.getValidatorInfo(allValidators[i]);
+            uint256 riskScore = coreStakingContract.getValidatorRiskScore(allValidators[i]);
+            
+            if (isActive && riskScore < rebalanceThresholdRisk) {
+                validCount++;
+            }
+        }
+        
+        if (validCount == 0) {
+            return (new address[](0), new uint256[](0));
+        }
+        
+        validators = new address[](validCount);
+        allocations = new uint256[](validCount);
+        uint256[] memory apyScores = new uint256[](validCount);
+        uint256 totalAPYScore = 0;
+        uint256 index = 0;
+        
+        // Second pass: collect valid validators and their APY scores
+        for (uint256 i = 0; i < allValidators.length; i++) {
+            (, , , bool isActive) = coreStakingContract.getValidatorInfo(allValidators[i]);
+            uint256 riskScore = coreStakingContract.getValidatorRiskScore(allValidators[i]);
+            
+            if (isActive && riskScore < rebalanceThresholdRisk) {
+                validators[index] = allValidators[i];
+                apyScores[index] = coreStakingContract.getValidatorEffectiveAPY(allValidators[i]);
+                totalAPYScore += apyScores[index];
+                index++;
+            }
+        }
+        
+        // Calculate allocations based on APY scores (higher APY gets more allocation)
+        if (totalAPYScore > 0) {
+            for (uint256 i = 0; i < validCount; i++) {
+                allocations[i] = (apyScores[i] * 10000) / totalAPYScore;
+            }
+        } else {
+            // Equal allocation if no APY data available
+            uint256 equalAllocation = 10000 / validCount;
+            for (uint256 i = 0; i < validCount; i++) {
+                allocations[i] = equalAllocation;
+            }
+        }
+        
+        return (validators, allocations);
+    }
+    
+    /**
+     * @dev Check if rebalancing is needed based on current validator performance
+     * @return needsRebalance Whether rebalancing is recommended
+     * @return reason Reason for rebalancing recommendation
+     */
+    function shouldRebalance() external view returns (bool needsRebalance, string memory reason) {
+        if (address(coreStakingContract) == address(0)) {
+            return (false, "Core staking contract not set");
+        }
+        
+        // Check each validator we have delegations to
+        for (uint256 i = 0; i < activeCoreValidators.length; i++) {
+            address validator = activeCoreValidators[i];
+            if (delegatedCoreByValidator[validator] == 0) continue;
+            
+            (, , , bool isActive) = coreStakingContract.getValidatorInfo(validator);
+            uint256 riskScore = coreStakingContract.getValidatorRiskScore(validator);
+            
+            // Check if validator is inactive or too risky
+            if (!isActive) {
+                return (true, "Validator inactive");
+            }
+            if (riskScore >= rebalanceThresholdRisk) {
+                return (true, "Validator risk too high");
+            }
+        }
+        
+        // Check for better performing validators
+        (address[] memory optimalValidators, ) = this.getOptimalValidatorDistribution();
+        
+        // Simple check: if we have delegations to validators not in optimal list
+        for (uint256 i = 0; i < activeCoreValidators.length; i++) {
+            if (delegatedCoreByValidator[activeCoreValidators[i]] == 0) continue;
+            
+            bool isOptimal = false;
+            for (uint256 j = 0; j < optimalValidators.length; j++) {
+                if (activeCoreValidators[i] == optimalValidators[j]) {
+                    isOptimal = true;
+                    break;
+                }
+            }
+            
+            if (!isOptimal) {
+                return (true, "Better validators available");
+            }
+        }
+        
+        return (false, "No rebalancing needed");
+    }
+    
+    /**
+     * @dev Set automation bot address
+     * @param _automationBot Address of the automation bot
+     */
+    function setAutomationBot(address _automationBot) external onlyOwner {
+        automationBot = _automationBot;
+        emit AutomationBotSet(_automationBot);
+    }
+    
+    /**
+     * @dev Update rebalancing thresholds
+     * @param _apyThreshold APY difference threshold in basis points
+     * @param _riskThreshold Risk score threshold
+     */
+    function setRebalanceThresholds(uint256 _apyThreshold, uint256 _riskThreshold) external onlyOwner {
+        require(_riskThreshold <= 1000, "StakingManager: invalid risk threshold");
+        rebalanceThresholdAPY = _apyThreshold;
+        rebalanceThresholdRisk = _riskThreshold;
+        emit RebalanceThresholdsUpdated(_apyThreshold, _riskThreshold);
     }
     
     /**

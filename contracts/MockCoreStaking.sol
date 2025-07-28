@@ -19,6 +19,8 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         uint256 commissionRate; // Basis points (e.g., 500 = 5%)
         bool isActive;
         uint256 rewardRate; // Annual reward rate in basis points
+        uint256 hybridScore; // Performance/reliability metric (0-1000)
+        uint256 lastPenalty; // Timestamp of last penalty/jail
     }
     
     struct Delegation {
@@ -46,35 +48,42 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
     event ValidatorRegistered(address indexed validator, uint256 commissionRate);
     event Delegated(address indexed delegator, address indexed validator, uint256 amount);
     event Undelegated(address indexed delegator, address indexed validator, uint256 amount);
+    event Redelegated(address indexed delegator, address indexed fromValidator, address indexed toValidator, uint256 amount);
     event RewardsClaimed(address indexed delegator, address indexed validator, uint256 amount);
+    event ValidatorStatusChanged(address indexed validator, bool isActive);
+    event ValidatorCommissionChanged(address indexed validator, uint256 newRate);
+    event ValidatorHybridScoreChanged(address indexed validator, uint256 newScore);
     
     constructor(address _coreToken, address initialOwner) Ownable(initialOwner) {
         coreToken = IERC20(_coreToken);
         
         // Register some default validators for testing
-        _registerValidator(address(0x1111111111111111111111111111111111111111), 500); // 5% commission
-        _registerValidator(address(0x2222222222222222222222222222222222222222), 300); // 3% commission
-        _registerValidator(address(0x3333333333333333333333333333333333333333), 700); // 7% commission
+        _registerValidator(address(0x1111111111111111111111111111111111111111), 500, 850); // 5% commission, 85% score
+        _registerValidator(address(0x2222222222222222222222222222222222222222), 300, 920); // 3% commission, 92% score
+        _registerValidator(address(0x3333333333333333333333333333333333333333), 700, 750); // 7% commission, 75% score
     }
     
     /**
      * @dev Register a new validator
      */
-    function registerValidator(address validator, uint256 commissionRate) external onlyOwner {
-        _registerValidator(validator, commissionRate);
+    function registerValidator(address validator, uint256 commissionRate, uint256 hybridScore) external onlyOwner {
+        _registerValidator(validator, commissionRate, hybridScore);
     }
     
-    function _registerValidator(address validator, uint256 commissionRate) internal {
+    function _registerValidator(address validator, uint256 commissionRate, uint256 hybridScore) internal {
         require(validator != address(0), "Invalid validator address");
         require(commissionRate <= 2000, "Commission rate too high"); // Max 20%
-        require(!validators[validator].isActive, "Validator already registered");
+        require(hybridScore <= 1000, "Hybrid score too high"); // Max 100%
+        require(validators[validator].validatorAddress == address(0), "Validator already exists");
         
         validators[validator] = Validator({
             validatorAddress: validator,
             totalDelegated: 0,
             commissionRate: commissionRate,
             isActive: true,
-            rewardRate: ANNUAL_REWARD_RATE
+            rewardRate: ANNUAL_REWARD_RATE,
+            hybridScore: hybridScore,
+            lastPenalty: 0
         });
         
         validatorList.push(validator);
@@ -167,8 +176,9 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         if (timeElapsed == 0) return;
         
         // Calculate rewards: amount * rate * time / (365 days * BASIS_POINTS)
-        uint256 grossRewards = (delegation.amount * validatorInfo.rewardRate * timeElapsed) / 
-                              (365 days * BASIS_POINTS);
+        // Adjust for hybrid score (performance multiplier)
+        uint256 grossRewards = (delegation.amount * validatorInfo.rewardRate * timeElapsed * validatorInfo.hybridScore) / 
+                              (365 days * BASIS_POINTS * 1000);
         
         // Subtract validator commission
         uint256 commission = (grossRewards * validatorInfo.commissionRate) / BASIS_POINTS;
@@ -195,8 +205,8 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         if (delegation.amount == 0) return delegation.pendingRewards;
         
         uint256 timeElapsed = block.timestamp - delegation.lastRewardClaim;
-        uint256 grossRewards = (delegation.amount * validatorInfo.rewardRate * timeElapsed) / 
-                              (365 days * BASIS_POINTS);
+        uint256 grossRewards = (delegation.amount * validatorInfo.rewardRate * timeElapsed * validatorInfo.hybridScore) / 
+                              (365 days * BASIS_POINTS * 1000);
         uint256 commission = (grossRewards * validatorInfo.commissionRate) / BASIS_POINTS;
         uint256 netRewards = grossRewards - commission;
         
@@ -211,7 +221,56 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Get validator info
+     * @dev Redelegate CORE tokens from one validator to another
+     */
+    function redelegate(address fromValidator, address toValidator, uint256 amount) external nonReentrant {
+        require(validators[fromValidator].isActive || validators[fromValidator].validatorAddress != address(0), "From validator not found");
+        require(validators[toValidator].isActive, "To validator not active");
+        require(amount > 0, "Amount must be greater than 0");
+        
+        Delegation storage fromDelegation = delegations[msg.sender][fromValidator];
+        require(fromDelegation.amount >= amount, "Insufficient delegated amount");
+        
+        // Update rewards for both validators
+        _updateRewards(msg.sender, fromValidator);
+        if (delegations[msg.sender][toValidator].amount > 0) {
+            _updateRewards(msg.sender, toValidator);
+        }
+        
+        // Move delegation
+        fromDelegation.amount -= amount;
+        validators[fromValidator].totalDelegated -= amount;
+        
+        Delegation storage toDelegation = delegations[msg.sender][toValidator];
+        toDelegation.amount += amount;
+        toDelegation.lastRewardClaim = block.timestamp;
+        validators[toValidator].totalDelegated += amount;
+        
+        emit Redelegated(msg.sender, fromValidator, toValidator, amount);
+    }
+    
+    /**
+     * @dev Get all validator addresses
+     */
+    function getAllValidatorAddresses() external view returns (address[] memory) {
+        return validatorList;
+    }
+    
+    /**
+     * @dev Get validator info with extended details
+     */
+    function getValidatorInfo(address validator) external view returns (
+        uint256 delegatedCore,
+        uint256 commissionRate,
+        uint256 hybridScore,
+        bool isActive
+    ) {
+        Validator storage v = validators[validator];
+        return (v.totalDelegated, v.commissionRate, v.hybridScore, v.isActive);
+    }
+    
+    /**
+     * @dev Get validator info (legacy function for backward compatibility)
      */
     function getValidator(address validator) external view returns (
         uint256 totalDelegated,
@@ -223,10 +282,72 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         return (v.totalDelegated, v.commissionRate, v.isActive, v.rewardRate);
     }
     
+    // Admin functions for testing validator state changes
+    
+    /**
+     * @dev Set validator status (for testing scenarios)
+     */
+    function setValidatorStatus(address validator, bool isActive) external onlyOwner {
+        require(validators[validator].validatorAddress != address(0), "Validator not registered");
+        validators[validator].isActive = isActive;
+        if (!isActive) {
+            validators[validator].lastPenalty = block.timestamp;
+        }
+        emit ValidatorStatusChanged(validator, isActive);
+    }
+    
+    /**
+     * @dev Set validator commission rate (for testing scenarios)
+     */
+    function setValidatorCommission(address validator, uint256 newRate) external onlyOwner {
+        require(validators[validator].validatorAddress != address(0), "Validator not registered");
+        require(newRate <= 2000, "Commission rate too high");
+        validators[validator].commissionRate = newRate;
+        emit ValidatorCommissionChanged(validator, newRate);
+    }
+    
+    /**
+     * @dev Set validator hybrid score (for testing scenarios)
+     */
+    function setValidatorHybridScore(address validator, uint256 newScore) external onlyOwner {
+        require(validators[validator].validatorAddress != address(0), "Validator not registered");
+        require(newScore <= 1000, "Hybrid score too high");
+        validators[validator].hybridScore = newScore;
+        emit ValidatorHybridScoreChanged(validator, newScore);
+    }
+    
     /**
      * @dev Emergency function to fund rewards pool (for testing)
      */
     function fundRewards(uint256 amount) external onlyOwner {
         coreToken.transferFrom(msg.sender, address(this), amount);
+    }
+    
+    /**
+     * @dev Calculate effective APY for a validator (for rebalancing decisions)
+     */
+    function getValidatorEffectiveAPY(address validator) external view returns (uint256) {
+        Validator storage v = validators[validator];
+        if (!v.isActive) return 0;
+        
+        // Base APY adjusted for commission and hybrid score
+        uint256 baseAPY = ANNUAL_REWARD_RATE; // 8% = 800 basis points
+        uint256 afterCommission = baseAPY - ((baseAPY * v.commissionRate) / BASIS_POINTS);
+        uint256 effectiveAPY = (afterCommission * v.hybridScore) / 1000;
+        
+        return effectiveAPY;
+    }
+    
+    /**
+     * @dev Get validator risk score (higher = riskier)
+     */
+    function getValidatorRiskScore(address validator) external view returns (uint256) {
+        Validator storage v = validators[validator];
+        
+        if (!v.isActive) return 1000; // Maximum risk
+        if (v.hybridScore < 500) return 600; // High risk
+        if (v.hybridScore < 700) return 400; // Medium risk
+        if (v.hybridScore < 850) return 200; // Low risk
+        return 100; // Very low risk
     }
 }
