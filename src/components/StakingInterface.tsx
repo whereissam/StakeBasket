@@ -209,58 +209,60 @@ export function StakingInterface() {
 
   if (!address) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            BASKET Staking
-          </CardTitle>
-          <CardDescription>
-            Connect your wallet to stake BASKET tokens and earn protocol fees
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="p-6 min-h-screen bg-background text-foreground">
+        <Card className="bg-card border-border shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-card-foreground">
+              <Coins className="h-5 w-5 text-primary" />
+              BASKET Staking
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Connect your wallet to stake BASKET tokens and earn protocol fees
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
-  const currentTierInfo = tierInfo[stakeInfo.tier]
+  const currentTierInfo = tierInfo[stakeInfo.tier as Tier]
   const tierProgress = getTierProgress(Number(stakeInfo.amount), stakeInfo.tier)
   const nextTierInfo = tierProgress.nextTier ? tierInfo[tierProgress.nextTier] : null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6 min-h-screen bg-background text-foreground">
       {/* Staking Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-card border-border shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Coins className="h-4 w-4" />
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
+              <Coins className="h-4 w-4 text-primary" />
               Staked Amount
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Number(stakeInfo.amount).toLocaleString()}</div>
+            <div className="text-2xl font-bold text-card-foreground">{Number(stakeInfo.amount).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">BASKET tokens</p>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-card border-border shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
+              <DollarSign className="h-4 w-4 text-primary" />
               Pending Rewards
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Number(stakeInfo.pendingRewards).toFixed(4)}</div>
+            <div className="text-2xl font-bold text-card-foreground">{Number(stakeInfo.pendingRewards).toFixed(4)}</div>
             <p className="text-xs text-muted-foreground">ETH</p>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-card border-border shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Award className="h-4 w-4" />
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
+              <Award className="h-4 w-4 text-primary" />
               Current Tier
             </CardTitle>
           </CardHeader>
@@ -272,15 +274,15 @@ export function StakingInterface() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="bg-card border-border shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Gift className="h-4 w-4" />
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
+              <Gift className="h-4 w-4 text-primary" />
               Available Balance
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Number(basketBalance).toLocaleString()}</div>
+            <div className="text-2xl font-bold text-card-foreground">{Number(basketBalance).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">BASKET tokens</p>
           </CardContent>
         </Card>
@@ -300,9 +302,9 @@ export function StakingInterface() {
               <span>{currentTierInfo.name}</span>
               <span>{nextTierInfo.name}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-primary h-2 rounded-full transition-all duration-300"
                 style={{ width: `${tierProgress.progress}%` }}
               />
             </div>
@@ -323,7 +325,7 @@ export function StakingInterface() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentTierInfo.benefits.map((benefit, index) => (
+            {currentTierInfo.benefits.map((benefit: string, index: number) => (
               <div key={index} className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${currentTierInfo.bgColor}`} />
                 <span className="text-sm">{benefit}</span>
@@ -360,7 +362,7 @@ export function StakingInterface() {
                 <span>Available: {Number(basketBalance).toLocaleString()} BASKET</span>
                 <button 
                   onClick={() => setStakeAmount(basketBalance)}
-                  className="text-blue-600 hover:underline"
+                  className="text-primary hover:underline"
                 >
                   Max
                 </button>
@@ -401,7 +403,7 @@ export function StakingInterface() {
                 <span>Staked: {Number(stakeInfo.amount).toLocaleString()} BASKET</span>
                 <button 
                   onClick={() => setUnstakeAmount(stakeInfo.amount)}
-                  className="text-blue-600 hover:underline"
+                  className="text-primary hover:underline"
                 >
                   Max
                 </button>
@@ -459,11 +461,11 @@ export function StakingInterface() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(tierInfo).slice(1).map(([tierKey, info]) => (
+            {Object.entries(tierInfo).slice(1).map(([tierKey, info]: [string, TierInfo]) => (
               <div 
                 key={tierKey}
-                className={`p-4 rounded-lg border-2 ${
-                  Number(tierKey) === stakeInfo.tier ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                className={`p-4 rounded-lg border-2 bg-card ${
+                  Number(tierKey) === stakeInfo.tier ? 'border-primary bg-primary/10' : 'border-border'
                 }`}
               >
                 <div className={`font-semibold ${info.color} mb-2`}>
@@ -476,7 +478,7 @@ export function StakingInterface() {
                   Multiplier: {info.multiplier}
                 </div>
                 <div className="space-y-1">
-                  {info.benefits.map((benefit, index) => (
+                  {info.benefits.map((benefit: string, index: number) => (
                     <div key={index} className="text-xs flex items-center gap-1">
                       <div className={`w-1 h-1 rounded-full ${info.bgColor}`} />
                       {benefit}
