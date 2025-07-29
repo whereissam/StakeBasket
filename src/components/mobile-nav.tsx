@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/components/theme-provider'
 import { ConnectWallet } from '@/components/ConnectWallet'
+import { NetworkSwitcher } from '@/components/NetworkSwitcher'
+import { MobileNavSection } from '@/components/MobileNavSection'
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
@@ -27,59 +29,86 @@ export function MobileNav() {
       </Button>
 
       {isOpen && (
-        <div className={`fixed top-16 left-0 right-0 shadow-xl z-50 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border-b`}>
+        <div className="fixed top-16 left-0 right-0 bg-background border-border shadow-xl z-50 border-b backdrop-blur-md">
           <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-col space-y-6">
+            <div className="flex flex-col space-y-4">
               <Link 
                 to="/" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className="text-foreground hover:text-primary [&.active]:text-primary [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 Home
               </Link>
               <Link 
                 to="/dashboard" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
+                className="text-foreground hover:text-primary [&.active]:text-primary [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center"
                 onClick={() => setIsOpen(false)}
               >
                 Dashboard
               </Link>
-              <Link 
-                to="/about" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
-                onClick={() => setIsOpen(false)}
-              >
-                About
-              </Link>
-              <Link 
-                to="/features" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
-                onClick={() => setIsOpen(false)}
-              >
-                Features
-              </Link>
-              <Link 
-                to="/contracts" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
-                onClick={() => setIsOpen(false)}
-              >
-                Contracts
-              </Link>
-              <Link 
-                to="/staking" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
-                onClick={() => setIsOpen(false)}
-              >
-                Staking
-              </Link>
-              <Link 
-                to="/governance" 
-                className={`hover:text-blue-600 [&.active]:text-blue-600 [&.active]:font-medium transition-colors py-3 cursor-pointer text-base min-h-[44px] flex items-center ${isDark ? 'text-gray-100' : 'text-gray-900'}`}
-                onClick={() => setIsOpen(false)}
-              >
-                Governance
-              </Link>
-              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+              
+              <MobileNavSection
+                title="Staking"
+                isDark={isDark}
+                onItemClick={() => setIsOpen(false)}
+                items={[
+                  {
+                    to: "/staking",
+                    label: "BASKET Staking",
+                    icon: <Coins className="h-4 w-4 text-blue-500" />,
+                    description: "Single-token staking with tier benefits"
+                  },
+                  {
+                    to: "/dual-staking",
+                    label: "Dual Staking",
+                    icon: <BarChart3 className="h-4 w-4 text-purple-500" />,
+                    description: "CORE + BTC dual asset staking"
+                  },
+                  {
+                    to: "/sparks",
+                    label: "Sparks Rewards",
+                    icon: <Zap className="h-4 w-4 text-yellow-500" />,
+                    description: "Earn points and unlock benefits"
+                  }
+                ]}
+              />
+
+              <MobileNavSection
+                title="Platform"
+                isDark={isDark}
+                onItemClick={() => setIsOpen(false)}
+                items={[
+                  {
+                    to: "/governance",
+                    label: "Governance",
+                    icon: <Vote className="h-4 w-4 text-green-500" />,
+                    description: "Vote on protocol proposals"
+                  },
+                  {
+                    to: "/contracts",
+                    label: "Contracts",
+                    icon: <FileCode className="h-4 w-4 text-orange-500" />,
+                    description: "Smart contract addresses"
+                  },
+                  {
+                    to: "/about",
+                    label: "About",
+                    icon: <Info className="h-4 w-4 text-gray-500" />,
+                    description: "Learn about StakeBasket"
+                  },
+                  {
+                    to: "/features",
+                    label: "Features",
+                    icon: <LayoutDashboard className="h-4 w-4 text-blue-500" />,
+                    description: "Platform features"
+                  }
+                ]}
+              />
+              <div className="pt-6 border-t border-border space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2 text-foreground">Network</p>
+                  <NetworkSwitcher />
+                </div>
                 <ConnectWallet />
               </div>
             </div>

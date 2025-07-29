@@ -256,3 +256,38 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Enhanced dropdown menu styles */
+  .dropdown-menu-item {
+    @apply relative flex cursor-default select-none items-center rounded-sm px-3 py-2.5 text-sm outline-none transition-colors;
+    @apply text-foreground hover:bg-accent hover:text-accent-foreground;
+    @apply focus:bg-accent focus:text-accent-foreground;
+    @apply data-[disabled]:pointer-events-none data-[disabled]:opacity-50;
+  }
+  
+  .dropdown-menu-item-title {
+    @apply font-medium text-foreground;
+  }
+  
+  .dropdown-menu-item-description {
+    @apply text-xs text-muted-foreground mt-0.5;
+  }
+  
+  /* Hover state improvements */
+  .dropdown-menu-item:hover .dropdown-menu-item-title {
+    @apply text-accent-foreground;
+  }
+  
+  .dropdown-menu-item:hover .dropdown-menu-item-description {
+    @apply text-accent-foreground/75;
+  }
+  
+  .dropdown-menu-item:focus .dropdown-menu-item-title {
+    @apply text-accent-foreground;
+  }
+  
+  .dropdown-menu-item:focus .dropdown-menu-item-description {
+    @apply text-accent-foreground/75;
+  }
+}

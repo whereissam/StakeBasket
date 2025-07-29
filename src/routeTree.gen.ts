@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StakingRouteImport } from './routes/staking'
+import { Route as SparksRouteImport } from './routes/sparks'
 import { Route as GovernanceRouteImport } from './routes/governance'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as DualStakingRouteImport } from './routes/dual-staking'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as AboutRouteImport } from './routes/about'
@@ -22,6 +24,11 @@ const StakingRoute = StakingRouteImport.update({
   path: '/staking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SparksRoute = SparksRouteImport.update({
+  id: '/sparks',
+  path: '/sparks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GovernanceRoute = GovernanceRouteImport.update({
   id: '/governance',
   path: '/governance',
@@ -30,6 +37,11 @@ const GovernanceRoute = GovernanceRouteImport.update({
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DualStakingRoute = DualStakingRouteImport.update({
+  id: '/dual-staking',
+  path: '/dual-staking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -58,8 +70,10 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/dual-staking': typeof DualStakingRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
 export interface FileRoutesByTo {
@@ -67,8 +81,10 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/dual-staking': typeof DualStakingRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
 export interface FileRoutesById {
@@ -77,8 +93,10 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
+  '/dual-staking': typeof DualStakingRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
 export interface FileRouteTypes {
@@ -88,8 +106,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/contracts'
     | '/dashboard'
+    | '/dual-staking'
     | '/features'
     | '/governance'
+    | '/sparks'
     | '/staking'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -97,8 +117,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/contracts'
     | '/dashboard'
+    | '/dual-staking'
     | '/features'
     | '/governance'
+    | '/sparks'
     | '/staking'
   id:
     | '__root__'
@@ -106,8 +128,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/contracts'
     | '/dashboard'
+    | '/dual-staking'
     | '/features'
     | '/governance'
+    | '/sparks'
     | '/staking'
   fileRoutesById: FileRoutesById
 }
@@ -116,8 +140,10 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
+  DualStakingRoute: typeof DualStakingRoute
   FeaturesRoute: typeof FeaturesRoute
   GovernanceRoute: typeof GovernanceRoute
+  SparksRoute: typeof SparksRoute
   StakingRoute: typeof StakingRoute
 }
 
@@ -128,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/staking'
       fullPath: '/staking'
       preLoaderRoute: typeof StakingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sparks': {
+      id: '/sparks'
+      path: '/sparks'
+      fullPath: '/sparks'
+      preLoaderRoute: typeof SparksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/governance': {
@@ -142,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dual-staking': {
+      id: '/dual-staking'
+      path: '/dual-staking'
+      fullPath: '/dual-staking'
+      preLoaderRoute: typeof DualStakingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -180,8 +220,10 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
+  DualStakingRoute: DualStakingRoute,
   FeaturesRoute: FeaturesRoute,
   GovernanceRoute: GovernanceRoute,
+  SparksRoute: SparksRoute,
   StakingRoute: StakingRoute,
 }
 export const routeTree = rootRouteImport

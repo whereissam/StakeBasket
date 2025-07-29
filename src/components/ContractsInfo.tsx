@@ -3,6 +3,8 @@ import { Button } from './ui/button'
 import { ExternalLink, Copy, Shield, CheckCircle, AlertCircle } from 'lucide-react'
 import { getNetworkByChainId, getExplorerUrl } from '../config/contracts'
 import { useChainId } from 'wagmi'
+import { CoreTestnet2Button } from './CoreTestnet2Button'
+import { NetworkSwitcher } from './NetworkSwitcher'
 
 export function ContractsInfo() {
   const chainId = useChainId()
@@ -120,6 +122,41 @@ export function ContractsInfo() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Network Management */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Network Switcher</CardTitle>
+              <CardDescription>
+                Switch between different networks for testing and production
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">Current Network:</p>
+                  <NetworkSwitcher />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Use the dropdown above to switch between Hardhat local, Core Testnet2, and Core Mainnet.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Core Testnet2 Setup</CardTitle>
+              <CardDescription>
+                Quick setup for Core Testnet2 with all network details
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CoreTestnet2Button />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Core Contracts */}
         <Card className="mb-8">
