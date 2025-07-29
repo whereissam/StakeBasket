@@ -100,7 +100,6 @@ export const useDualStakingStore = create<DualStakingState>()(
         set({ coreBalance, btcBalance }, false, 'setBalances'),
 
       setPosition: (position: DualStakePosition) => {
-        const { needsRebalancing } = get()
         const currentRatio = get().getCurrentRatio()
         const targetRatio = get().getTargetRatio(position.tier)
         const threshold = get().rebalanceThreshold

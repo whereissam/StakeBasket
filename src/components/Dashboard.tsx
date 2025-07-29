@@ -1,6 +1,6 @@
 import { useStakeBasketStore } from '../store/useStakeBasketStore'
-import { useDualStakingStore, DualTier, tierNames, tierColors, formatRatio, formatAPY } from '../store/useDualStakingStore'
-import { useSparksStore, SparksTier, tierNames as sparksTierNames, tierColors as sparksTierColors } from '../store/useSparksStore'
+import { useDualStakingStore, tierNames, tierColors, formatRatio, formatAPY } from '../store/useDualStakingStore'
+import { useSparksStore, tierNames as sparksTierNames, tierColors as sparksTierColors } from '../store/useSparksStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -28,8 +28,6 @@ export function Dashboard() {
   const {
     position: dualPosition,
     needsRebalancing,
-    coreBalance,
-    btcBalance,
     getCurrentRatio,
     getPositionValue,
     getAPYForTier

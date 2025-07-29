@@ -5,7 +5,7 @@ import { MobileNav } from '@/components/mobile-nav'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { NavDropdown } from '@/components/NavDropdown'
-import { BarChart3, Coins, Zap, Vote, Info, FileCode, Home, LayoutDashboard } from 'lucide-react'
+import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard } from 'lucide-react'
 
 export const Route = createRootRoute({
   component: () => (

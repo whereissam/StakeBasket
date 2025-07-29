@@ -24,7 +24,7 @@ export function SparksHistory({ className = '', limit = 10 }: SparksHistoryProps
   const { address } = useAccount()
   const [offset, setOffset] = useState(0)
   const [history, setHistory] = useState<SparksRecord[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
 
   // Read user's Sparks history from contract (disabled during development)
   const { data: historyData, refetch } = useReadContract({
@@ -85,7 +85,7 @@ export function SparksHistory({ className = '', limit = 10 }: SparksHistoryProps
     })
   }
 
-  const getReasonBadge = (reason: string, isEarning: boolean) => {
+  const getReasonBadge = (reason: string) => {
     const reasonMap: Record<string, { label: string; color: string }> = {
       'BASKET_HOLDING': { label: 'Holding Reward', color: 'bg-primary text-primary-foreground' },
       'STAKEBASKET_DEPOSIT': { label: 'Deposit Bonus', color: 'bg-secondary text-secondary-foreground' },
@@ -169,7 +169,7 @@ export function SparksHistory({ className = '', limit = 10 }: SparksHistoryProps
                       }`}>
                         {record.isEarning ? '+' : '-'}{Number(formatEther(record.amount)).toLocaleString()} ⚡
                       </span>
-                      {getReasonBadge(record.reason, record.isEarning)}
+                      {getReasonBadge(record.reason)}
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

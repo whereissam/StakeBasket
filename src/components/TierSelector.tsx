@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { Award, TrendingUp, ArrowUp, CheckCircle } from 'lucide-react'
+import { TrendingUp, ArrowUp, CheckCircle } from 'lucide-react'
 
 export enum DualTier {
   Base = 0,

@@ -2,10 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect } from 'react'
-import { Coins, TrendingUp, Award, ArrowLeftRight, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Coins, TrendingUp, Award, ArrowLeftRight, AlertTriangle } from 'lucide-react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
-import { MOCK_DUAL_STAKING_ABI, SATOSHI_TIER_BASKET_ABI, MOCK_CORE_ABI } from '../config/abis'
+import { MOCK_DUAL_STAKING_ABI, MOCK_CORE_ABI } from '../config/abis'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 
 interface DualStakeInfo {
@@ -96,7 +96,7 @@ export function DualStakingInterface() {
   const [isStaking, setIsStaking] = useState(false)
   const [isUnstaking, setIsUnstaking] = useState(false)
   const [isClaiming, setIsClaiming] = useState(false)
-  const [needsRebalancing, setNeedsRebalancing] = useState(false)
+  const [needsRebalancing] = useState(false)
 
   // Contract reads
   const { data: userStakeInfo } = useReadContract({
@@ -156,7 +156,7 @@ export function DualStakingInterface() {
   useEffect(() => {
     if (userStakeInfo && tierStatus) {
       const [coreStaked, btcStaked, shares, rewards] = userStakeInfo as [bigint, bigint, bigint, bigint, bigint]
-      const [tier, , , ratio, tierRewards, apy] = tierStatus as [number, bigint, bigint, bigint, bigint, bigint]
+      const [tier, , , ratio, , apy] = tierStatus as [number, bigint, bigint, bigint, bigint, bigint]
       
       setStakeInfo({
         coreStaked: formatEther(coreStaked),
