@@ -52,6 +52,23 @@ const PROPER_DUAL_STAKING_ABI = [
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function"
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "coreAmount", type: "uint256" },
+      { internalType: "uint256", name: "btcAmount", type: "uint256" }
+    ],
+    name: "unstake",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [],
+    name: "claimRewards",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
   }
 ] as const
 import { getNetworkByChainId } from '../config/contracts'
@@ -501,7 +518,7 @@ export function DualStakingInterface() {
         }
       ] as const,
       functionName: 'approve',
-      args: [stakingContractAddress, parsedCoreAmount],
+      args: [stakingContractAddress as `0x${string}`, parsedCoreAmount],
     })
   }
 
@@ -522,7 +539,7 @@ export function DualStakingInterface() {
         }
       ] as const,
       functionName: 'approve',
-      args: [stakingContractAddress, parsedBtcAmount],
+      args: [stakingContractAddress as `0x${string}`, parsedBtcAmount],
     })
   }
 
@@ -588,7 +605,7 @@ export function DualStakingInterface() {
       address: stakingContractAddress as `0x${string}`,
       abi: PROPER_DUAL_STAKING_ABI,
       functionName: 'unstake',
-      args: [parseEther(stakeInfo.shares)],
+      args: [parseEther(stakeInfo.coreStaked), BigInt(Math.floor(Number(stakeInfo.btcStaked) * 10**8))],
     })
   }
 
