@@ -3,7 +3,10 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect } from 'react'
 import { Vote, Clock, CheckCircle, XCircle, Timer, Users, TrendingUp } from 'lucide-react'
-import { useAccount } from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
+import { formatEther } from 'viem'
+import { useNetworkStore } from '../store/useNetworkStore'
+import { NetworkIndicator } from './NetworkIndicator'
 
 interface Proposal {
   id: number
@@ -37,11 +40,15 @@ enum ProposalType {
   StrategyRemoval,
   FeeAdjustment,
   TreasuryAllocation,
-  ContractUpgrade
+  ContractUpgrade,
+  CoreDAOValidatorDelegation,
+  CoreDAOHashPowerDelegation,
+  CoreDAOGovernanceVote
 }
 
 export function GovernanceInterface() {
   const { address } = useAccount()
+  const { networkStatus, getCurrentContracts } = useNetworkStore()
   
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [votingPower, setVotingPower] = useState('0')
@@ -64,7 +71,10 @@ export function GovernanceInterface() {
     'Strategy Removal',
     'Fee Adjustment',
     'Treasury Allocation',
-    'Contract Upgrade'
+    'Contract Upgrade',
+    'CoreDAO Validator Delegation',
+    'CoreDAO Hash Power Delegation',
+    'CoreDAO Governance Vote'
   ]
 
   const getProposalStateText = (state: number) => {
@@ -74,13 +84,13 @@ export function GovernanceInterface() {
 
   const getProposalStateColor = (state: number) => {
     switch (state) {
-      case ProposalState.Active: return 'text-blue-600 bg-blue-100'
-      case ProposalState.Succeeded: return 'text-green-600 bg-green-100'
-      case ProposalState.Queued: return 'text-yellow-600 bg-yellow-100'
-      case ProposalState.Executed: return 'text-purple-600 bg-purple-100'
-      case ProposalState.Defeated: return 'text-red-600 bg-red-100'
-      case ProposalState.Canceled: return 'text-gray-600 bg-gray-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case ProposalState.Active: return 'text-primary bg-primary/10'
+      case ProposalState.Succeeded: return 'text-chart-2 bg-chart-2/10'
+      case ProposalState.Queued: return 'text-chart-4 bg-chart-4/10'
+      case ProposalState.Executed: return 'text-accent bg-accent/10'
+      case ProposalState.Defeated: return 'text-destructive bg-destructive/10'
+      case ProposalState.Canceled: return 'text-muted-foreground bg-muted'
+      default: return 'text-muted-foreground bg-muted'
     }
   }
 
@@ -147,42 +157,161 @@ export function GovernanceInterface() {
     return (Number(value) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 2 })
   }
 
-  // Mock data for demonstration
+  // Get current network contracts
+  const contracts = getCurrentContracts()
+  const GOVERNANCE_CONTRACT_ADDRESS = contracts.governance
+  
+  // Governance contract ABI (simplified)
+  const governanceABI = [
+    {
+      name: 'proposalCount',
+      type: 'function',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ type: 'uint256' }]
+    },
+    {
+      name: 'proposals',
+      type: 'function', 
+      stateMutability: 'view',
+      inputs: [{ type: 'uint256' }],
+      outputs: [
+        { type: 'uint256' },
+        { type: 'address' },
+        { type: 'string' },
+        { type: 'string' },
+        { type: 'uint8' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'uint256' },
+        { type: 'bool' },
+        { type: 'uint8' }
+      ]
+    },
+    {
+      name: 'getVotes',
+      type: 'function',
+      stateMutability: 'view', 
+      inputs: [{ type: 'address' }],
+      outputs: [{ type: 'uint256' }]
+    }
+  ] as const
+  
+  // Read proposal count from contract
+  const { data: proposalCount } = useReadContract({
+    address: GOVERNANCE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: governanceABI,
+    functionName: 'proposalCount',
+    query: {
+      enabled: !!GOVERNANCE_CONTRACT_ADDRESS && networkStatus !== 'unknown'
+    }
+  })
+  
+  // Read user voting power
+  const { data: userVotes } = useReadContract({
+    address: GOVERNANCE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: governanceABI,
+    functionName: 'getVotes',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && !!GOVERNANCE_CONTRACT_ADDRESS && networkStatus !== 'unknown'
+    }
+  })
+  
+  // Load proposals from contract
   useEffect(() => {
-    const mockProposals: Proposal[] = [
-      {
-        id: 1,
-        title: "Increase Management Fee to 0.75%",
-        description: "Proposal to increase the management fee from 0.5% to 0.75% to fund additional development and security audits.",
-        proposer: "0x1234...5678",
-        proposalType: ProposalType.FeeAdjustment,
-        startTime: Date.now() - 86400000, // 1 day ago
-        endTime: Date.now() + 172800000, // 2 days from now
-        forVotes: BigInt("125000000000000000000000"), // 125,000 tokens
-        againstVotes: BigInt("75000000000000000000000"),  // 75,000 tokens
-        abstainVotes: BigInt("25000000000000000000000"),   // 25,000 tokens
-        executed: false,
-        state: ProposalState.Active
-      },
-      {
-        id: 2,
-        title: "Add Liquid Staking Derivative Strategy",
-        description: "Proposal to add support for additional liquid staking derivatives to diversify yield sources.",
-        proposer: "0x9876...4321",
-        proposalType: ProposalType.StrategyAddition,
-        startTime: Date.now() - 259200000, // 3 days ago
-        endTime: Date.now() - 86400000, // 1 day ago (ended)
-        forVotes: BigInt("200000000000000000000000"), // 200,000 tokens
-        againstVotes: BigInt("50000000000000000000000"),  // 50,000 tokens
-        abstainVotes: BigInt("10000000000000000000000"),   // 10,000 tokens
-        executed: false,
-        state: ProposalState.Succeeded
+    const loadProposals = async () => {
+      if (!GOVERNANCE_CONTRACT_ADDRESS) {
+        // No contract deployed - show empty state
+        setProposals([])
+        setVotingPower("0")
+        return
       }
-    ]
+      
+      if (!proposalCount) {
+        // Contract deployed but no proposals yet - show mock data for demo
+        const mockProposals: Proposal[] = [
+          {
+            id: 1,
+            title: "Increase Management Fee to 0.75%",
+            description: "Proposal to increase the management fee from 0.5% to 0.75% to fund additional development and security audits.",
+            proposer: "0x1234...5678",
+            proposalType: ProposalType.FeeAdjustment,
+            startTime: Date.now() - 86400000, // 1 day ago
+            endTime: Date.now() + 172800000, // 2 days from now
+            forVotes: BigInt("125000000000000000000000"), // 125,000 tokens
+            againstVotes: BigInt("75000000000000000000000"),  // 75,000 tokens
+            abstainVotes: BigInt("25000000000000000000000"),   // 25,000 tokens
+            executed: false,
+            state: ProposalState.Active
+          },
+          {
+            id: 2,
+            title: "Add Liquid Staking Derivative Strategy",
+            description: "Proposal to add support for additional liquid staking derivatives to diversify yield sources.",
+            proposer: "0x9876...4321",
+            proposalType: ProposalType.StrategyAddition,
+            startTime: Date.now() - 259200000, // 3 days ago
+            endTime: Date.now() - 86400000, // 1 day ago (ended)
+            forVotes: BigInt("200000000000000000000000"), // 200,000 tokens
+            againstVotes: BigInt("50000000000000000000000"),  // 50,000 tokens
+            abstainVotes: BigInt("10000000000000000000000"),   // 10,000 tokens
+            executed: false,
+            state: ProposalState.Succeeded
+          }
+        ]
+        setProposals(mockProposals)
+        setVotingPower("10000") // Mock voting power
+        return
+      }
+      
+      // Load real proposals from deployed contract
+      try {
+        const loadedProposals: Proposal[] = []
+        const count = Number(proposalCount)
+        
+        for (let i = 1; i <= count; i++) {
+          // Note: You'll need to implement contract.proposals(i) call
+          // This is a simplified example - you'd use wagmi's useContractRead
+          // or ethers to fetch each proposal
+          const proposalData = await fetchProposalFromContract(i)
+          if (proposalData) {
+            loadedProposals.push(proposalData)
+          }
+        }
+        
+        setProposals(loadedProposals)
+      } catch (error) {
+        console.error('Failed to load proposals:', error)
+        // Fallback to mock data on error
+        setProposals([])
+      }
+    }
     
-    setProposals(mockProposals)
-    setVotingPower("10000") // Mock voting power
-  }, [])
+    loadProposals()
+  }, [proposalCount, GOVERNANCE_CONTRACT_ADDRESS])
+  
+  // Update voting power when user votes change
+  useEffect(() => {
+    if (userVotes) {
+      setVotingPower(formatEther(userVotes))
+    }
+  }, [userVotes])
+  
+  // Helper function to fetch individual proposal (you'd implement this with wagmi)
+  const fetchProposalFromContract = async (proposalId: number): Promise<Proposal | null> => {
+    try {
+      // This would be implemented using wagmi's useContractRead or ethers
+      // const proposalData = await contract.proposals(proposalId)
+      // return formatProposalData(proposalData)
+      return null // Placeholder
+    } catch (error) {
+      console.error(`Failed to fetch proposal ${proposalId}:`, error)
+      return null
+    }
+  }
 
   if (!address) {
     return (
@@ -202,6 +331,15 @@ export function GovernanceInterface() {
 
   return (
     <div className="space-y-6">
+      {/* Network Status Indicator */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Governance</h1>
+        <NetworkIndicator 
+          contractType="governance" 
+          showContractStatus={true}
+        />
+      </div>
+
       {/* Governance Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -279,7 +417,7 @@ export function GovernanceInterface() {
             <div>
               <label className="text-sm font-medium">Description</label>
               <textarea
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 rows={4}
                 value={newProposal.description}
                 onChange={(e) => setNewProposal({...newProposal, description: e.target.value})}
@@ -290,7 +428,7 @@ export function GovernanceInterface() {
             <div>
               <label className="text-sm font-medium">Proposal Type</label>
               <select
-                className="w-full p-2 border rounded-md"
+                className="w-full p-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 value={newProposal.proposalType}
                 onChange={(e) => setNewProposal({...newProposal, proposalType: Number(e.target.value)})}
               >
@@ -314,11 +452,34 @@ export function GovernanceInterface() {
 
       {/* Proposals List */}
       <div className="space-y-4">
-        {proposals.map((proposal) => {
-          const percentages = calculateVotePercentages(proposal)
-          const isActive = proposal.state === ProposalState.Active
-          const timeLeft = isActive ? Math.max(0, proposal.endTime - Date.now()) : 0
-          const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24))
+        {!GOVERNANCE_CONTRACT_ADDRESS ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Vote className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Governance Contract</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                Governance contracts are not deployed on this network yet. 
+                Switch to a network with deployed contracts to participate in governance.
+              </p>
+            </CardContent>
+          </Card>
+        ) : proposals.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Vote className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Proposals Yet</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                No governance proposals have been created yet. 
+                Be the first to propose changes to the protocol!
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          proposals.map((proposal) => {
+            const percentages = calculateVotePercentages(proposal)
+            const isActive = proposal.state === ProposalState.Active
+            const timeLeft = isActive ? Math.max(0, proposal.endTime - Date.now()) : 0
+            const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24))
           const hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
           
           return (
@@ -329,6 +490,13 @@ export function GovernanceInterface() {
                     <CardTitle className="text-lg">{proposal.title}</CardTitle>
                     <CardDescription className="mt-1">
                       {proposalTypeNames[proposal.proposalType]} • Proposed by {proposal.proposer}
+                      {(proposal.proposalType === ProposalType.CoreDAOGovernanceVote || 
+                        proposal.proposalType === ProposalType.CoreDAOValidatorDelegation || 
+                        proposal.proposalType === ProposalType.CoreDAOHashPowerDelegation) && 
+                        <span className="ml-2 px-1.5 py-0.5 bg-chart-1/10 text-chart-1 text-xs rounded-full font-medium">
+                          CoreDAO
+                        </span>
+                      }
                     </CardDescription>
                   </div>
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${getProposalStateColor(proposal.state)}`}>
@@ -348,17 +516,17 @@ export function GovernanceInterface() {
                     <span>Abstain: {formatNumber(proposal.abstainVotes)} ({percentages.abstain.toFixed(1)}%)</span>
                   </div>
                   
-                  <div className="flex h-2 rounded-full overflow-hidden bg-gray-200">
+                  <div className="flex h-2 rounded-full overflow-hidden bg-muted">
                     <div 
-                      className="bg-green-500"
+                      className="bg-chart-2"
                       style={{ width: `${percentages.for}%` }}
                     />
                     <div 
-                      className="bg-red-500"
+                      className="bg-destructive"
                       style={{ width: `${percentages.against}%` }}
                     />
                     <div 
-                      className="bg-gray-400"
+                      className="bg-muted-foreground"
                       style={{ width: `${percentages.abstain}%` }}
                     />
                   </div>
@@ -372,6 +540,22 @@ export function GovernanceInterface() {
                   </div>
                 )}
                 
+                {/* CoreDAO Proposal Info */}
+                {(proposal.proposalType === ProposalType.CoreDAOGovernanceVote || 
+                  proposal.proposalType === ProposalType.CoreDAOValidatorDelegation || 
+                  proposal.proposalType === ProposalType.CoreDAOHashPowerDelegation) && (
+                  <div className="bg-chart-1/5 border border-chart-1/20 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-sm text-chart-1 font-medium mb-1">
+                      <span className="w-2 h-2 bg-chart-1 rounded-full"></span>
+                      CoreDAO Network Proposal
+                    </div>
+                    <p className="text-xs text-chart-1/80">
+                      This proposal affects CoreDAO network governance. Your BASKET token vote will be aggregated 
+                      and cast on behalf of the community on CoreDAO's governance platform.
+                    </p>
+                  </div>
+                )}
+
                 {/* Voting Buttons */}
                 {isActive && (
                   <div className="flex gap-2">
@@ -379,7 +563,7 @@ export function GovernanceInterface() {
                       size="sm" 
                       onClick={() => handleVote(proposal.id, 1)}
                       disabled={isVoting}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-chart-2 text-primary-foreground hover:bg-chart-2/80"
                     >
                       <CheckCircle className="h-4 w-4 mr-1" />
                       Vote For
@@ -406,7 +590,8 @@ export function GovernanceInterface() {
               </CardContent>
             </Card>
           )
-        })}
+        })
+        )}
       </div>
     </div>
   )

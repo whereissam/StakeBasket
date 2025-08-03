@@ -76,7 +76,7 @@ The timing is critical for StakeBasket on CoreDAO:
 To get started with StakeBasket, users can simply:
 
 1. **Visit the Application**: Start the application using npm install followed by npm run dev.  
-2. **Connect Your Wallet**: Install MetaMask or your preferred Web3 wallet, then connect to Core Testnet2 (Chain ID: 1114). From there, you can begin depositing native CORE tokens and earning yield\!
+2. **Connect Your Wallet**: Install MetaMask or your preferred Web3 wallet, then connect to Core Testnet2 (Chain ID: 1114). Get testnet tokens from the faucet at https://scan.test2.btcs.network/faucet and begin depositing native CORE tokens to earn yield\!
 
 ### **For Developers (Full Setup)**
 
@@ -111,12 +111,31 @@ stakebasket/
 
 ## **🧪 Testing**
 
+### **Recent Updates & Compatibility**
+
+**✅ OpenZeppelin v5 Compatibility** - All contracts have been updated to work with OpenZeppelin v5:
+- Fixed constructor patterns for `Ownable` contracts requiring `initialOwner` parameter
+- Updated function calls for `name()`, `symbol()`, `decimals()`, `totalSupply()` with proper `super.` prefix
+- Resolved interface compatibility issues and address casting
+- All contracts now compile successfully with latest OpenZeppelin libraries
+
+**✅ Core Testnet2 Ready** - Updated configuration for Core Testnet2:
+- Chain ID: 1114 (updated from 1115)  
+- RPC URL: https://rpc.test2.btcs.network
+- Faucet: https://scan.test2.btcs.network/faucet
+
 ### **Run Comprehensive Tests**
 
 To run comprehensive tests for StakeBasket:
 
 #### **Smart Contract Tests**
 
+**✅ Working Tests (Verified)**:
+* **Individual contract tests**: `npx hardhat run scripts/test-individual-contracts.cjs --network localhost`
+* **Basic deployment**: `npx hardhat run scripts/debug-deploy.cjs --network localhost`
+* **Core contract compilation**: `npx hardhat compile`
+
+**Legacy Tests (May require updates)**:
 * **Basic ETF functionality**: npx hardhat run test/SimpleETFTest.cjs \--network localhost  
 * **Complete system test**: npx hardhat run test/FinalETFTest.cjs \--network localhost  
 * **All integration tests**: npx hardhat run test/FullIntegration.test.cjs \--network localhost
@@ -131,12 +150,20 @@ From the backend directory:
 
 ### **Test Results**
 
-* ✅ **Token Faucets** \- Working correctly  
-* ✅ **ETF Deposits/Withdrawals** \- Full functionality verified  
-* ✅ **NAV Calculations** \- Accurate and real-time  
-* ✅ **Staking Rewards** \- Simulation and distribution working  
-* ✅ **Multi-User Scenarios** \- Fair value distribution  
-* ✅ **Frontend Integration** \- Complete UI/contract integration
+**✅ Recent Test Results (Verified)**:
+* ✅ **PriceFeed** - CORE $1.5, BTC $95k prices working correctly
+* ✅ **UnbondingQueue** - 7-day unbonding queue mechanics working  
+* ✅ **MockTokens** - Token transfers, minting, and allowances working
+* ✅ **MockCoreStaking** - Validator delegation and reward simulation working
+* ✅ **StakeBasketToken** - ERC20 token minting/burning working
+* ✅ **BasketStaking** - Tiered staking benefits and fee reductions working
+* ✅ **StCoreToken** - Liquid staking conversions and dynamic rates working
+* ✅ **OpenZeppelin v5** - All contracts compile without errors
+* ✅ **Core Testnet2** - Configuration updated for Chain ID 1114
+
+**Legacy Test Status**:
+* ⚠️ **ETF Integration Tests** - May need updates for v5 compatibility
+* ⚠️ **Frontend Integration** - Requires verification with updated contracts
 
 **📊 See(([https://www.google.com/search?q=./docs/ETF\_TEST\_RESULTS.md](https://www.google.com/search?q=./docs/ETF_TEST_RESULTS.md))) for detailed test results.**
 
@@ -166,7 +193,7 @@ To manage the StakeBasket project:
 | Network | Chain ID | Status |
 | :---- | :---- | :---- |
 | Hardhat Local | 31337 | ✅ Ready |
-| Core Testnet2 | 1114 | ✅ Deployed |
+| Core Testnet2 | 1114 | ✅ Ready |
 | Core Mainnet | 1116 | 🎯 Target |
 
 ### **Contract Addresses**

@@ -16,10 +16,19 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
+      gasPrice: 1000000000, // 1 gwei
+      initialBaseFeePerGas: 1000000000, // 1 gwei
+      blockGasLimit: 30000000,
+      allowUnlimitedContractSize: true,
+      mining: {
+        auto: true,
+        interval: 0
+      }
     },
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 31337,
+      gasPrice: 1000000000, // 1 gwei
     },
     coreTestnet2: {
       url: "https://rpc.test2.btcs.network",

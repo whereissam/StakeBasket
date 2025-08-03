@@ -2,12 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
-import { useState, useEffect } from 'react'
 import { Zap, Star, TrendingUp, Gift, Crown, Award } from 'lucide-react'
-import { useAccount, useReadContract } from 'wagmi'
+import { useAccount, useReadContract, useChainId } from 'wagmi'
 import { formatEther } from 'viem'
-import { SPARKS_MANAGER_ABI } from '../config/abis'
-import { CONTRACT_ADDRESSES } from '../config/contracts'
+import { getNetworkByChainId } from '../config/contracts'
+import { useNetworkStore } from '../store/useNetworkStore'
 
 interface SparksInfo {
   balance: string
@@ -29,7 +28,7 @@ const tierInfo = {
   [SparksTier.None]: {
     name: 'None',
     color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
+    bgColor: 'bg-muted/20',
     icon: Award,
     threshold: '0',
     feeReduction: '0%',
@@ -37,8 +36,8 @@ const tierInfo = {
   },
   [SparksTier.Bronze]: {
     name: 'Bronze',
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
+    color: 'text-chart-4',
+    bgColor: 'bg-chart-4/20',
     icon: Award,
     threshold: '1,000',
     feeReduction: '5%',
@@ -46,8 +45,8 @@ const tierInfo = {
   },
   [SparksTier.Silver]: {
     name: 'Silver',
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
+    color: 'text-chart-2',
+    bgColor: 'bg-chart-2/20',
     icon: Star,
     threshold: '5,000',
     feeReduction: '10%',
@@ -55,8 +54,8 @@ const tierInfo = {
   },
   [SparksTier.Gold]: {
     name: 'Gold',
-    color: 'text-secondary-foreground',
-    bgColor: 'bg-secondary',
+    color: 'text-chart-1',
+    bgColor: 'bg-chart-1/20',
     icon: Star,
     threshold: '20,000',
     feeReduction: '25%',
@@ -64,8 +63,8 @@ const tierInfo = {
   },
   [SparksTier.Platinum]: {
     name: 'Platinum',
-    color: 'text-accent-foreground',
-    bgColor: 'bg-accent',
+    color: 'text-chart-5',
+    bgColor: 'bg-chart-5/20',
     icon: Crown,
     threshold: '100,000',
     feeReduction: '50%',
@@ -80,47 +79,53 @@ interface SparksWidgetProps {
 
 export function SparksWidget({ showDetailed = false, className = '' }: SparksWidgetProps) {
   const { address } = useAccount()
-  const [sparksInfo, setSparksInfo] = useState<SparksInfo>({
-    balance: '0',
-    totalEarned: '0', 
-    tier: SparksTier.None,
-    feeReduction: 0,
-    nextTierThreshold: '1000'
-  })
+  const chainId = useChainId()
+  const { chainId: storeChainId } = useNetworkStore()
+  const currentChainId = chainId || storeChainId || 31337
+  const { network, contracts } = getNetworkByChainId(currentChainId)
+  
+  // Sparks Manager ABI
+  const sparksManagerABI = [
+    {
+      inputs: [{ internalType: "address", name: "user", type: "address" }],
+      name: "getUserSparksInfo",
+      outputs: [
+        { internalType: "uint256", name: "balance", type: "uint256" },
+        { internalType: "uint256", name: "totalEarned", type: "uint256" },
+        { internalType: "uint8", name: "tier", type: "uint8" },
+        { internalType: "uint8", name: "feeReduction", type: "uint8" },
+        { internalType: "uint256", name: "nextTierThreshold", type: "uint256" }
+      ],
+      stateMutability: "view",
+      type: "function"
+    }
+  ] as const
 
-  // Read user's Sparks info from contract (disabled during development)
+  // Read user's Sparks info from contract
   const { data: userSparksData, refetch } = useReadContract({
-    address: CONTRACT_ADDRESSES.hardhat.SparksManager as `0x${string}`,
-    abi: SPARKS_MANAGER_ABI,
+    address: contracts?.SparksManager as `0x${string}`,
+    abi: sparksManagerABI,
     functionName: 'getUserSparksInfo',
     args: address ? [address] : undefined,
     query: {
-      enabled: false // Disable during development until contracts are deployed
+      enabled: !!address && !!contracts?.SparksManager && contracts.SparksManager !== '0x0000000000000000000000000000000000000000'
     }
   })
 
-  useEffect(() => {
-    if (userSparksData) {
-      const [balance, totalEarned, tier, feeReduction, nextTierThreshold] = userSparksData as [bigint, bigint, bigint, bigint, bigint]
-      
-      setSparksInfo({
-        balance: formatEther(balance),
-        totalEarned: formatEther(totalEarned),
-        tier: Number(tier),
-        feeReduction: Number(feeReduction),
-        nextTierThreshold: formatEther(nextTierThreshold)
-      })
-    } else if (address) {
-      // Mock data for development
-      setSparksInfo({
-        balance: '2500',
-        totalEarned: '3200',
-        tier: SparksTier.Silver,
-        feeReduction: 10,
-        nextTierThreshold: '5000'
-      })
-    }
-  }, [userSparksData, address])
+  // Convert contract data to display format
+  const sparksInfo: SparksInfo = userSparksData ? {
+    balance: formatEther(userSparksData[0]),
+    totalEarned: formatEther(userSparksData[1]),
+    tier: Number(userSparksData[2]),
+    feeReduction: Number(userSparksData[3]),
+    nextTierThreshold: formatEther(userSparksData[4])
+  } : {
+    balance: '0',
+    totalEarned: '0',
+    tier: SparksTier.None,
+    feeReduction: 0,
+    nextTierThreshold: '1000'
+  }
 
   const currentTier = tierInfo[sparksInfo.tier as SparksTier]
   const nextTier = sparksInfo.tier < SparksTier.Platinum ? tierInfo[(sparksInfo.tier + 1) as SparksTier] : null
@@ -150,7 +155,7 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
       <Card className={className}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Zap className="h-5 w-5 text-chart-1" />
             Sparks Rewards System
           </CardTitle>
           <CardDescription>
@@ -172,10 +177,10 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
+                <TrendingUp className="h-4 w-4 text-chart-2" />
                 <span className="text-sm font-medium">Total Earned</span>
               </div>
-              <div className="text-2xl font-bold text-primary">
+              <div className="text-2xl font-bold text-chart-2">
                 {Number(sparksInfo.totalEarned).toLocaleString()} ⚡
               </div>
             </div>
@@ -211,8 +216,8 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
           <div className="space-y-3">
             <h4 className="font-medium">Current Benefits</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                <Gift className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border">
+                <Gift className="h-4 w-4 text-chart-1" />
                 <div>
                   <div className="text-sm font-medium">Fee Reduction</div>
                   <div className="text-xs text-muted-foreground">{sparksInfo.feeReduction}% off management fees</div>
@@ -220,8 +225,8 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
               </div>
               
               {sparksInfo.tier >= SparksTier.Silver && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                  <Star className="h-4 w-4 text-secondary-foreground" />
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border">
+                  <Star className="h-4 w-4 text-chart-2" />
                   <div>
                     <div className="text-sm font-medium">Priority Support</div>
                     <div className="text-xs text-muted-foreground">Faster response times</div>
@@ -230,8 +235,8 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
               )}
               
               {sparksInfo.tier >= SparksTier.Gold && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
-                  <Crown className="h-4 w-4 text-accent-foreground" />
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-card border border-border">
+                  <Crown className="h-4 w-4 text-chart-1" />
                   <div>
                     <div className="text-sm font-medium">Exclusive Features</div>
                     <div className="text-xs text-muted-foreground">Early access to new strategies</div>
@@ -257,8 +262,8 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
                       isCurrentTier 
                         ? 'border-primary bg-primary/10' 
                         : isAchieved
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-muted'
+                        ? 'border-chart-2 bg-chart-2/10'
+                        : 'border-border bg-card'
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -277,10 +282,18 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
             </div>
           </div>
 
-          <Button onClick={() => refetch()} variant="outline" className="w-full">
-            <Zap className="h-4 w-4 mr-2" />
-            Refresh Sparks
-          </Button>
+          {contracts?.SparksManager && contracts.SparksManager !== '0x0000000000000000000000000000000000000000' ? (
+            <Button onClick={() => refetch()} variant="outline" className="w-full">
+              <Zap className="h-4 w-4 mr-2" />
+              Refresh Sparks
+            </Button>
+          ) : (
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Sparks Manager not deployed on {network} network
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     )
@@ -308,7 +321,7 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
         
         <div className="flex justify-between items-center">
           <span className="text-sm text-muted-foreground">Fee Reduction</span>
-          <span className="font-medium text-primary">{sparksInfo.feeReduction}%</span>
+          <span className="font-medium text-chart-1">{sparksInfo.feeReduction}%</span>
         </div>
         
         {nextTier && (

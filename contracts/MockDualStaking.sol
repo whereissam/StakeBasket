@@ -4,13 +4,14 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IDualStaking.sol";
 
 /**
  * @title MockDualStaking
  * @dev Mock implementation of CoreDAO's Dual Staking contract for testing
  * Simulates tier-based rewards based on CORE:BTC ratios
  */
-contract MockDualStaking is Ownable, ReentrancyGuard {
+contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
     
     // Token contracts
     IERC20 public coreToken;
@@ -65,7 +66,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Stake CORE tokens
      */
-    function stakeCORE(uint256 amount) external nonReentrant {
+    function stakeCORE(uint256 amount) external override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
         
         // Update rewards before changing stake
@@ -84,7 +85,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Stake BTC tokens
      */
-    function stakeBTC(uint256 amount) external nonReentrant {
+    function stakeBTC(uint256 amount) external override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
         
         // Update rewards before changing stake
@@ -103,7 +104,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Unstake CORE tokens
      */
-    function unstakeCORE(uint256 amount) external nonReentrant {
+    function unstakeCORE(uint256 amount) external override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
         require(
             userStakes[msg.sender].coreAmount >= amount,
@@ -126,7 +127,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Unstake BTC tokens
      */
-    function unstakeBTC(uint256 amount) external nonReentrant {
+    function unstakeBTC(uint256 amount) external override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
         require(
             userStakes[msg.sender].btcAmount >= amount,
@@ -149,7 +150,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Claim accumulated rewards
      */
-    function claimRewards() external nonReentrant returns (uint256) {
+    function claimRewards() external override nonReentrant returns (uint256) {
         _updateRewards(msg.sender);
         
         uint256 rewards = userStakes[msg.sender].accumulatedRewards;
@@ -225,7 +226,7 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Get user's stake information
      */
-    function getUserStake(address user) external view returns (uint256 btcAmount, uint256 coreAmount) {
+    function getUserStake(address user) external view override returns (uint256 btcAmount, uint256 coreAmount) {
         UserStake memory stake = userStakes[user];
         return (stake.btcAmount, stake.coreAmount);
     }
@@ -233,9 +234,16 @@ contract MockDualStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Get user's tier and current APY
      */
-    function getTierRewards(address user) external view returns (uint256 tier, uint256 apy) {
+    function getTierRewards(address user) external view override returns (uint256 tier, uint256 apy) {
         tier = _getUserTier(user);
         apy = _getTierAPY(tier);
+    }
+    
+    /**
+     * @dev Get current tier for user (IDualStaking interface)
+     */
+    function getCurrentTier(address user) external view override returns (uint256) {
+        return _getUserTier(user);
     }
     
     /**

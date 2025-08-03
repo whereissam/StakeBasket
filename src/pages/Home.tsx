@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from '@tanstack/react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectWallet } from "@/components/ConnectWallet";
+import { LogoFull } from "@/components/ui/logo";
 import { 
   TrendingUp, 
   Shield, 
@@ -29,9 +30,12 @@ export function Home() {
               <Star className="w-4 h-4 mr-2" />
               Now Live on Core Blockchain
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-primary via-chart-1 to-accent bg-clip-text text-transparent mb-6 tracking-tight">
-              StakeBasket
-            </h1>
+            <div className="flex flex-col items-center mb-6">
+              <LogoFull size="xl" className="mb-4" />
+              <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-primary via-chart-1 to-accent bg-clip-text text-transparent tracking-tight">
+                StakeBasket
+              </h1>
+            </div>
             <p className="text-2xl md:text-3xl text-card-foreground mb-6 max-w-4xl mx-auto font-medium">
               Multi-Asset Staking ETF on Core Blockchain
             </p>

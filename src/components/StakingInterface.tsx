@@ -3,7 +3,10 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect } from 'react'
 import { Coins, TrendingUp, Award, Gift, Lock, Unlock, DollarSign } from 'lucide-react'
-import { useAccount } from 'wagmi'
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useNetworkStore } from '../store/useNetworkStore'
+import { getNetworkByChainId } from '../config/contracts'
+import { parseEther, formatEther } from 'viem'
 
 interface StakeInfo {
   amount: string
@@ -31,20 +34,164 @@ interface TierInfo {
 
 export function StakingInterface() {
   const { address } = useAccount()
+  const chainId = useChainId()
+  const { chainId: storeChainId } = useNetworkStore()
+  const currentChainId = chainId || storeChainId || 31337
+  const { contracts } = getNetworkByChainId(currentChainId)
   
-  const [basketBalance, setBasketBalance] = useState('0')
-  const [stakeInfo, setStakeInfo] = useState<StakeInfo>({
-    amount: '0',
-    pendingRewards: '0',
-    lastClaimTime: 0,
-    tier: Tier.None
+  const { writeContract, data: hash, isPending: isContractPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
   })
+  
+  // Contract ABIs
+  const basketTokenABI = [
+    {
+      inputs: [{ internalType: "address", name: "owner", type: "address" }],
+      name: "balanceOf",
+      outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      stateMutability: "view",
+      type: "function"
+    }
+  ] as const
+  
+  const basketStakingABI = [
+    {
+      inputs: [{ internalType: "address", name: "user", type: "address" }],
+      name: "getUserStakeInfo",
+      outputs: [
+        { internalType: "uint256", name: "amount", type: "uint256" },
+        { internalType: "uint256", name: "pendingRewards", type: "uint256" },
+        { internalType: "uint256", name: "lastClaimTime", type: "uint256" },
+        { internalType: "uint8", name: "tier", type: "uint8" }
+      ],
+      stateMutability: "view",
+      type: "function"
+    },
+    {
+      inputs: [{ internalType: "address", name: "user", type: "address" }],
+      name: "getUserTier", 
+      outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+      stateMutability: "view",
+      type: "function"
+    },
+    {
+      inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+      name: "stake",
+      outputs: [],
+      stateMutability: "nonpayable",
+      type: "function"
+    },
+    {
+      inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+      name: "unstake",
+      outputs: [],
+      stateMutability: "nonpayable",
+      type: "function"
+    },
+    {
+      inputs: [],
+      name: "claimRewards",
+      outputs: [],
+      stateMutability: "nonpayable", 
+      type: "function"
+    }
+  ] as const
+  
+  // Read BASKET token balance
+  
+  // Read staking info
+  const { data: stakeInfoData, refetch: refetchStakeInfo } = useReadContract({
+    address: contracts?.BasketStaking as `0x${string}`,
+    abi: basketStakingABI,
+    functionName: 'getUserStakeInfo',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && !!contracts?.BasketStaking
+    }
+  })
+  
+  // Calculate tier from staked amount
+  const { data: userTier, refetch: refetchUserTier } = useReadContract({
+    address: contracts?.BasketStaking as `0x${string}`,
+    abi: basketStakingABI,
+    functionName: 'getUserTier',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && !!contracts?.BasketStaking
+    }
+  })
+  
+  // Read basket balance
+  const { data: basketBalance, refetch: refetchBasketBalance } = useReadContract({
+    address: contracts?.BasketToken as `0x${string}`,
+    abi: basketTokenABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address && !!contracts?.BasketToken
+    }
+  })
+
+  // Read current allowance
+  const { data: currentAllowance, refetch: refetchAllowance } = useReadContract({
+    address: contracts?.BasketToken as `0x${string}`,
+    abi: [
+      {
+        inputs: [
+          { internalType: "address", name: "owner", type: "address" },
+          { internalType: "address", name: "spender", type: "address" }
+        ],
+        name: "allowance",
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        stateMutability: "view",
+        type: "function"
+      }
+    ] as const,
+    functionName: 'allowance',
+    args: address && contracts?.BasketStaking ? [address, contracts.BasketStaking as `0x${string}`] : undefined,
+    query: {
+      enabled: !!address && !!contracts?.BasketToken && !!contracts?.BasketStaking
+    }
+  })
+  
+  // Debug logging
+  console.log('StakeInfoData:', stakeInfoData)
+  console.log('UserTier:', userTier)
+  console.log('BasketBalance:', basketBalance)
+  console.log('CurrentAllowance:', currentAllowance)
+  
+  // Convert contract data to display format
+  const basketBalanceFormatted = basketBalance ? (Number(basketBalance) / 1e18).toString() : '0'
+  const stakeInfo: StakeInfo = {
+    amount: stakeInfoData ? (Number(stakeInfoData[0]) / 1e18).toString() : '0',
+    pendingRewards: stakeInfoData ? (Number(stakeInfoData[1]) / 1e18).toString() : '0',
+    lastClaimTime: stakeInfoData ? Number(stakeInfoData[2]) * 1000 : 0, // Convert to milliseconds
+    tier: userTier ? Number(userTier) : Tier.None
+  }
   
   const [stakeAmount, setStakeAmount] = useState('')
   const [unstakeAmount, setUnstakeAmount] = useState('')
-  const [isStaking, setIsStaking] = useState(false)
-  const [isUnstaking, setIsUnstaking] = useState(false)
-  const [isClaiming, setIsClaiming] = useState(false)
+  const [needsApproval, setNeedsApproval] = useState(true)
+  const [isApproving, setIsApproving] = useState(false)
+
+  // Check if approval is needed when stake amount or allowance changes
+  useEffect(() => {
+    if (stakeAmount && currentAllowance !== undefined) {
+      try {
+        const stakeAmountBigInt = parseEther(stakeAmount)
+        const allowanceBigInt = currentAllowance as bigint
+        const approvalNeeded = stakeAmountBigInt > allowanceBigInt
+        setNeedsApproval(approvalNeeded)
+        console.log(`Approval needed: ${approvalNeeded} (stake: ${stakeAmount}, allowance: ${formatEther(allowanceBigInt)})`)
+      } catch (error) {
+        console.log('Error parsing stake amount:', error)
+        setNeedsApproval(true)
+      }
+    } else {
+      setNeedsApproval(true)
+    }
+  }, [stakeAmount, currentAllowance])
   
   const tierInfo: Record<Tier, TierInfo> = {
     [Tier.None]: {
@@ -118,94 +265,109 @@ export function StakingInterface() {
     }
   }
 
-  const handleStake = async () => {
-    if (!address || !stakeAmount) return
+  const handleApprove = async () => {
+    if (!address || !stakeAmount || !contracts?.BasketStaking || !contracts?.BasketToken) return
     
-    setIsStaking(true)
     try {
-      // TODO: Integrate with wagmi/viem to call staking contract
-      console.log(`Staking ${stakeAmount} BASKET tokens`)
-      
-      // Simulate staking transaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Update state (in real implementation, this would come from contract events)
-      const newAmount = Number(stakeInfo.amount) + Number(stakeAmount)
-      setStakeInfo(prev => ({
-        ...prev,
-        amount: newAmount.toString()
-      }))
-      
-      setStakeAmount('')
+      console.log('Starting approval...')
+      setIsApproving(true)
+      writeContract({
+        address: contracts.BasketToken as `0x${string}`,
+        abi: [
+          {
+            inputs: [
+              { internalType: "address", name: "spender", type: "address" },
+              { internalType: "uint256", name: "amount", type: "uint256" }
+            ],
+            name: "approve",
+            outputs: [{ internalType: "bool", name: "", type: "bool" }],
+            stateMutability: "nonpayable",
+            type: "function"
+          }
+        ],
+        functionName: 'approve',
+        args: [contracts.BasketStaking as `0x${string}`, parseEther(stakeAmount)],
+      })
+    } catch (error) {
+      console.error('Approval failed:', error)
+      setIsApproving(false)
+    }
+  }
+
+  const handleStake = async () => {
+    if (!address || !stakeAmount || !contracts?.BasketStaking) return
+    
+    try {
+      console.log('Starting stake...', {
+        stakeAmount,
+        contractAddress: contracts.BasketStaking,
+        stakeAmountParsed: parseEther(stakeAmount).toString()
+      })
+      writeContract({
+        address: contracts.BasketStaking as `0x${string}`,
+        abi: basketStakingABI,
+        functionName: 'stake',
+        args: [parseEther(stakeAmount)],
+      })
     } catch (error) {
       console.error('Staking failed:', error)
-    } finally {
-      setIsStaking(false)
     }
   }
 
   const handleUnstake = async () => {
-    if (!address || !unstakeAmount) return
+    if (!address || !unstakeAmount || !contracts?.BasketStaking) return
     
-    setIsUnstaking(true)
     try {
-      // TODO: Integrate with wagmi/viem to call staking contract
-      console.log(`Unstaking ${unstakeAmount} BASKET tokens`)
-      
-      // Simulate unstaking transaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Update state
-      const newAmount = Math.max(0, Number(stakeInfo.amount) - Number(unstakeAmount))
-      setStakeInfo(prev => ({
-        ...prev,
-        amount: newAmount.toString()
-      }))
+      // Call unstake function on contract
+      writeContract({
+        address: contracts.BasketStaking as `0x${string}`,
+        abi: basketStakingABI,
+        functionName: 'unstake',
+        args: [parseEther(unstakeAmount)],
+      })
       
       setUnstakeAmount('')
     } catch (error) {
       console.error('Unstaking failed:', error)
-    } finally {
-      setIsUnstaking(false)
     }
   }
 
   const handleClaimRewards = async () => {
-    if (!address) return
+    if (!address || !contracts?.BasketStaking) return
     
-    setIsClaiming(true)
     try {
-      // TODO: Integrate with wagmi/viem to call staking contract
-      console.log(`Claiming ${stakeInfo.pendingRewards} ETH rewards`)
-      
-      // Simulate claiming transaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Update state
-      setStakeInfo(prev => ({
-        ...prev,
-        pendingRewards: '0',
-        lastClaimTime: Date.now()
-      }))
+      // Call claim rewards function on contract
+      writeContract({
+        address: contracts.BasketStaking as `0x${string}`,
+        abi: basketStakingABI,
+        functionName: 'claimRewards',
+        args: [],
+      })
     } catch (error) {
       console.error('Claiming failed:', error)
-    } finally {
-      setIsClaiming(false)
     }
   }
 
-  // Mock data for demonstration
+  // Handle transaction confirmation
   useEffect(() => {
-    if (address) {
-      setBasketBalance('25000') // Mock balance
-      setStakeInfo({
-        amount: '15000', // Mock staked amount
-        pendingRewards: '0.125', // Mock pending rewards in ETH
-        lastClaimTime: Date.now() - 86400000, // 1 day ago
-        tier: Tier.Gold // Mock tier
-      })
+    if (isConfirmed) {
+      if (isApproving) {
+        // Just completed approval, refetch allowance
+        console.log('Approval confirmed! Refetching allowance...')
+        setIsApproving(false)
+        refetchAllowance()
+      } else {
+        // Completed staking or unstaking - reset everything
+        console.log('Transaction confirmed! Refetching all data...')
+        refetchStakeInfo()
+        refetchUserTier()
+        refetchBasketBalance()
+        refetchAllowance()
+        setStakeAmount('')
+        setUnstakeAmount('')
+      }
     }
-  }, [address])
+  }, [isConfirmed, isApproving, refetchStakeInfo, refetchUserTier, refetchBasketBalance, refetchAllowance])
 
   if (!address) {
     return (
@@ -282,7 +444,7 @@ export function StakingInterface() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{Number(basketBalance).toLocaleString()}</div>
+            <div className="text-2xl font-bold text-card-foreground">{Number(basketBalanceFormatted).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">BASKET tokens</p>
           </CardContent>
         </Card>
@@ -356,25 +518,46 @@ export function StakingInterface() {
                 value={stakeAmount}
                 onChange={(e) => setStakeAmount(e.target.value)}
                 placeholder="0.00"
-                max={basketBalance}
+                max={basketBalanceFormatted}
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Available: {Number(basketBalance).toLocaleString()} BASKET</span>
+                <span>Available: {Number(basketBalanceFormatted).toLocaleString()} BASKET</span>
                 <button 
-                  onClick={() => setStakeAmount(basketBalance)}
+                  onClick={() => setStakeAmount(basketBalanceFormatted)}
                   className="text-primary hover:underline"
                 >
                   Max
                 </button>
               </div>
             </div>
-            <Button 
-              onClick={handleStake}
-              disabled={isStaking || !stakeAmount || Number(stakeAmount) <= 0}
-              className="w-full"
-            >
-              {isStaking ? 'Staking...' : 'Stake BASKET'}
-            </Button>
+            {needsApproval ? (
+              <Button 
+                onClick={handleApprove}
+                disabled={isContractPending || isConfirming || !stakeAmount || Number(stakeAmount) <= 0}
+                className="w-full"
+              >
+                {isContractPending && isApproving ? 'Approving...' : 
+                 isConfirming && isApproving ? 'Confirming Approval...' : 
+                 'Approve BASKET'}
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleStake}
+                disabled={isContractPending || isConfirming || !stakeAmount || Number(stakeAmount) <= 0}
+                className="w-full"
+              >
+                {isContractPending && !isApproving ? 'Staking...' : 
+                 isConfirming && !isApproving ? 'Confirming Stake...' : 
+                 'Stake BASKET'}
+              </Button>
+            )}
+            
+            {/* Debug info */}
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div>Debug: needsApproval={needsApproval.toString()}, isApproving={isApproving.toString()}</div>
+              <div>Allowance: {currentAllowance ? formatEther(currentAllowance) : 'Loading...'} BASKET</div>
+              <div>Pending: {isContractPending.toString()}, Confirming: {isConfirming.toString()}</div>
+            </div>
           </CardContent>
         </Card>
 
@@ -411,11 +594,13 @@ export function StakingInterface() {
             </div>
             <Button 
               onClick={handleUnstake}
-              disabled={isUnstaking || !unstakeAmount || Number(unstakeAmount) <= 0}
+              disabled={isContractPending || isConfirming || !unstakeAmount || Number(unstakeAmount) <= 0}
               variant="outline"
               className="w-full"
             >
-              {isUnstaking ? 'Unstaking...' : 'Unstake BASKET'}
+              {isContractPending ? 'Submitting...' : 
+               isConfirming ? 'Confirming...' : 
+               'Unstake BASKET'}
             </Button>
           </CardContent>
         </Card>
@@ -443,9 +628,11 @@ export function StakingInterface() {
             </div>
             <Button 
               onClick={handleClaimRewards}
-              disabled={isClaiming || Number(stakeInfo.pendingRewards) <= 0}
+              disabled={isContractPending || isConfirming || Number(stakeInfo.pendingRewards) <= 0}
             >
-              {isClaiming ? 'Claiming...' : 'Claim Rewards'}
+              {isContractPending ? 'Submitting...' : 
+               isConfirming ? 'Confirming...' : 
+               'Claim Rewards'}
             </Button>
           </div>
         </CardContent>

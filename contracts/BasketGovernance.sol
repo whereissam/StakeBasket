@@ -7,7 +7,16 @@ import "./StakeBasketToken.sol";
 
 interface IBasketStaking {
     function getVotingMultiplier(address user) external view returns (uint256);
-    function getUserStakeInfo(address user) external view returns (uint256, uint256, uint256, uint8);
+    function getUserStakeInfo(address user) external view returns (uint256, uint256, uint256, Tier);
+    function getFeeReduction(address user) external view returns (uint256);
+    
+    enum Tier {
+        None,
+        Bronze,
+        Silver,
+        Gold,
+        Platinum
+    }
 }
 
 /**
@@ -46,7 +55,10 @@ contract BasketGovernance is ReentrancyGuard, Ownable {
         StrategyRemoval,
         FeeAdjustment,
         TreasuryAllocation,
-        ContractUpgrade
+        ContractUpgrade,
+        CoreDAOValidatorDelegation,
+        CoreDAOHashPowerDelegation,
+        CoreDAOGovernanceVote
     }
     
     struct Proposal {

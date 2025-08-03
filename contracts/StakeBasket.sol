@@ -80,9 +80,7 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     function deposit(uint256 amount) external payable nonReentrant whenNotPaused {
         require(amount > 0, "StakeBasket: amount must be greater than 0");
         
-        // Transfer CORE tokens from user to this contract
-        // Note: In a real implementation, you'd use the actual CORE token contract
-        // For this POC, we're simulating with native CORE (ETH-like behavior on Core chain)
+        // Accept native CORE (ETH) payments
         require(msg.value == amount, "StakeBasket: sent value must equal amount");
         
         // Apply tiered fee reduction if BasketStaking is set
@@ -152,7 +150,7 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         }
         
         uint256 corePrice = priceFeed.getCorePrice();
-        uint256 lstBTCPrice = priceFeed.getLstBTCPrice();
+        uint256 lstBTCPrice = priceFeed.getSolvBTCPrice();
         return (totalPooledCore * corePrice + totalPooledLstBTC * lstBTCPrice) / 1e18;
     }
     
@@ -172,11 +170,11 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         
         if (address(priceFeed) != address(0)) {
             corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getLstBTCPrice();
+            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
         } else {
             // Fallback to mock prices
-            corePrice_ = 1e18;
-            lstBTCPrice_ = 95000e18;
+            corePrice_ = 15e17;  // $1.5 CORE
+            lstBTCPrice_ = 95000e18; // $95k BTC
         }
         
         uint256 totalAssetValue = (totalPooledCore * corePrice_ + totalPooledLstBTC * lstBTCPrice_) / 1e18;
@@ -196,11 +194,11 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         
         if (address(priceFeed) != address(0)) {
             corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getLstBTCPrice();
+            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
         } else {
             // Fallback to mock prices
-            corePrice_ = 1e18;
-            lstBTCPrice_ = 95000e18;
+            corePrice_ = 15e17;  // $1.5 CORE
+            lstBTCPrice_ = 95000e18; // $95k BTC
         }
         
         uint256 totalAssetValue = (totalPooledCore * corePrice_ + totalPooledLstBTC * lstBTCPrice_) / 1e18;
@@ -226,11 +224,11 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         
         if (address(priceFeed) != address(0)) {
             corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getLstBTCPrice();
+            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
         } else {
             // Fallback to mock prices
-            corePrice_ = 1e18;
-            lstBTCPrice_ = 95000e18;
+            corePrice_ = 15e17;  // $1.5 CORE
+            lstBTCPrice_ = 95000e18; // $95k BTC
         }
         
         uint256 assetPrice = asset == address(0) ? corePrice_ : lstBTCPrice_;
@@ -254,11 +252,11 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         
         if (address(priceFeed) != address(0)) {
             corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getLstBTCPrice();
+            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
         } else {
             // Fallback to mock prices
-            corePrice_ = 1e18;
-            lstBTCPrice_ = 95000e18;
+            corePrice_ = 15e17;  // $1.5 CORE
+            lstBTCPrice_ = 95000e18; // $95k BTC
         }
         
         uint256 totalAssetValue = (totalPooledCore * corePrice_ + totalPooledLstBTC * lstBTCPrice_) / 1e18;
@@ -278,6 +276,19 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
             totalPooledCore += totalRewards;
             emit RewardsCompounded(totalRewards);
         }
+    }
+    
+    /**
+     * @dev Delegate CORE to validators through StakingManager
+     * @param validatorAddress Validator to delegate to
+     * @param amount Amount to delegate
+     */
+    function delegateCore(address validatorAddress, uint256 amount) external onlyOwner {
+        require(address(stakingManager) != address(0), "StakeBasket: staking manager not set");
+        require(address(this).balance >= amount, "StakeBasket: insufficient balance");
+        
+        // Call StakingManager with ETH
+        stakingManager.delegateCore{value: amount}(validatorAddress, amount);
     }
     
     /**

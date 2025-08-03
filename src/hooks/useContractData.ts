@@ -108,14 +108,14 @@ export function useContractData(userAddress?: string) {
     return () => clearInterval(interval)
   }, [userAddress, chainId])
 
-  // Get BASKET token balance
+  // Get BASKET token balance (governance token)
   const { data: basketBalance } = useReadContract({
-    address: contracts.StakeBasketToken as `0x${string}`,
+    address: contracts.BasketToken as `0x${string}`,
     abi: CORE_TOKEN_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress as `0x${string}`] : undefined,
     query: { 
-      enabled: !!userAddress && !!contracts.StakeBasketToken,
+      enabled: !!userAddress && !!contracts.BasketToken,
       refetchInterval: 2000 // Refresh every 2 seconds
     }
   })

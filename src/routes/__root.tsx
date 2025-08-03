@@ -5,6 +5,7 @@ import { MobileNav } from '@/components/mobile-nav'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { NavDropdown } from '@/components/NavDropdown'
+import { LogoIcon, LogoCompact } from '@/components/ui/logo'
 import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard } from 'lucide-react'
 
 export const Route = createRootRoute({
@@ -16,9 +17,14 @@ export const Route = createRootRoute({
             <div className="flex items-center space-x-4 md:space-x-8">
               <Link 
                 to="/" 
-                className="text-lg font-semibold text-foreground hover:text-primary transition-colors cursor-pointer"
+                className="hover:opacity-80 transition-opacity cursor-pointer"
               >
-                StakeBasket
+                <div className="hidden sm:block">
+                  <LogoCompact size="md" showText={true} />
+                </div>
+                <div className="sm:hidden">
+                  <LogoIcon size="md" />
+                </div>
               </Link>
               <div className="hidden sm:flex space-x-6">
                 <Link 

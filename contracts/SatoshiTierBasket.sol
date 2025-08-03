@@ -170,7 +170,7 @@ contract SatoshiTierBasket is DualStakingBasket {
         if (coreNeeded == 0) return 0;
         
         uint256 corePrice = priceFeed.getCorePrice();
-        uint256 btcPrice = priceFeed.getLstBTCPrice();
+        uint256 btcPrice = priceFeed.getSolvBTCPrice();
         
         // Account for slippage and fees
         uint256 btcNeeded = (coreNeeded * corePrice * (10000 + MAX_REBALANCE_SLIPPAGE)) / (btcPrice * 10000);

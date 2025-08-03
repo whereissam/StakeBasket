@@ -111,28 +111,50 @@ export const PRICE_FEED_ABI = [
   'event PriceUpdated(string indexed asset, uint256 price, uint256 timestamp)',
 ] as const;
 
-export const MOCK_DUAL_STAKING_ABI = [
-  // Staking functions
+export const PROPER_DUAL_STAKING_ABI = [
+  // Main staking functions
   'function stake(uint256 coreAmount, uint256 btcAmount) external',
   'function unstake(uint256 shares) external',
-  'function claimRewards() external',
+  'function claimRewards() external returns (uint256)',
   
   // View functions
-  'function getTierStatus(address user) external view returns (uint8 tier, uint256 coreStaked, uint256 btcStaked, uint256 ratio, uint256 rewards, uint256 apy)',
   'function getUserStakeInfo(address user) external view returns (uint256 coreStaked, uint256 btcStaked, uint256 shares, uint256 rewards, uint256 lastClaimTime)',
-  'function getTierRequirements(uint8 tier) external view returns (uint256 ratio, uint256 apy, string memory name)',
+  'function getTierStatus(address user) external view returns (uint8 tier, uint256 coreStaked, uint256 btcStaked, uint256 ratio, uint256 rewards, uint256 apy)',
   'function calculateTier(uint256 coreAmount, uint256 btcAmount) external pure returns (uint8)',
   'function estimateRewards(address user) external view returns (uint256)',
   
-  // Tier ratios (CORE:BTC)
-  'function TIER_RATIOS(uint8) external view returns (uint256)',
-  'function TIER_APYS(uint8) external view returns (uint256)',
+  // Token addresses
+  'function coreToken() external view returns (address)',
+  'function btcToken() external view returns (address)',
+  
+  // Pool info
+  'function totalStakedCORE() external view returns (uint256)',
+  'function totalStakedBTC() external view returns (uint256)',
+  'function totalShares() external view returns (uint256)',
+  'function rewardPool() external view returns (uint256)',
+  
+  // Admin functions
+  'function fundRewardPool(uint256 amount) external',
+  'function setTierAPYs(uint256 _baseTierAPY, uint256 _boostTierAPY, uint256 _superTierAPY, uint256 _satoshiTierAPY) external',
+  
+  // Constants
+  'function BASE_RATIO() external view returns (uint256)',
+  'function BOOST_RATIO() external view returns (uint256)',
+  'function SUPER_RATIO() external view returns (uint256)',
+  'function SATOSHI_RATIO() external view returns (uint256)',
+  'function baseTierAPY() external view returns (uint256)',
+  'function boostTierAPY() external view returns (uint256)',
+  'function superTierAPY() external view returns (uint256)',
+  'function satoshiTierAPY() external view returns (uint256)',
   
   // Events
-  'event Staked(address indexed user, uint256 coreAmount, uint256 btcAmount, uint8 tier, uint256 shares)',
-  'event Unstaked(address indexed user, uint256 shares, uint256 coreAmount, uint256 btcAmount)',
+  'event DualStaked(address indexed user, uint256 coreAmount, uint256 btcAmount, uint256 shares, uint8 tier)',
+  'event Unstaked(address indexed user, uint256 coreAmount, uint256 btcAmount, uint256 shares)',
   'event RewardsClaimed(address indexed user, uint256 amount)',
 ] as const;
+
+// Legacy ABI alias for backward compatibility
+export const MOCK_DUAL_STAKING_ABI = PROPER_DUAL_STAKING_ABI;
 
 export const SATOSHI_TIER_BASKET_ABI = [
   // Main functions

@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Select, SelectItem } from './ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { TransactionHistory } from './TransactionHistory'
 import { SparksWidget } from './SparksWidget'
+import { LiquidStakingInterface } from './LiquidStakingInterface'
 import { useState } from 'react'
-import { TrendingUp, Wallet, DollarSign, Users, ArrowLeftRight, Award, AlertTriangle, Zap } from 'lucide-react'
+import { TrendingUp, Wallet, DollarSign, Users, ArrowLeftRight, Award, AlertTriangle, Zap, Droplets } from 'lucide-react'
 
 export function Dashboard() {
   const {
@@ -211,7 +213,21 @@ export function Dashboard() {
         <SparksWidget showDetailed={false} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Main Dashboard Tabs */}
+      <Tabs defaultValue="basket" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="basket" className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            StakeBasket ETF
+          </TabsTrigger>
+          <TabsTrigger value="liquid-staking" className="flex items-center gap-2">
+            <Droplets className="h-4 w-4" />
+            Liquid Staking
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="basket" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* My Portfolio */}
         <Card>
           <CardHeader>
@@ -322,45 +338,51 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* ETF Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>About StakeBasket</CardTitle>
-          <CardDescription>How StakeBasket works and what you're investing in</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium mb-2">Strategy</h4>
-              <p className="text-sm text-muted-foreground">
-                StakeBasket automatically stakes CORE tokens with high-performing validators and invests in liquid staked Bitcoin (lstBTC) 
-                to maximize yield while maintaining liquidity.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-medium mb-2">Asset Allocation</h4>
-              <p className="text-sm text-muted-foreground">
-                65% CORE staking with top validators, 35% lstBTC for Bitcoin exposure. 
-                Rebalanced monthly based on performance and market conditions.
-              </p>
-            </div>
-          </div>
-          
-          <div className="pt-4 border-t">
-            <h4 className="font-medium mb-2">Key Features</h4>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Instant liquidity - redeem anytime</li>
-              <li>• Professional validator selection and management</li>
-              <li>• Automatic reward compounding</li>
-              <li>• Transparent on-chain operations</li>
-              <li>• Low management fees (0.5% annually)</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+          {/* ETF Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>About StakeBasket</CardTitle>
+              <CardDescription>How StakeBasket works and what you're investing in</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium mb-2">Strategy</h4>
+                  <p className="text-sm text-muted-foreground">
+                    StakeBasket automatically stakes CORE tokens with high-performing validators and invests in liquid staked Bitcoin (lstBTC) 
+                    to maximize yield while maintaining liquidity.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium mb-2">Asset Allocation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    65% CORE staking with top validators, 35% lstBTC for Bitcoin exposure. 
+                    Rebalanced monthly based on performance and market conditions.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-2">Key Features</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Instant liquidity - redeem anytime</li>
+                  <li>• Professional validator selection and management</li>
+                  <li>• Automatic reward compounding</li>
+                  <li>• Transparent on-chain operations</li>
+                  <li>• Low management fees (0.5% annually)</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Transaction History */}
-      <TransactionHistory />
+          {/* Transaction History */}
+          <TransactionHistory />
+        </TabsContent>
+
+        <TabsContent value="liquid-staking" className="space-y-6">
+          <LiquidStakingInterface />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

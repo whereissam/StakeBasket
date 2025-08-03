@@ -4,32 +4,9 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/ICoreStaking.sol";
+import "./interfaces/ILstBTC.sol";
 
-// Core staking contract interface
-interface ICoreStaking {
-    function delegate(address validator, uint256 amount) external;
-    function undelegate(address validator, uint256 amount) external;
-    function redelegate(address fromValidator, address toValidator, uint256 amount) external;
-    function claimRewards(address validator) external returns (uint256);
-    function getDelegatedAmount(address delegator, address validator) external view returns (uint256);
-    function getRewards(address delegator, address validator) external view returns (uint256);
-    function getAllValidatorAddresses() external view returns (address[] memory);
-    function getValidatorInfo(address validator) external view returns (
-        uint256 delegatedCore,
-        uint256 commissionRate,
-        uint256 hybridScore,
-        bool isActive
-    );
-    function getValidatorEffectiveAPY(address validator) external view returns (uint256);
-    function getValidatorRiskScore(address validator) external view returns (uint256);
-}
-
-// lstBTC contract interface (placeholder - to be replaced with actual interface) 
-interface ILstBTC {
-    function mint(uint256 coreBTCAmount) external returns (uint256);
-    function redeem(uint256 lstBTCAmount) external returns (uint256);
-    function getExchangeRate() external view returns (uint256);
-}
 
 /**
  * @title StakingManager
@@ -118,20 +95,19 @@ contract StakingManager is Ownable, ReentrancyGuard {
      */
     function delegateCore(address validatorAddress, uint256 amount) 
         external 
+        payable
         onlyStakeBasket 
         nonReentrant 
     {
         require(isActiveValidator[validatorAddress], "StakingManager: validator not active");
         require(amount > 0, "StakingManager: amount must be greater than 0");
         
-        // Transfer CORE tokens from StakeBasket to this contract for delegation
-        if (address(coreToken) != address(0)) {
-            coreToken.transferFrom(stakeBasketContract, address(this), amount);
-            coreToken.approve(address(coreStakingContract), amount);
-        }
+        // Handle CORE delegation - should receive ETH from StakeBasket
+        require(msg.value == amount, "StakingManager: ETH amount mismatch");
         
         if (address(coreStakingContract) != address(0)) {
-            coreStakingContract.delegate(validatorAddress, amount);
+            // Delegate ETH to validator
+            coreStakingContract.delegate{value: amount}(validatorAddress);
         }
         
         delegatedCoreByValidator[validatorAddress] += amount;
@@ -171,7 +147,7 @@ contract StakingManager is Ownable, ReentrancyGuard {
             address validator = activeCoreValidators[i];
             
             if (address(coreStakingContract) != address(0)) {
-                uint256 rewards = coreStakingContract.claimRewards(validator);
+                uint256 rewards = coreStakingContract.claimReward(validator);
                 totalRewards += rewards;
                 
                 if (rewards > 0) {

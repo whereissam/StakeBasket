@@ -7,17 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./StakeBasketToken.sol";
 import "./PriceFeed.sol";
+import "./interfaces/IDualStaking.sol";
 
-// Dual staking interface
-interface IDualStaking {
-    function stakeBTC(uint256 amount) external;
-    function stakeCORE(uint256 amount) external;
-    function unstakeBTC(uint256 amount) external;
-    function unstakeCORE(uint256 amount) external;
-    function claimRewards() external returns (uint256);
-    function getUserStake(address user) external view returns (uint256 btcAmount, uint256 coreAmount);
-    function getTierRewards(address user) external view returns (uint256 tier, uint256 apy);
-}
 
 /**
  * @title DualStakingBasket
@@ -84,6 +75,13 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         StakingTier _targetTier,
         address initialOwner
     ) Ownable(initialOwner) {
+        require(_basketToken != address(0), "DualStaking: invalid basket token");
+        require(_priceFeed != address(0), "DualStaking: invalid price feed");
+        require(_coreToken != address(0), "DualStaking: invalid core token");
+        require(_btcToken != address(0), "DualStaking: invalid btc token");
+        require(_dualStakingContract != address(0), "DualStaking: invalid dual staking contract");
+        require(_feeRecipient != address(0), "DualStaking: invalid fee recipient");
+        
         basketToken = StakeBasketToken(_basketToken);
         priceFeed = PriceFeed(_priceFeed);
         coreToken = IERC20(_coreToken);
@@ -229,7 +227,7 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         
         // Convert CORE needed to BTC amount (considering swap rates)
         uint256 corePrice = priceFeed.getCorePrice();
-        uint256 btcPrice = priceFeed.getLstBTCPrice(); // Using lstBTC price as proxy
+        uint256 btcPrice = priceFeed.getSolvBTCPrice(); // Using SolvBTC price as proxy
         
         uint256 btcToSwap = (coreNeeded * corePrice) / btcPrice;
         
@@ -316,12 +314,12 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         if (basketToken.totalSupply() == 0) {
             // Initial deposit: use USD value
             uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18;
-            uint256 btcValue = (btcAmount * priceFeed.getLstBTCPrice()) / 1e18;
+            uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e18;
             return coreValue + btcValue;
         }
         
         uint256 totalValue = _getTotalValue();
-        uint256 depositValue = (coreAmount * priceFeed.getCorePrice() + btcAmount * priceFeed.getLstBTCPrice()) / 1e18;
+        uint256 depositValue = (coreAmount * priceFeed.getCorePrice() + btcAmount * priceFeed.getSolvBTCPrice()) / 1e18;
         
         return (depositValue * basketToken.totalSupply()) / totalValue;
     }
@@ -341,7 +339,7 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function _getTotalValue() internal view returns (uint256) {
         uint256 coreValue = (totalPooledCORE * priceFeed.getCorePrice()) / 1e18;
-        uint256 btcValue = (totalPooledBTC * priceFeed.getLstBTCPrice()) / 1e18;
+        uint256 btcValue = (totalPooledBTC * priceFeed.getSolvBTCPrice()) / 1e18;
         return coreValue + btcValue;
     }
     
@@ -394,6 +392,22 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function setSwapRouter(address _router) external onlyOwner {
         swapRouter = _router;
+    }
+    
+    /**
+     * @dev Set dual staking contract
+     */
+    function setDualStakingContract(address _dualStakingContract) external onlyOwner {
+        require(_dualStakingContract != address(0), "DualStaking: invalid contract");
+        dualStakingContract = IDualStaking(_dualStakingContract);
+    }
+    
+    /**
+     * @dev Set price feed contract
+     */
+    function setPriceFeed(address _priceFeed) external onlyOwner {
+        require(_priceFeed != address(0), "DualStaking: invalid price feed");
+        priceFeed = PriceFeed(_priceFeed);
     }
     
     /**

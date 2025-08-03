@@ -91,21 +91,38 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Delegate CORE tokens to a validator
+     * @dev Delegate CORE tokens to a validator (public interface)
+     */
+    function delegate(address validator) external payable nonReentrant {
+        require(msg.value > 0, "Amount must be greater than 0");
+        _delegate(msg.sender, validator, msg.value);
+    }
+    
+    /**
+     * @dev Delegate CORE tokens to a validator with amount parameter (legacy)
      */
     function delegate(address validator, uint256 amount) external nonReentrant {
+        _delegate(msg.sender, validator, amount);
+    }
+    
+    /**
+     * @dev Internal delegate function that can be called by proxy contracts
+     */
+    function _delegate(address delegator, address validator, uint256 amount) internal {
         require(validators[validator].isActive, "Validator not active");
         require(amount > 0, "Amount must be greater than 0");
         
-        // Transfer CORE tokens from user
-        coreToken.transferFrom(msg.sender, address(this), amount);
+        // Transfer CORE tokens from delegator (if not ETH payment)
+        if (msg.value == 0 && address(coreToken) != address(0)) {
+            coreToken.transferFrom(delegator, address(this), amount);
+        }
         
         // Update delegation
-        Delegation storage delegation = delegations[msg.sender][validator];
+        Delegation storage delegation = delegations[delegator][validator];
         
         // Claim any pending rewards first
         if (delegation.amount > 0) {
-            _updateRewards(msg.sender, validator);
+            _updateRewards(delegator, validator);
         }
         
         delegation.amount += amount;
@@ -113,32 +130,44 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         
         // Update totals
         validators[validator].totalDelegated += amount;
-        totalDelegatedByUser[msg.sender] += amount;
+        totalDelegatedByUser[delegator] += amount;
         
-        emit Delegated(msg.sender, validator, amount);
+        emit Delegated(delegator, validator, amount);
     }
     
     /**
-     * @dev Undelegate CORE tokens from a validator
+     * @dev Undelegate CORE tokens from a validator (public interface)
      */
     function undelegate(address validator, uint256 amount) external nonReentrant {
-        Delegation storage delegation = delegations[msg.sender][validator];
+        _undelegate(msg.sender, validator, amount);
+    }
+    
+    /**
+     * @dev Internal undelegate function that can be called by proxy contracts
+     */
+    function _undelegate(address delegator, address validator, uint256 amount) internal {
+        Delegation storage delegation = delegations[delegator][validator];
         require(delegation.amount >= amount, "Insufficient delegated amount");
         
         // Update rewards before undelegating
-        _updateRewards(msg.sender, validator);
+        _updateRewards(delegator, validator);
         
         // Update delegation
         delegation.amount -= amount;
         
         // Update totals
         validators[validator].totalDelegated -= amount;
-        totalDelegatedByUser[msg.sender] -= amount;
+        totalDelegatedByUser[delegator] -= amount;
         
         // Transfer tokens back (in real Core, there would be an unbonding period)
-        coreToken.transfer(msg.sender, amount);
+        if (address(coreToken) != address(0)) {
+            coreToken.transfer(delegator, amount);
+        } else {
+            // Transfer ETH back
+            payable(delegator).transfer(amount);
+        }
         
-        emit Undelegated(msg.sender, validator, amount);
+        emit Undelegated(delegator, validator, amount);
     }
     
     /**
@@ -155,7 +184,12 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
             
             // In a real system, rewards would come from inflation
             // For testing, we'll mint new tokens or use a reward pool
-            coreToken.transfer(msg.sender, rewards);
+            if (address(coreToken) != address(0)) {
+                coreToken.transfer(msg.sender, rewards);
+            } else {
+                // Transfer ETH rewards
+                payable(msg.sender).transfer(rewards);
+            }
             
             emit RewardsClaimed(msg.sender, validator, rewards);
         }
@@ -319,9 +353,18 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
     /**
      * @dev Emergency function to fund rewards pool (for testing)
      */
-    function fundRewards(uint256 amount) external onlyOwner {
-        coreToken.transferFrom(msg.sender, address(this), amount);
+    function fundRewards(uint256 amount) external payable onlyOwner {
+        if (msg.value > 0) {
+            // ETH funding
+            require(msg.value == amount, "Amount mismatch");
+        } else if (address(coreToken) != address(0)) {
+            // Token funding
+            coreToken.transferFrom(msg.sender, address(this), amount);
+        }
     }
+    
+    // Allow contract to receive ETH
+    receive() external payable {}
     
     /**
      * @dev Calculate effective APY for a validator (for rebalancing decisions)
@@ -349,5 +392,23 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
         if (v.hybridScore < 700) return 400; // Medium risk
         if (v.hybridScore < 850) return 200; // Low risk
         return 100; // Very low risk
+    }
+    
+    /**
+     * @dev Delegate on behalf of another address (for proxy contracts)
+     */
+    function delegateFor(address delegator, address validator, uint256 amount) external nonReentrant {
+        // Only allow authorized proxy contracts to call this
+        require(msg.sender != delegator, "Use regular delegate function");
+        _delegate(delegator, validator, amount);
+    }
+    
+    /**
+     * @dev Undelegate on behalf of another address (for proxy contracts)
+     */
+    function undelegateFor(address delegator, address validator, uint256 amount) external nonReentrant {
+        // Only allow authorized proxy contracts to call this
+        require(msg.sender != delegator, "Use regular undelegate function");
+        _undelegate(delegator, validator, amount);
     }
 }

@@ -48,10 +48,14 @@ contract PriceFeed is Ownable {
     event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice);
     
     constructor(address initialOwner) Ownable(initialOwner) {
-        // Initialize with mock prices for testing
-        _setPriceData("CORE", 1e18, 18); // 1 USD
-        _setPriceData("lstBTC", 95000e18, 18); // 95,000 USD
-        _setPriceData("BTC", 95000e18, 18); // 95,000 USD
+        // Initialize with mock prices for CoreDAO ecosystem
+        _setPriceData("CORE", 15e17, 18);        // $1.5 USD (native CORE)
+        _setPriceData("SolvBTC", 95000e18, 18);  // $95,000 USD (SolvBTC.CORE)
+        _setPriceData("cbBTC", 95000e18, 18);    // $95,000 USD (cbBTC Core)
+        _setPriceData("coreBTC", 95000e18, 18);  // $95,000 USD (coreBTC)
+        _setPriceData("USDT", 1e18, 18);         // $1.0 USD (bridged USDT)
+        _setPriceData("USDC", 1e18, 18);         // $1.0 USD (bridged USDC)
+        _setPriceData("stCORE", 15e17, 18);      // $1.5 USD (liquid staking CORE)
     }
     
     /**
@@ -63,19 +67,59 @@ contract PriceFeed is Ownable {
     }
     
     /**
-     * @dev Get lstBTC price in USD
-     * @return price lstBTC price with 18 decimals
+     * @dev Get SolvBTC.CORE price in USD
+     * @return price SolvBTC price with 18 decimals
      */
-    function getLstBTCPrice() external view returns (uint256 price) {
-        return _getPrice("lstBTC");
+    function getSolvBTCPrice() external view returns (uint256 price) {
+        return _getPrice("SolvBTC");
     }
     
     /**
-     * @dev Get BTC price in USD
-     * @return price BTC price with 18 decimals
+     * @dev Get cbBTC Core price in USD
+     * @return price cbBTC price with 18 decimals
      */
-    function getBTCPrice() external view returns (uint256 price) {
-        return _getPrice("BTC");
+    function getCbBTCPrice() external view returns (uint256 price) {
+        return _getPrice("cbBTC");
+    }
+    
+    /**
+     * @dev Get coreBTC price in USD
+     * @return price coreBTC price with 18 decimals
+     */
+    function getCoreBTCPrice() external view returns (uint256 price) {
+        return _getPrice("coreBTC");
+    }
+    
+    /**
+     * @dev Get primary BTC price (SolvBTC as default)
+     * @return price Primary BTC token price with 18 decimals
+     */
+    function getPrimaryBTCPrice() external view returns (uint256 price) {
+        return _getPrice("SolvBTC");
+    }
+    
+    /**
+     * @dev Get USDT price in USD
+     * @return price USDT price with 18 decimals
+     */
+    function getUSDTPrice() external view returns (uint256 price) {
+        return _getPrice("USDT");
+    }
+    
+    /**
+     * @dev Get USDC price in USD
+     * @return price USDC price with 18 decimals
+     */
+    function getUSDCPrice() external view returns (uint256 price) {
+        return _getPrice("USDC");
+    }
+    
+    /**
+     * @dev Get stCORE price in USD
+     * @return price stCORE price with 18 decimals
+     */
+    function getStCorePrice() external view returns (uint256 price) {
+        return _getPrice("stCORE");
     }
     
     /**

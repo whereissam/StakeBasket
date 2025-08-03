@@ -1,0 +1,187 @@
+{
+  "networks": {
+    "localhost": {
+      "chainId": 31337,
+      "rpcUrl": "http://127.0.0.1:8545",
+      "deploymentParams": {
+        "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "treasury": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "operator": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+      }
+    },
+    "coredao-testnet": {
+      "chainId": 1114,
+      "rpcUrl": "https://rpc.test2.btcs.network",
+      "deploymentParams": {
+        "deployer": "${DEPLOYER_ADDRESS}",
+        "treasury": "${TREASURY_ADDRESS}",
+        "operator": "${OPERATOR_ADDRESS}"
+      }
+    },
+    "coredao-mainnet": {
+      "chainId": 1116,
+      "rpcUrl": "https://rpc.coredao.org",
+      "deploymentParams": {
+        "deployer": "${DEPLOYER_ADDRESS}",
+        "treasury": "${TREASURY_ADDRESS}",
+        "operator": "${OPERATOR_ADDRESS}"
+      }
+    }
+  },
+  "deploymentOrder": [
+    {
+      "name": "PriceFeed",
+      "contract": "PriceFeed",
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "UnbondingQueue", 
+      "contract": "UnbondingQueue",
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "MockCoreToken",
+      "contract": "MockCORE",
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "MockBTCToken",
+      "contract": "MockCoreBTC", 
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "MockCoreStaking",
+      "contract": "MockCoreStaking",
+      "constructorArgs": ["${MockCoreToken}", "${deployer}"],
+      "dependencies": ["MockCoreToken"]
+    },
+    {
+      "name": "MockLstBTC",
+      "contract": "MockLstBTC",
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "MockDualStaking",
+      "contract": "MockDualStaking",
+      "constructorArgs": ["${MockCoreToken}", "${MockBTCToken}", "${deployer}"],
+      "dependencies": ["MockCoreToken", "MockBTCToken"]
+    },
+    {
+      "name": "StakeBasketToken",
+      "contract": "StakeBasketToken",
+      "constructorArgs": ["BASKET ETF", "BASKET", "${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "BasketStaking",
+      "contract": "BasketStaking", 
+      "constructorArgs": ["${StakeBasketToken}", "${deployer}"],
+      "dependencies": ["StakeBasketToken"]
+    },
+    {
+      "name": "BasketGovernance",
+      "contract": "BasketGovernance",
+      "constructorArgs": ["${StakeBasketToken}", "${BasketStaking}", "${deployer}"],
+      "dependencies": ["StakeBasketToken", "BasketStaking"]
+    },
+    {
+      "name": "StCoreToken",
+      "contract": "StCoreToken",
+      "constructorArgs": ["${deployer}"],
+      "dependencies": []
+    },
+    {
+      "name": "CoreLiquidStakingManager",
+      "contract": "CoreLiquidStakingManager",
+      "constructorArgs": ["${MockCoreStaking}", "${treasury}", "${operator}", "${UnbondingQueue}", "${deployer}"],
+      "dependencies": ["MockCoreStaking", "UnbondingQueue"]
+    },
+    {
+      "name": "StakingManager",
+      "contract": "StakingManager",
+      "constructorArgs": ["0x0000000000000000000000000000000000000000", "${MockCoreStaking}", "${MockLstBTC}", "${MockBTCToken}", "${MockCoreToken}", "${deployer}"],
+      "dependencies": ["MockCoreStaking", "MockLstBTC", "MockBTCToken", "MockCoreToken"],
+      "note": "StakeBasket address will be set after StakeBasket is deployed"
+    },
+    {
+      "name": "StakeBasket",
+      "contract": "StakeBasket",
+      "constructorArgs": ["${StakeBasketToken}", "${StakingManager}", "${PriceFeed}", "${treasury}", "${treasury}", "${deployer}"],
+      "dependencies": ["StakeBasketToken", "StakingManager", "PriceFeed"]
+    },
+    {
+      "name": "DualStakingBasket",
+      "contract": "DualStakingBasket",
+      "constructorArgs": ["${StakeBasketToken}", "${PriceFeed}", "${MockCoreToken}", "${MockBTCToken}", "${MockDualStaking}", "${treasury}", "3", "${deployer}"],
+      "dependencies": ["StakeBasketToken", "PriceFeed", "MockCoreToken", "MockBTCToken", "MockDualStaking"]
+    },
+    {
+      "name": "CoreDAOGovernanceProxy",
+      "contract": "CoreDAOGovernanceProxy",
+      "constructorArgs": ["${BasketGovernance}", "${MockCoreStaking}", "${deployer}"],
+      "dependencies": ["BasketGovernance", "MockCoreStaking"]
+    }
+  ],
+  "postDeploymentTasks": [
+    {
+      "description": "Set StakeBasket contract in StakeBasketToken",
+      "contract": "StakeBasketToken",
+      "function": "setStakeBasketContract",
+      "args": ["${StakeBasket}"]
+    },
+    {
+      "description": "Set liquid staking manager in StCoreToken",
+      "contract": "StCoreToken", 
+      "function": "setLiquidStakingManager",
+      "args": ["${CoreLiquidStakingManager}"]
+    },
+    {
+      "description": "Set BasketStaking in StakeBasket",
+      "contract": "StakeBasket",
+      "function": "setBasketStaking", 
+      "args": ["${BasketStaking}"]
+    },
+    {
+      "description": "Add default validators to MockCoreStaking",
+      "contract": "MockCoreStaking",
+      "function": "registerValidator",
+      "args": ["0x1111111111111111111111111111111111111111", "500", "850"]
+    },
+    {
+      "description": "Add default validators to StakingManager", 
+      "contract": "StakingManager",
+      "function": "addCoreValidator",
+      "args": ["0x1111111111111111111111111111111111111111"]
+    },
+    {
+      "description": "Fund MockDualStaking reward pool",
+      "contract": "MockDualStaking", 
+      "function": "fundRewardPool",
+      "args": ["1000000000000000000000"],
+      "note": "1000 CORE tokens"
+    },
+    {
+      "description": "Fund MockCoreStaking rewards",
+      "contract": "MockCoreStaking",
+      "function": "fundRewards", 
+      "args": ["1000000000000000000000"],
+      "value": "1000000000000000000000",
+      "note": "1000 CORE tokens"
+    }
+  ],
+  "verification": {
+    "enableVerification": true,
+    "verificationDelay": 30000,
+    "maxRetries": 3
+  },
+  "gas": {
+    "gasPrice": "auto",
+    "gasLimit": "auto", 
+    "gasMultiplier": 1.2
+  }
+}

@@ -6,6 +6,7 @@ import { useTheme } from '@/components/theme-provider'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { MobileNavSection } from '@/components/MobileNavSection'
+import { LogoCompact } from '@/components/ui/logo'
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
@@ -31,6 +32,9 @@ export function MobileNav() {
       {isOpen && (
         <div className="fixed top-16 left-0 right-0 bg-background border-border shadow-xl z-50 border-b backdrop-blur-md">
           <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center justify-center mb-6 pb-4 border-b border-border">
+              <LogoCompact size="lg" showText={true} />
+            </div>
             <div className="flex flex-col space-y-4">
               <Link 
                 to="/" 

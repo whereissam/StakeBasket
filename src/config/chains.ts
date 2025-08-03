@@ -1,5 +1,27 @@
 import { defineChain } from 'viem'
 
+export const hardhat = defineChain({
+  id: 31337,
+  name: 'Hardhat Local',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:8545'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Local Explorer',
+      url: 'http://localhost:8545',
+    },
+  },
+  testnet: true,
+})
+
 export const coreMainnet = defineChain({
   id: 1116,
   name: 'Core Mainnet',
