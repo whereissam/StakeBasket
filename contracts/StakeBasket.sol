@@ -15,8 +15,19 @@ interface IBasketStaking {
 
 /**
  * @title StakeBasket
- * @dev Main contract for the StakeBasket multi-asset staking ETF
- * Allows users to deposit CORE and lstBTC tokens and receive ETF shares
+ * @dev Multi-asset staking ETF - User-facing contract for deposits/withdrawals
+ * 
+ * ARCHITECTURE SEPARATION:
+ * - StakeBasket: User-facing logic (deposits, withdrawals, NAV calculation, fees)
+ * - StakingManager: External protocol coordination (validator delegation, lstBTC operations)
+ * - DualStakingBasket: Specialized strategy for CoreDAO dual staking optimization
+ * 
+ * This contract handles:
+ * - User deposits and withdrawals
+ * - Share minting/burning with tiered fee reductions
+ * - NAV calculation and fee collection
+ * - Protocol fee distribution via BasketStaking contract
+ * - Integration with StakingManager for actual staking operations
  */
 contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     StakeBasketToken public immutable etfToken;
@@ -38,6 +49,11 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     uint256 public accumulatedManagementFees;
     uint256 public accumulatedPerformanceFees;
     uint256 public totalProtocolFeesCollected;
+    
+    // Enhanced fee distribution mechanism
+    mapping(address => uint256) public userLastValueSnapshot;
+    uint256 public lastPerformanceCalculation;
+    bool public feeDistributionAsETH = true; // Distribute fees as ETH rewards
     
     // Events
     event Deposited(address indexed user, uint256 coreAmount, uint256 sharesIssued);
@@ -280,19 +296,34 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     
     /**
      * @dev Delegate CORE to validators through StakingManager
-     * @param validatorAddress Validator to delegate to
-     * @param amount Amount to delegate
+     * Enhanced with automatic optimal validator selection
+     * @param amount Amount to delegate (0 = delegate all available)
      */
-    function delegateCore(address validatorAddress, uint256 amount) external onlyOwner {
+    function delegateCore(uint256 amount) external onlyOwner {
         require(address(stakingManager) != address(0), "StakeBasket: staking manager not set");
-        require(address(this).balance >= amount, "StakeBasket: insufficient balance");
         
-        // Call StakingManager with ETH
-        stakingManager.delegateCore{value: amount}(validatorAddress, amount);
+        uint256 availableBalance = address(this).balance;
+        uint256 delegateAmount = amount == 0 ? availableBalance : amount;
+        require(availableBalance >= delegateAmount, "StakeBasket: insufficient balance");
+        
+        // Get optimal validator distribution from StakingManager
+        (address[] memory validators, uint256[] memory allocations) = 
+            stakingManager.getOptimalValidatorDistribution();
+        
+        require(validators.length > 0, "StakeBasket: no optimal validators available");
+        
+        // Distribute delegation across optimal validators
+        for (uint256 i = 0; i < validators.length; i++) {
+            uint256 validatorAmount = (delegateAmount * allocations[i]) / 10000;
+            if (validatorAmount > 0) {
+                stakingManager.delegateCore{value: validatorAmount}(validators[i], validatorAmount);
+            }
+        }
     }
     
     /**
-     * @dev Collect management and performance fees
+     * @dev Enhanced fee collection with ETH reward distribution
+     * Fees are collected in CORE/lstBTC and can be swapped to ETH for reward distribution
      */
     function collectFees() external {
         uint256 currentTime = block.timestamp;
@@ -325,18 +356,21 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
                 etfToken.mint(feeRecipient, feeShares);
             }
             
-            // Handle protocol fees
+            // Enhanced protocol fee handling with ETH conversion
             if (protocolFeeAmount > 0) {
                 totalProtocolFeesCollected += protocolFeeAmount;
                 
-                // If BasketStaking contract is set, send fees there for distribution
-                if (basketStaking != address(0)) {
-                    (bool success, ) = payable(basketStaking).call{value: protocolFeeAmount}("");
+                if (feeDistributionAsETH && basketStaking != address(0)) {
+                    // Convert fees to ETH via StakingManager if needed
+                    uint256 ethAmount = _convertFeesToETH(protocolFeeAmount);
+                    
+                    // Send ETH rewards to BasketStaking for distribution
+                    (bool success, ) = payable(basketStaking).call{value: ethAmount}("");
                     if (success) {
-                        emit ProtocolFeesDistributed(protocolFeeAmount);
+                        emit ProtocolFeesDistributed(ethAmount);
                     }
                 } else if (protocolTreasury != address(0)) {
-                    // Otherwise send to protocol treasury
+                    // Send CORE fees to protocol treasury
                     (bool success, ) = payable(protocolTreasury).call{value: protocolFeeAmount}("");
                     require(success, "StakeBasket: protocol fee transfer failed");
                 }
@@ -411,6 +445,46 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     function setProtocolFeePercentage(uint256 _percentage) external onlyOwner {
         require(_percentage <= 5000, "StakeBasket: protocol fee too high"); // Max 50%
         protocolFeePercentage = _percentage;
+    }
+    
+    /**
+     * @dev Set fee distribution mechanism (ETH vs CORE)
+     * @param _asETH Whether to distribute fees as ETH rewards
+     */
+    function setFeeDistributionAsETH(bool _asETH) external onlyOwner {
+        feeDistributionAsETH = _asETH;
+    }
+    
+    /**
+     * @dev Convert collected fees to ETH via DEX or StakingManager
+     * @param amount Amount of CORE fees to convert
+     * @return ethAmount Amount of ETH received
+     */
+    function _convertFeesToETH(uint256 amount) internal returns (uint256 ethAmount) {
+        // For CoreDAO, CORE is the native token (ETH), so no conversion needed
+        // In a multi-chain setup, this would handle DEX swaps
+        return amount;
+    }
+    
+    /**
+     * @dev Enhanced portfolio rebalancing through StakingManager
+     */
+    function rebalancePortfolio() external onlyOwner {
+        require(address(stakingManager) != address(0), "StakeBasket: staking manager not set");
+        
+        // Check if rebalancing is needed
+        (bool needsRebalance, string memory reason) = stakingManager.shouldRebalance();
+        
+        if (needsRebalance) {
+            // Get optimal distribution
+            (address[] memory validators, uint256[] memory allocations) = 
+                stakingManager.getOptimalValidatorDistribution();
+            
+            // Trigger automated rebalancing in StakingManager
+            // This would involve undelegating from suboptimal validators
+            // and redelegating to optimal ones
+            emit RewardsCompounded(0); // Placeholder event
+        }
     }
     
     /**

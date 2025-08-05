@@ -3,10 +3,9 @@ import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
 import { Zap, Star, TrendingUp, Gift, Crown, Award } from 'lucide-react'
-import { useAccount, useReadContract, useChainId } from 'wagmi'
+import { useAccount, useReadContract } from 'wagmi'
 import { formatEther } from 'viem'
-import { getNetworkByChainId } from '../config/contracts'
-import { useNetworkStore } from '../store/useNetworkStore'
+import { useContracts } from '../hooks/useContracts'
 
 interface SparksInfo {
   balance: string
@@ -79,10 +78,7 @@ interface SparksWidgetProps {
 
 export function SparksWidget({ showDetailed = false, className = '' }: SparksWidgetProps) {
   const { address } = useAccount()
-  const chainId = useChainId()
-  const { chainId: storeChainId } = useNetworkStore()
-  const currentChainId = chainId || storeChainId || 31337
-  const { network, contracts } = getNetworkByChainId(currentChainId)
+  const { contracts, network } = useContracts()
   
   // Sparks Manager ABI
   const sparksManagerABI = [

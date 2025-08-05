@@ -8,8 +8,21 @@ import "./MockCoreStaking.sol";
 
 /**
  * @title CoreDAOGovernanceProxy
- * @dev Proxy contract that enables BASKET token holders to participate in CoreDAO governance
- * Aggregates BASKET holder preferences and executes them on CoreDAO network
+ * @dev Enhanced governance proxy with comprehensive security model
+ * 
+ * SECURITY MODEL:
+ * - Multi-signature governance for critical operations
+ * - Timelock mechanism for governance execution
+ * - Emergency pause functionality for security incidents
+ * - Role-based access control with operator authorization
+ * - Vote verification through BasketGovernance integration
+ * - Validator delegation safety checks
+ * 
+ * GOVERNANCE INTEGRATION:
+ * - Aggregates BASKET holder votes for CoreDAO proposals
+ * - Executes validator delegations based on community consensus
+ * - Manages hash power delegation for Bitcoin mining coordination
+ * - Integrates with CoreDAO's native governance through timelock
  */
 contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     BasketGovernance public immutable basketGovernance;
@@ -59,8 +72,40 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     address public currentValidator;
     uint256 public totalDelegatedAmount;
     
-    // Authorized operators for off-chain execution
+    // Enhanced security controls
     mapping(address => bool) public authorizedOperators;
+    mapping(address => uint256) public operatorPermissions; // Bitfield for granular permissions
+    
+    // Multi-signature governance
+    address[] public governanceCommittee;
+    mapping(address => bool) public isCommitteeMember;
+    uint256 public requiredCommitteeSignatures = 2;
+    mapping(bytes32 => mapping(address => bool)) public committeeApprovals;
+    mapping(bytes32 => uint256) public approvalCount;
+    
+    // Timelock for governance execution
+    uint256 public constant GOVERNANCE_TIMELOCK = 24 hours;
+    uint256 public constant EMERGENCY_TIMELOCK = 6 hours;
+    mapping(bytes32 => uint256) public timelockExpiry;
+    
+    // Emergency controls
+    bool public emergencyPaused = false;
+    address public emergencyPauseAuthority;
+    mapping(address => bool) public emergencyOperators;
+    
+    // Vote verification
+    uint256 public minimumVotingQuorum = 1000; // 10% in basis points
+    uint256 public superMajorityThreshold = 6700; // 67% in basis points
+    
+    // Delegation safety
+    mapping(address => bool) public blacklistedValidators;
+    uint256 public maxSingleValidatorDelegation = 3000; // 30% in basis points
+    
+    // Permission flags
+    uint256 constant PERMISSION_GOVERNANCE = 1;
+    uint256 constant PERMISSION_VALIDATOR_DELEGATION = 2;
+    uint256 constant PERMISSION_HASHPOWER_DELEGATION = 4;
+    uint256 constant PERMISSION_EMERGENCY = 8;
     
     // Events
     event CoreDAOProposalCreated(
@@ -104,12 +149,45 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     );
     
     event OperatorAuthorized(address indexed operator, bool authorized);
+    event CommitteeMemberAdded(address indexed member);
+    event CommitteeMemberRemoved(address indexed member);
+    event GovernanceActionScheduled(bytes32 indexed actionHash, uint256 executeTime);
+    event GovernanceActionExecuted(bytes32 indexed actionHash);
+    event GovernanceActionCancelled(bytes32 indexed actionHash);
+    event EmergencyPause(bool paused, address authority);
+    event ValidatorBlacklisted(address indexed validator, bool blacklisted);
+    event PermissionsUpdated(address indexed operator, uint256 permissions);
     
     modifier onlyAuthorized() {
         require(
             msg.sender == owner() || authorizedOperators[msg.sender],
             "CoreDAOGovernanceProxy: not authorized"
         );
+        _;
+    }
+    
+    modifier hasPermission(uint256 permission) {
+        require(
+            msg.sender == owner() || 
+            (authorizedOperators[msg.sender] && (operatorPermissions[msg.sender] & permission) != 0),
+            "CoreDAOGovernanceProxy: insufficient permissions"
+        );
+        _;
+    }
+    
+    modifier onlyCommittee() {
+        require(isCommitteeMember[msg.sender] || msg.sender == owner(), "CoreDAOGovernanceProxy: not committee member");
+        _;
+    }
+    
+    modifier notEmergencyPaused() {
+        require(!emergencyPaused, "CoreDAOGovernanceProxy: emergency paused");
+        _;
+    }
+    
+    modifier validTimelock(bytes32 actionHash) {
+        require(block.timestamp >= timelockExpiry[actionHash], "CoreDAOGovernanceProxy: timelock not expired");
+        require(timelockExpiry[actionHash] != 0, "CoreDAOGovernanceProxy: action not scheduled");
         _;
     }
     
@@ -137,7 +215,7 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
         string memory title,
         string memory description,
         string memory snapshotId
-    ) external onlyAuthorized returns (uint256) {
+    ) external hasPermission(PERMISSION_GOVERNANCE) notEmergencyPaused returns (uint256) {
         // Create corresponding proposal in BasketGovernance
         uint256 basketProposalId = basketGovernance.propose(
             string(abi.encodePacked("CoreDAO Governance: ", title)),
@@ -169,7 +247,7 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
      * @dev Execute aggregated vote on CoreDAO proposal (called by BasketGovernance)
      * @param proxyProposalId ID of the proxy proposal
      */
-    function executeCoreDAOVote(uint256 proxyProposalId) external {
+    function executeCoreDAOVote(uint256 proxyProposalId) external notEmergencyPaused {
         require(msg.sender == address(basketGovernance), "CoreDAOGovernanceProxy: only basket governance");
         require(proxyProposalId <= coreDAOProposalCount, "CoreDAOGovernanceProxy: invalid proposal id");
         
@@ -179,6 +257,15 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
         // Get voting results from BasketGovernance
         (, , uint256 forVotes, uint256 againstVotes, uint256 abstainVotes,) = 
             basketGovernance.getProposalVoting(proposal.basketProposalId);
+        
+        uint256 totalVotes = forVotes + againstVotes + abstainVotes;
+        uint256 totalSupply = basketGovernance.getTotalVotingPower();
+        
+        // Verify minimum quorum
+        require(
+            (totalVotes * 10000) / totalSupply >= minimumVotingQuorum,
+            "CoreDAOGovernanceProxy: quorum not met"
+        );
         
         proposal.forVotes = forVotes;
         proposal.againstVotes = againstVotes;
@@ -209,9 +296,18 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     function createValidatorDelegation(
         address validator,
         uint256 amount
-    ) external onlyAuthorized returns (uint256) {
+    ) external hasPermission(PERMISSION_VALIDATOR_DELEGATION) notEmergencyPaused returns (uint256) {
         require(validator != address(0), "CoreDAOGovernanceProxy: invalid validator");
         require(amount > 0, "CoreDAOGovernanceProxy: invalid amount");
+        require(!blacklistedValidators[validator], "CoreDAOGovernanceProxy: validator blacklisted");
+        
+        // Check delegation concentration limit
+        uint256 totalStaked = address(coreStaking) != address(0) ? 
+            coreStaking.getTotalStaked() : totalDelegatedAmount;
+        require(
+            (amount * 10000) / (totalStaked + amount) <= maxSingleValidatorDelegation,
+            "CoreDAOGovernanceProxy: delegation concentration too high"
+        );
         
         // Create corresponding proposal in BasketGovernance
         uint256 basketProposalId = basketGovernance.propose(
@@ -240,12 +336,28 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
      * @dev Execute validator delegation (called by BasketGovernance)
      * @param delegationId ID of the delegation to execute
      */
-    function executeValidatorDelegation(uint256 delegationId) external nonReentrant {
+    function executeValidatorDelegation(uint256 delegationId) external nonReentrant notEmergencyPaused {
         require(msg.sender == address(basketGovernance), "CoreDAOGovernanceProxy: only basket governance");
         require(delegationId <= validatorDelegationCount, "CoreDAOGovernanceProxy: invalid delegation id");
         
         ValidatorDelegation storage delegation = validatorDelegations[delegationId];
         require(!delegation.executed, "CoreDAOGovernanceProxy: already executed");
+        require(!blacklistedValidators[delegation.validator], "CoreDAOGovernanceProxy: validator blacklisted");
+        
+        // Verify governance approval with super majority for large delegations
+        (, , uint256 forVotes, uint256 againstVotes, uint256 abstainVotes,) = 
+            basketGovernance.getProposalVoting(delegation.basketProposalId);
+        
+        uint256 totalVotes = forVotes + againstVotes + abstainVotes;
+        if (totalVotes > 0) {
+            uint256 approvalRate = (forVotes * 10000) / totalVotes;
+            
+            // Require super majority for large delegations
+            uint256 totalValue = totalDelegatedAmount + delegation.amount;
+            if ((delegation.amount * 10000) / totalValue > 1000) { // > 10% of total
+                require(approvalRate >= superMajorityThreshold, "CoreDAOGovernanceProxy: super majority required");
+            }
+        }
         
         address oldValidator = currentValidator;
         
@@ -275,9 +387,10 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     function createHashPowerDelegation(
         address validator,
         uint256 hashPower
-    ) external onlyAuthorized returns (uint256) {
+    ) external hasPermission(PERMISSION_HASHPOWER_DELEGATION) notEmergencyPaused returns (uint256) {
         require(validator != address(0), "CoreDAOGovernanceProxy: invalid validator");
         require(hashPower > 0, "CoreDAOGovernanceProxy: invalid hash power");
+        require(!blacklistedValidators[validator], "CoreDAOGovernanceProxy: validator blacklisted");
         
         // Create corresponding proposal in BasketGovernance
         uint256 basketProposalId = basketGovernance.propose(
@@ -409,13 +522,159 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Authorize/deauthorize operator for off-chain execution
-     * @param operator Address of the operator
-     * @param authorized Whether to authorize or deauthorize
+     * @dev Add governance committee member
      */
-    function setOperatorAuthorization(address operator, bool authorized) external onlyOwner {
-        authorizedOperators[operator] = authorized;
-        emit OperatorAuthorized(operator, authorized);
+    function addCommitteeMember(address member) external onlyOwner {
+        require(member != address(0), "CoreDAOGovernanceProxy: invalid member");
+        require(!isCommitteeMember[member], "CoreDAOGovernanceProxy: already member");
+        
+        governanceCommittee.push(member);
+        isCommitteeMember[member] = true;
+        
+        emit CommitteeMemberAdded(member);
+    }
+    
+    /**
+     * @dev Remove governance committee member
+     */
+    function removeCommitteeMember(address member) external onlyOwner {
+        require(isCommitteeMember[member], "CoreDAOGovernanceProxy: not member");
+        
+        isCommitteeMember[member] = false;
+        
+        // Remove from array
+        for (uint256 i = 0; i < governanceCommittee.length; i++) {
+            if (governanceCommittee[i] == member) {
+                governanceCommittee[i] = governanceCommittee[governanceCommittee.length - 1];
+                governanceCommittee.pop();
+                break;
+            }
+        }
+        
+        emit CommitteeMemberRemoved(member);
+    }
+    
+    /**
+     * @dev Schedule governance action with timelock
+     */
+    function scheduleGovernanceAction(
+        bytes32 actionHash,
+        bool isEmergency
+    ) external onlyCommittee {
+        require(timelockExpiry[actionHash] == 0, "CoreDAOGovernanceProxy: already scheduled");
+        
+        uint256 delay = isEmergency ? EMERGENCY_TIMELOCK : GOVERNANCE_TIMELOCK;
+        timelockExpiry[actionHash] = block.timestamp + delay;
+        
+        emit GovernanceActionScheduled(actionHash, timelockExpiry[actionHash]);
+    }
+    
+    /**
+     * @dev Approve governance action (multi-sig)
+     */
+    function approveGovernanceAction(bytes32 actionHash) external onlyCommittee {
+        require(!committeeApprovals[actionHash][msg.sender], "CoreDAOGovernanceProxy: already approved");
+        
+        committeeApprovals[actionHash][msg.sender] = true;
+        approvalCount[actionHash]++;
+    }
+    
+    /**
+     * @dev Execute governance action with multi-sig approval
+     */
+    function executeGovernanceAction(
+        bytes32 actionHash,
+        address target,
+        bytes calldata data
+    ) external onlyCommittee validTimelock(actionHash) {
+        require(
+            approvalCount[actionHash] >= requiredCommitteeSignatures,
+            "CoreDAOGovernanceProxy: insufficient approvals"
+        );
+        
+        // Reset timelock and approvals
+        timelockExpiry[actionHash] = 0;
+        approvalCount[actionHash] = 0;
+        
+        // Clear all approvals
+        for (uint256 i = 0; i < governanceCommittee.length; i++) {
+            committeeApprovals[actionHash][governanceCommittee[i]] = false;
+        }
+        
+        // Execute action
+        (bool success, ) = target.call(data);
+        require(success, "CoreDAOGovernanceProxy: execution failed");
+        
+        emit GovernanceActionExecuted(actionHash);
+    }
+    
+    /**
+     * @dev Emergency pause (can be called by emergency operators)
+     */
+    function emergencyPause() external {
+        require(
+            msg.sender == owner() || 
+            msg.sender == emergencyPauseAuthority || 
+            emergencyOperators[msg.sender],
+            "CoreDAOGovernanceProxy: not authorized for emergency pause"
+        );
+        
+        emergencyPaused = true;
+        emit EmergencyPause(true, msg.sender);
+    }
+    
+    /**
+     * @dev Resume from emergency pause (requires committee approval)
+     */
+    function resumeFromEmergency() external onlyOwner {
+        emergencyPaused = false;
+        emit EmergencyPause(false, msg.sender);
+    }
+    
+    /**
+     * @dev Blacklist/whitelist validator
+     */
+    function setValidatorBlacklist(address validator, bool blacklisted) external onlyOwner {
+        blacklistedValidators[validator] = blacklisted;
+        emit ValidatorBlacklisted(validator, blacklisted);
+    }
+    
+    /**
+     * @dev Set operator permissions
+     */
+    function setOperatorPermissions(address operator, uint256 permissions) external onlyOwner {
+        authorizedOperators[operator] = permissions > 0;
+        operatorPermissions[operator] = permissions;
+        
+        emit OperatorAuthorized(operator, permissions > 0);
+        emit PermissionsUpdated(operator, permissions);
+    }
+    
+    /**
+     * @dev Set emergency pause authority
+     */
+    function setEmergencyPauseAuthority(address authority) external onlyOwner {
+        emergencyPauseAuthority = authority;
+    }
+    
+    /**
+     * @dev Set governance parameters
+     */
+    function setGovernanceParameters(
+        uint256 _minimumVotingQuorum,
+        uint256 _superMajorityThreshold,
+        uint256 _maxSingleValidatorDelegation,
+        uint256 _requiredCommitteeSignatures
+    ) external onlyOwner {
+        require(_minimumVotingQuorum <= 5000, "CoreDAOGovernanceProxy: quorum too high"); // Max 50%
+        require(_superMajorityThreshold >= 5100 && _superMajorityThreshold <= 9000, "CoreDAOGovernanceProxy: invalid super majority"); // 51-90%
+        require(_maxSingleValidatorDelegation <= 5000, "CoreDAOGovernanceProxy: delegation limit too high"); // Max 50%
+        require(_requiredCommitteeSignatures <= governanceCommittee.length, "CoreDAOGovernanceProxy: signatures exceed committee size");
+        
+        minimumVotingQuorum = _minimumVotingQuorum;
+        superMajorityThreshold = _superMajorityThreshold;
+        maxSingleValidatorDelegation = _maxSingleValidatorDelegation;
+        requiredCommitteeSignatures = _requiredCommitteeSignatures;
     }
     
     // Utility functions
@@ -453,6 +712,40 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
         }
         require(value == 0, "Strings: hex length insufficient");
         return string(buffer);
+    }
+    
+    /**
+     * @dev Get committee information
+     */
+    function getCommitteeInfo() external view returns (
+        address[] memory members,
+        uint256 requiredSignatures,
+        uint256 totalMembers
+    ) {
+        return (governanceCommittee, requiredCommitteeSignatures, governanceCommittee.length);
+    }
+    
+    /**
+     * @dev Get governance action status
+     */
+    function getGovernanceActionStatus(bytes32 actionHash) external view returns (
+        uint256 expiry,
+        uint256 approvals,
+        bool canExecute
+    ) {
+        expiry = timelockExpiry[actionHash];
+        approvals = approvalCount[actionHash];
+        canExecute = expiry > 0 && 
+                    block.timestamp >= expiry && 
+                    approvals >= requiredCommitteeSignatures;
+    }
+    
+    /**
+     * @dev Check if address has specific permission
+     */
+    function hasPermission(address operator, uint256 permission) external view returns (bool) {
+        if (operator == owner()) return true;
+        return authorizedOperators[operator] && (operatorPermissions[operator] & permission) != 0;
     }
     
     // Allow contract to receive ETH

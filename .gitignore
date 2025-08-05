@@ -123,3 +123,4 @@ private-key.txt
 # Test files that might contain sensitive data
 test-accounts.json
 test-wallets.json
+scripts/

@@ -1,6 +1,6 @@
 import { useReadContract, useChainId, useBalance } from 'wagmi'
 import { useState, useEffect } from 'react'
-import { getNetworkByChainId } from '../config/contracts'
+import { useContracts } from './useContracts'
 import { useRealPriceData } from './useRealPriceData'
 
 // Simple ABI for the functions we need
@@ -64,7 +64,7 @@ const STAKE_BASKET_ABI = [
 
 export function useContractData(userAddress?: string) {
   const chainId = useChainId()
-  const { contracts } = getNetworkByChainId(chainId)
+  const { contracts } = useContracts()
   
   // Get real-time price data from Core APIs
   const realPriceData = useRealPriceData()

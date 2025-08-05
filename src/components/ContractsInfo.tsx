@@ -1,15 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { ExternalLink, Copy, Shield, CheckCircle, AlertCircle } from 'lucide-react'
-import { getNetworkByChainId, getExplorerUrl } from '../config/contracts'
-import { useChainId } from 'wagmi'
+import { getExplorerUrl } from '../config/contracts'
+import { useContracts } from '../hooks/useContracts'
 import { CoreTestnet2Button } from './CoreTestnet2Button'
 import { NetworkSwitcher } from './NetworkSwitcher'
 
 export function ContractsInfo() {
-  const chainId = useChainId()
-  const { network, config, contracts } = getNetworkByChainId(chainId)
-  const isLocalNetwork = network === 'hardhat'
+  const { config, contracts, isLocalNetwork } = useContracts()
 
   const contractList = [
     {

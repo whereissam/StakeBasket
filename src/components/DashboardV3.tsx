@@ -4,17 +4,39 @@ import { Input } from './ui/input'
 import { ContractAddress } from './ui/contract-address'
 import { MobileTransactionCard } from './ui/mobile-transaction-card'
 import { useState, useEffect } from 'react'
+import * as React from 'react'
 import { TrendingUp, Wallet, DollarSign, RefreshCw, ExternalLink } from 'lucide-react'
 import { useContractData } from '../hooks/useContractData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useTransactionHistory } from '../hooks/useTransactionHistory'
 import { useAccount, useChainId } from 'wagmi'
 import { getNetworkByChainId } from '../config/contracts'
+import { useContractStore, useEnvironmentContracts } from '../store/useContractStore'
+import { useContractHealth } from '../hooks/useContractHealth'
+import { ContractSettings } from './ContractSettings'
 
 export function DashboardV3() {
   const { address } = useAccount()
   const chainId = useChainId()
   const { config } = getNetworkByChainId(chainId)
+  
+  // Initialize environment contract overrides
+  useEnvironmentContracts()
+  
+  // Get contract configuration from store
+  const { setChainId, getAllAddresses } = useContractStore()
+  const contractAddresses = getAllAddresses()
+  
+  // Get contract health status
+  const { getHealthSummary, runFullHealthCheck, isChecking } = useContractHealth()
+  const healthSummary = getHealthSummary()
+  
+  // Update store when chain changes
+  React.useEffect(() => {
+    if (chainId) {
+      setChainId(chainId)
+    }
+  }, [chainId, setChainId])
   
   const {
     coreBalance,
@@ -23,7 +45,6 @@ export function DashboardV3() {
     btcPrice,
     totalPooledCore,
     supportedAssets,
-    contracts,
     isConnected,
     priceError,
     priceLoading
@@ -112,6 +133,27 @@ export function DashboardV3() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Contract Settings */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">StakeBasket Dashboard</h1>
+          <p className="text-muted-foreground">
+            Contract Health: {healthSummary.healthPercentage}% ({healthSummary.healthyContracts}/{healthSummary.totalContracts} healthy)
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runFullHealthCheck}
+            disabled={isChecking}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
+            Check Health
+          </Button>
+          <ContractSettings />
+        </div>
+      </div>
       {/* Network Status */}
       <Card>
         <CardHeader>
@@ -325,25 +367,25 @@ export function DashboardV3() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ContractAddress
               label="StakeBasket Contract"
-              address={contracts.StakeBasket}
-              explorerUrl={`${config.explorer}/address/${contracts.StakeBasket}`}
+              address={contractAddresses.StakeBasket}
+              explorerUrl={`${config.explorer}/address/${contractAddresses.StakeBasket}`}
             />
             <ContractAddress
               label="BASKET Token"
-              address={contracts.StakeBasketToken}
-              explorerUrl={`${config.explorer}/address/${contracts.StakeBasketToken}`}
+              address={contractAddresses.StakeBasketToken}
+              explorerUrl={`${config.explorer}/address/${contractAddresses.StakeBasketToken}`}
             />
-            {contracts.CoreOracle && (
+            {contractAddresses.CoreOracle && (
               <ContractAddress
                 label="Core Oracle"
-                address={contracts.CoreOracle}
-                explorerUrl={`${config.explorer}/address/${contracts.CoreOracle}`}
+                address={contractAddresses.CoreOracle}
+                explorerUrl={`${config.explorer}/address/${contractAddresses.CoreOracle}`}
               />
             )}
             <ContractAddress
               label="Mock CORE Token"
-              address={contracts.MockCORE}
-              explorerUrl={`${config.explorer}/address/${contracts.MockCORE}`}
+              address={contractAddresses.MockCORE}
+              explorerUrl={`${config.explorer}/address/${contractAddresses.MockCORE}`}
             />
           </div>
         </CardContent>

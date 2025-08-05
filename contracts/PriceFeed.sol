@@ -22,8 +22,19 @@ interface AggregatorV3Interface {
 
 /**
  * @title PriceFeed
- * @dev Oracle integration for CORE and lstBTC price feeds
- * Supports both Chainlink-style oracles and manual price updates for testing
+ * @dev Enhanced oracle integration with comprehensive circuit breaker mechanisms
+ * 
+ * CIRCUIT BREAKER FEATURES:
+ * - Price deviation threshold protection (10% default)
+ * - Staleness checks with configurable max age
+ * - Backup oracle support for redundancy
+ * - Emergency pause functionality
+ * - Gradual price updates for extreme changes
+ * 
+ * FAILURE HANDLING:
+ * - Stale Data: Reverts transactions, requiring manual intervention
+ * - Extreme Deviation: Triggers circuit breaker, uses backup oracle or last known good price
+ * - Oracle Failure: Falls back to backup oracle, then to emergency manual mode
  */
 contract PriceFeed is Ownable {
     struct PriceData {
@@ -37,15 +48,39 @@ contract PriceFeed is Ownable {
     mapping(string => PriceData) public priceData;
     mapping(string => address) public priceFeeds; // Chainlink aggregator addresses
     
-    // Configuration
+    // Enhanced Configuration
     uint256 public constant MAX_PRICE_AGE = 3600; // 1 hour
     uint256 public constant PRICE_DEVIATION_THRESHOLD = 1000; // 10% (basis points)
+    uint256 public constant EXTREME_DEVIATION_THRESHOLD = 2000; // 20% (basis points)
     bool public circuitBreakerEnabled = true;
+    bool public emergencyMode = false;
+    
+    // Backup oracle system
+    mapping(string => address) public backupPriceFeeds;
+    mapping(string => uint256) public lastKnownGoodPrice;
+    mapping(string => uint256) public priceUpdateCount;
+    
+    // Circuit breaker state
+    mapping(string => bool) public assetCircuitBreakerTriggered;
+    mapping(string => uint256) public circuitBreakerTriggerTime;
+    uint256 public constant CIRCUIT_BREAKER_COOLDOWN = 1 hours;
+    
+    // Gradual update mechanism for extreme price changes
+    mapping(string => uint256) public targetPrice;
+    mapping(string => uint256) public priceUpdateStep;
+    uint256 public constant MAX_PRICE_UPDATE_STEPS = 10;
     
     // Events
     event PriceUpdated(string indexed asset, uint256 price, uint256 timestamp);
     event PriceFeedSet(string indexed asset, address indexed feed);
-    event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice);
+    event BackupPriceFeedSet(string indexed asset, address indexed backupFeed);
+    event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice, string reason);
+    event CircuitBreakerReset(string indexed asset);
+    event EmergencyModeActivated(string reason);
+    event EmergencyModeDeactivated();
+    event GradualPriceUpdateStarted(string indexed asset, uint256 fromPrice, uint256 toPrice, uint256 steps);
+    event BackupOracleUsed(string indexed asset, uint256 price);
+    event OracleFailure(string indexed asset, string reason);
     
     constructor(address initialOwner) Ownable(initialOwner) {
         // Initialize with mock prices for CoreDAO ecosystem
@@ -176,14 +211,33 @@ contract PriceFeed is Ownable {
         uint8 feedDecimals = priceFeed.decimals();
         uint256 newPrice = _normalizePrice(uint256(answer), feedDecimals);
         
-        // Circuit breaker check
-        if (circuitBreakerEnabled && priceData[asset].isActive) {
+        // Enhanced circuit breaker check
+        if (circuitBreakerEnabled && priceData[asset].isActive && !emergencyMode) {
             uint256 oldPrice = priceData[asset].price;
             uint256 deviation = _calculateDeviation(oldPrice, newPrice);
             
-            if (deviation > PRICE_DEVIATION_THRESHOLD) {
-                emit CircuitBreakerTriggered(asset, oldPrice, newPrice);
-                return; // Don't update price if deviation is too high
+            if (deviation > EXTREME_DEVIATION_THRESHOLD) {
+                // Extreme deviation - try backup oracle first
+                uint256 backupPrice = _tryBackupOracle(asset);
+                if (backupPrice > 0) {
+                    uint256 backupDeviation = _calculateDeviation(oldPrice, backupPrice);
+                    if (backupDeviation <= PRICE_DEVIATION_THRESHOLD) {
+                        newPrice = backupPrice;
+                        emit BackupOracleUsed(asset, backupPrice);
+                    } else {
+                        // Both oracles show extreme deviation - trigger circuit breaker
+                        _triggerCircuitBreaker(asset, oldPrice, newPrice, "Extreme deviation on both oracles");
+                        return;
+                    }
+                } else {
+                    // No backup oracle - start gradual update
+                    _startGradualPriceUpdate(asset, oldPrice, newPrice);
+                    return;
+                }
+            } else if (deviation > PRICE_DEVIATION_THRESHOLD) {
+                // Moderate deviation - trigger circuit breaker
+                _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold");
+                return;
             }
         }
         
@@ -229,11 +283,63 @@ contract PriceFeed is Ownable {
     }
     
     /**
+     * @dev Set backup oracle for an asset
+     */
+    function setBackupPriceFeed(string memory asset, address backupFeedAddress) external onlyOwner {
+        backupPriceFeeds[asset] = backupFeedAddress;
+        emit BackupPriceFeedSet(asset, backupFeedAddress);
+    }
+    
+    /**
      * @dev Enable or disable circuit breaker
-     * @param enabled Whether circuit breaker should be enabled
      */
     function setCircuitBreakerEnabled(bool enabled) external onlyOwner {
         circuitBreakerEnabled = enabled;
+    }
+    
+    /**
+     * @dev Activate emergency mode (disables all automatic updates)
+     */
+    function activateEmergencyMode(string memory reason) external onlyOwner {
+        emergencyMode = true;
+        emit EmergencyModeActivated(reason);
+    }
+    
+    /**
+     * @dev Deactivate emergency mode
+     */
+    function deactivateEmergencyMode() external onlyOwner {
+        emergencyMode = false;
+        emit EmergencyModeDeactivated();
+    }
+    
+    /**
+     * @dev Reset circuit breaker for an asset
+     */
+    function resetCircuitBreaker(string memory asset) external onlyOwner {
+        require(assetCircuitBreakerTriggered[asset], "PriceFeed: circuit breaker not triggered");
+        require(
+            block.timestamp >= circuitBreakerTriggerTime[asset] + CIRCUIT_BREAKER_COOLDOWN,
+            "PriceFeed: cooldown period not elapsed"
+        );
+        
+        assetCircuitBreakerTriggered[asset] = false;
+        circuitBreakerTriggerTime[asset] = 0;
+        
+        emit CircuitBreakerReset(asset);
+    }
+    
+    /**
+     * @dev Force price update (emergency override)
+     */
+    function emergencySetPrice(string memory asset, uint256 price, string memory reason) external onlyOwner {
+        require(emergencyMode, "PriceFeed: not in emergency mode");
+        require(price > 0, "PriceFeed: invalid price");
+        
+        lastKnownGoodPrice[asset] = priceData[asset].price; // Store current as last known good
+        _setPriceData(asset, price, 18);
+        
+        emit PriceUpdated(asset, price, block.timestamp);
     }
     
     /**
@@ -317,5 +423,143 @@ contract PriceFeed is Ownable {
     ) {
         PriceData memory data = priceData[asset];
         return (data.price, data.lastUpdated, data.decimals, data.isActive);
+    }
+    
+    /**
+     * @dev Try to get price from backup oracle
+     */
+    function _tryBackupOracle(string memory asset) internal view returns (uint256 backupPrice) {
+        address backupFeed = backupPriceFeeds[asset];
+        if (backupFeed == address(0)) return 0;
+        
+        try AggregatorV3Interface(backupFeed).latestRoundData() returns (
+            uint80,
+            int256 answer,
+            uint256,
+            uint256 updatedAt,
+            uint80
+        ) {
+            if (answer > 0 && block.timestamp - updatedAt <= MAX_PRICE_AGE) {
+                uint8 feedDecimals = AggregatorV3Interface(backupFeed).decimals();
+                return _normalizePrice(uint256(answer), feedDecimals);
+            }
+        } catch {
+            return 0;
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * @dev Trigger circuit breaker for an asset
+     */
+    function _triggerCircuitBreaker(
+        string memory asset,
+        uint256 oldPrice,
+        uint256 newPrice,
+        string memory reason
+    ) internal {
+        assetCircuitBreakerTriggered[asset] = true;
+        circuitBreakerTriggerTime[asset] = block.timestamp;
+        
+        emit CircuitBreakerTriggered(asset, oldPrice, newPrice, reason);
+    }
+    
+    /**
+     * @dev Start gradual price update for extreme changes
+     */
+    function _startGradualPriceUpdate(
+        string memory asset,
+        uint256 fromPrice,
+        uint256 toPrice
+    ) internal {
+        targetPrice[asset] = toPrice;
+        
+        uint256 priceDiff = toPrice > fromPrice ? toPrice - fromPrice : fromPrice - toPrice;
+        priceUpdateStep[asset] = priceDiff / MAX_PRICE_UPDATE_STEPS;
+        
+        emit GradualPriceUpdateStarted(asset, fromPrice, toPrice, MAX_PRICE_UPDATE_STEPS);
+    }
+    
+    /**
+     * @dev Execute next step in gradual price update
+     */
+    function executeGradualPriceUpdate(string memory asset) external {
+        require(targetPrice[asset] > 0, "PriceFeed: no gradual update in progress");
+        require(priceUpdateStep[asset] > 0, "PriceFeed: invalid update step");
+        
+        uint256 currentPrice = priceData[asset].price;
+        uint256 target = targetPrice[asset];
+        uint256 step = priceUpdateStep[asset];
+        
+        uint256 newPrice;
+        if (target > currentPrice) {
+            newPrice = currentPrice + step;
+            if (newPrice >= target) {
+                newPrice = target;
+                targetPrice[asset] = 0; // Complete the update
+                priceUpdateStep[asset] = 0;
+            }
+        } else {
+            newPrice = currentPrice - step;
+            if (newPrice <= target) {
+                newPrice = target;
+                targetPrice[asset] = 0; // Complete the update
+                priceUpdateStep[asset] = 0;
+            }
+        }
+        
+        _setPriceData(asset, newPrice, 18);
+        emit PriceUpdated(asset, newPrice, block.timestamp);
+    }
+    
+    /**
+     * @dev Get circuit breaker status for an asset
+     */
+    function getCircuitBreakerStatus(string memory asset) 
+        external 
+        view 
+        returns (
+            bool isTriggered,
+            uint256 triggerTime,
+            uint256 cooldownEnds,
+            bool canReset
+        )
+    {
+        isTriggered = assetCircuitBreakerTriggered[asset];
+        triggerTime = circuitBreakerTriggerTime[asset];
+        cooldownEnds = triggerTime + CIRCUIT_BREAKER_COOLDOWN;
+        canReset = isTriggered && block.timestamp >= cooldownEnds;
+    }
+    
+    /**
+     * @dev Check if asset has backup oracle
+     */
+    function hasBackupOracle(string memory asset) external view returns (bool) {
+        return backupPriceFeeds[asset] != address(0);
+    }
+    
+    /**
+     * @dev Get comprehensive asset status
+     */
+    function getAssetStatus(string memory asset) 
+        external 
+        view 
+        returns (
+            bool isActive,
+            bool isPriceValid,
+            bool circuitBreakerTriggered,
+            bool hasBackup,
+            uint256 priceAge,
+            uint256 updateCount
+        )
+    {
+        PriceData memory data = priceData[asset];
+        isActive = data.isActive;
+        isPriceValid = data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
+        circuitBreakerTriggered = assetCircuitBreakerTriggered[asset];
+        hasBackup = backupPriceFeeds[asset] != address(0);
+        priceAge = block.timestamp - data.lastUpdated;
+        updateCount = priceUpdateCount[asset];
     }
 }

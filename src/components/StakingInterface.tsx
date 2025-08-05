@@ -3,9 +3,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect } from 'react'
 import { Coins, TrendingUp, Award, Gift, Lock, Unlock, DollarSign } from 'lucide-react'
-import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { useNetworkStore } from '../store/useNetworkStore'
-import { getNetworkByChainId } from '../config/contracts'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useContracts } from '../hooks/useContracts'
 import { parseEther, formatEther } from 'viem'
 
 interface StakeInfo {
@@ -34,10 +33,7 @@ interface TierInfo {
 
 export function StakingInterface() {
   const { address } = useAccount()
-  const chainId = useChainId()
-  const { chainId: storeChainId } = useNetworkStore()
-  const currentChainId = chainId || storeChainId || 31337
-  const { contracts } = getNetworkByChainId(currentChainId)
+  const { contracts } = useContracts()
   
   const { writeContract, data: hash, isPending: isContractPending } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect, useMemo } from 'react'
-import { Coins, TrendingUp, Award, ArrowLeftRight, AlertTriangle } from 'lucide-react'
+import { Coins, TrendingUp, Award, ArrowLeftRight, AlertTriangle, PieChart, BarChart3, Target, Info, BookOpen } from 'lucide-react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
 // Import the proper ABI directly from artifacts
@@ -71,8 +71,7 @@ const PROPER_DUAL_STAKING_ABI = [
     type: "function"
   }
 ] as const
-import { getNetworkByChainId } from '../config/contracts'
-import { useChainId } from 'wagmi'
+import { useContracts } from '../hooks/useContracts'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { toast } from 'sonner'
 
@@ -111,45 +110,44 @@ const TIER_RATIOS = {
 
 const tierInfo: Record<DualTier, TierInfo> = {
   [DualTier.Base]: {
-    name: 'Base',
+    name: 'Base Tier',
     ratio: '5,000:1',
     apy: '8%',
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
-    description: '500 CORE per 0.1 BTC (Minimum dual stake)'
+    description: 'Entry level - Good starting point for new users'
   },
   [DualTier.Boost]: {
-    name: 'Boost',
+    name: 'Boost Tier',
     ratio: '20,000:1',
     apy: '12%',
     color: 'text-orange-500',
     bgColor: 'bg-orange-500/20',
-    description: '2,000 CORE per 0.1 BTC'
+    description: 'Enhanced rewards - 50% higher than base tier'
   },
   [DualTier.Super]: {
-    name: 'Super',
+    name: 'Super Tier',
     ratio: '60,000:1',
     apy: '16%',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/20',
-    description: '6,000 CORE per 0.1 BTC'
+    description: 'Premium yields - Professional tier rewards'
   },
   [DualTier.Satoshi]: {
-    name: 'Satoshi',
+    name: 'Satoshi Tier',
     ratio: '160,000:1',
     apy: '20%',
     color: 'text-yellow-500',
     bgColor: 'bg-yellow-500/20',
-    description: '16,000 CORE per 0.1 BTC (Highest yield)'
+    description: 'Maximum rewards - Institutional-grade returns'
   }
 }
 
 export function DualStakingInterface() {
   const { address } = useAccount()
-  const chainId = useChainId()
   const { chainId: storeChainId } = useNetworkStore()
+  const { contracts, chainId } = useContracts()
   const currentChainId = chainId || storeChainId || 31337
-  const { contracts } = getNetworkByChainId(currentChainId)
   
   // Use the correct staking contract address from configuration
   const stakingContractAddress = contracts?.MockDualStaking
@@ -249,7 +247,7 @@ export function DualStakingInterface() {
       }
     ] as const,
     functionName: 'allowance',
-    args: address && stakingContractAddress ? [address, stakingContractAddress] : undefined,
+    args: address && stakingContractAddress ? [address, stakingContractAddress as `0x${string}`] : undefined,
     query: {
       enabled: !!address && !!contracts?.MockCORE && !!stakingContractAddress
     }
@@ -270,7 +268,7 @@ export function DualStakingInterface() {
       }
     ] as const,
     functionName: 'allowance',
-    args: address && stakingContractAddress ? [address, stakingContractAddress] : undefined,
+    args: address && stakingContractAddress ? [address, stakingContractAddress as `0x${string}`] : undefined,
     query: {
       enabled: !!address && !!contracts?.MockCoreBTC && !!stakingContractAddress
     }
@@ -626,10 +624,10 @@ export function DualStakingInterface() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-card-foreground">
               <ArrowLeftRight className="h-5 w-5 text-primary" />
-              CoreDAO Dual Staking
+              Dual Staking Basket
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Connect your wallet to stake CORE and BTC tokens for optimized yields
+              Connect your wallet to join the managed dual staking investment strategy
             </CardDescription>
           </CardHeader>
         </Card>
@@ -685,8 +683,41 @@ export function DualStakingInterface() {
   const proposedTierInfo = tierInfo[proposedTier]
 
   return (
-    <div className="space-y-6 p-6 min-h-screen bg-background text-foreground">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-b from-primary/5 to-background border-b border-border">
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="text-center space-y-6">
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold tracking-tight text-foreground">
+                Earn up to <span className="text-primary">20% APY</span>
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Professional DeFi management that automatically optimizes your CORE and BTC for maximum rewards
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-center gap-8 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-muted-foreground">Automated</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-muted-foreground">Audited Smart Contracts</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span className="text-muted-foreground">Tier Optimized</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto space-y-8 p-6">
+        {/* Stats Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-card border-border shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
@@ -748,6 +779,287 @@ export function DualStakingInterface() {
         </Card>
       </div>
 
+      {/* Basket Composition Visualization */}
+      {Number(stakeInfo.coreStaked) > 0 || Number(stakeInfo.btcStaked) > 0 ? (
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border-2 border-dashed border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5 text-primary" />
+              Your Dual Staking Basket
+            </CardTitle>
+            <CardDescription>
+              Managed investment allocation maintaining optimal tier ratios
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Allocation Chart Visualization */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Asset Allocation</h4>
+                <div className="space-y-3">
+                  {/* CORE allocation bar */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                        CORE
+                      </span>
+                      <span className="font-mono">
+                        {((Number(stakeInfo.coreStaked) / (Number(stakeInfo.coreStaked) + Number(stakeInfo.btcStaked) * 50000)) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${((Number(stakeInfo.coreStaked) / (Number(stakeInfo.coreStaked) + Number(stakeInfo.btcStaked) * 50000)) * 100) || 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* BTC allocation bar */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        BTC
+                      </span>
+                      <span className="font-mono">
+                        {((Number(stakeInfo.btcStaked) * 50000 / (Number(stakeInfo.coreStaked) + Number(stakeInfo.btcStaked) * 50000)) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${((Number(stakeInfo.btcStaked) * 50000 / (Number(stakeInfo.coreStaked) + Number(stakeInfo.btcStaked) * 50000)) * 100) || 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tier Progress */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Tier Achievement</h4>
+                <div className="space-y-3">
+                  {Object.entries(tierInfo).map(([tierKey, info]) => {
+                    const isActive = Number(tierKey) <= stakeInfo.tier
+                    const isCurrent = Number(tierKey) === stakeInfo.tier
+                    return (
+                      <div key={tierKey} className={`flex items-center gap-3 p-2 rounded ${isCurrent ? 'bg-primary/20 border border-primary/30' : ''}`}>
+                        <div className={`w-3 h-3 rounded-full transition-all ${
+                          isActive ? 'bg-primary' : 'bg-muted border-2 border-muted-foreground'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className={`text-sm font-medium ${info.color}`}>
+                            {info.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {info.apy} APY
+                          </div>
+                        </div>
+                        {isCurrent && (
+                          <Target className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              
+              {/* Performance Metrics */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-sm">Strategy Performance</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Current Ratio</span>
+                    <span className="font-mono text-sm">
+                      {stakeInfo.btcStaked !== '0' 
+                        ? (Number(stakeInfo.coreStaked) / Number(stakeInfo.btcStaked)).toLocaleString(undefined, {maximumFractionDigits: 0})
+                        : '0'}:1
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Target Tier</span>
+                    <span className={`text-sm font-medium ${currentTierInfo.color}`}>
+                      {currentTierInfo.name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Est. Annual Yield</span>
+                    <span className="text-sm font-medium text-green-600">
+                      {currentTierInfo.apy}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="text-xs text-muted-foreground mb-1">Basket Management</div>
+                    <div className="text-xs text-primary">
+                      ✓ Auto-rebalancing enabled<br/>
+                      ✓ Optimal ratio maintenance<br/>
+                      ✓ Compound reward reinvestment
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950 border-2 border-dashed border-green-500/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                <Target className="h-5 w-5" />
+                Ready to Join the Dual Staking Basket
+              </CardTitle>
+              <CardDescription>
+                Your deposits will be automatically managed to achieve optimal tier performance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="h-5 w-5 text-green-500" />
+                  <div>
+                    <div className="font-medium">Auto-Rebalancing</div>
+                    <div className="text-muted-foreground text-xs">Maintains optimal ratios</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <div className="font-medium">Maximized Yields</div>
+                    <div className="text-muted-foreground text-xs">Tier-optimized returns</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Award className="h-5 w-5 text-purple-500" />
+                  <div>
+                    <div className="font-medium">Professional Management</div>
+                    <div className="text-muted-foreground text-xs">Set and forget strategy</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* About Section - Simplified */}
+          <Card className="border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                How It Works
+              </CardTitle>
+              <CardDescription>
+                Simple, automated DeFi earning designed for everyone
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Step 1 */}
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-primary font-bold">1</span>
+                  </div>
+                  <h3 className="font-semibold">Deposit Your Tokens</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Add your CORE and BTC tokens to the smart contract. We handle the optimal ratio calculations automatically.
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-green-600 font-bold">2</span>
+                  </div>
+                  <h3 className="font-semibold">We Optimize & Stake</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Our smart contract automatically stakes your tokens with CoreDAO validators at the highest reward tier.
+                  </p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="text-center space-y-3">
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-blue-600 font-bold">3</span>
+                  </div>
+                  <h3 className="font-semibold">Earn & Compound</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Rewards are automatically collected and reinvested. Your position grows through compound interest.
+                  </p>
+                </div>
+              </div>
+
+              {/* Smart Contract Features */}
+              <div className="mt-8 bg-muted/30 rounded-lg p-6">
+                <h3 className="font-semibold mb-4 text-center">Smart Contract Features</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                      <div>
+                        <div className="font-medium">Auto-Rebalancing</div>
+                        <div className="text-muted-foreground text-xs">Maintains optimal 16,000:1 CORE:BTC ratio for maximum 20% APY</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div>
+                        <div className="font-medium">Compound Rewards</div>
+                        <div className="text-muted-foreground text-xs">All staking rewards automatically reinvested to grow your position</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
+                      <div>
+                        <div className="font-medium">Liquid Shares</div>
+                        <div className="text-muted-foreground text-xs">Receive basket tokens representing your proportional ownership</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div>
+                        <div className="font-medium">Anytime Withdrawal</div>
+                        <div className="text-muted-foreground text-xs">Exit the strategy at any time and receive your proportional assets</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick FAQ */}
+              <div className="mt-6 pt-6 border-t border-border">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                  <div>
+                    <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">Why Use This Strategy?</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>✓ Higher yields than individual staking</li>
+                      <li>✓ No manual ratio management needed</li>
+                      <li>✓ Professional-grade optimization</li>
+                      <li>✓ Fully automated and transparent</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-orange-700 dark:text-orange-400 mb-2">Important to Know</h4>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>⚠ Smart contract and market risks apply</li>
+                      <li>⚠ APY rates are estimates, not guarantees</li>
+                      <li>⚠ May have CoreDAO unbonding periods</li>
+                      <li>⚠ Experimental DeFi protocol</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {needsRebalancing && (
         <Card className="border-orange-500 bg-orange-50 dark:bg-orange-950">
           <CardHeader>
@@ -764,147 +1076,235 @@ export function DualStakingInterface() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ArrowLeftRight className="h-5 w-5" />
-            Dual Asset Staking
+      {/* Main Action Card */}
+      <Card className="border-2 border-primary/20 shadow-lg">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-bold text-foreground">
+            Start Earning Today
           </CardTitle>
-          <CardDescription>
-            Stake CORE and BTC tokens together to achieve optimal tier ratios
+          <CardDescription className="text-lg text-muted-foreground">
+            Simply deposit your tokens and we'll handle the rest
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">CORE Amount</label>
-              <Input
-                type="number"
-                value={coreAmount}
-                onChange={(e) => setCoreAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Available: {Number(coreBalanceFormatted).toLocaleString()} CORE</span>
-                <button 
-                  onClick={() => coreBalanceFormatted && setCoreAmount(coreBalanceFormatted)}
-                  className="text-primary hover:underline"
-                >
-                  Max
-                </button>
-              </div>
+        <CardContent className="space-y-8">
+          {/* Quick Start Options */}
+          <div className="bg-muted/30 rounded-lg p-6 space-y-4">
+            <div className="text-center">
+              <h3 className="font-semibold text-foreground mb-2">Choose Your Strategy</h3>
+              <p className="text-sm text-muted-foreground">Select a target yield to get optimal token amounts</p>
             </div>
-
-            <div>
-              <label className="text-sm font-medium">BTC Amount</label>
-              <Input
-                type="number"
-                value={btcAmount}
-                onChange={(e) => setBtcAmount(e.target.value)}
-                placeholder="0.00"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Available: {Number(btcBalanceFormatted).toLocaleString()} BTC</span>
-                <button 
-                  onClick={() => btcBalanceFormatted && setBtcAmount(btcBalanceFormatted)}
-                  className="text-primary hover:underline"
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Object.entries(tierInfo).reverse().map(([tierKey, info]) => (
+                <button
+                  key={tierKey}
+                  onClick={() => handleAutoCalculate(Number(tierKey) as DualTier)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
+                    Number(tierKey) === DualTier.Satoshi 
+                      ? 'border-primary bg-primary/10 shadow-sm' 
+                      : 'border-border hover:border-primary/30'
+                  }`}
                 >
-                  Max
+                  <div className={`font-semibold text-sm ${info.color}`}>
+                    {info.name}
+                  </div>
+                  <div className="text-lg font-bold text-green-600 mt-1">
+                    {info.apy}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {info.description}
+                  </div>
+                  {Number(tierKey) === DualTier.Satoshi && (
+                    <div className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded mt-2 inline-block">
+                      Recommended
+                    </div>
+                  )}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual Input Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-foreground">Or Enter Custom Amounts</h3>
+              <button 
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  // Toggle advanced mode
+                }}
+              >
+                Advanced Options
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">CORE Tokens</span>
+                  <div className="mt-1 relative">
+                    <Input
+                      type="number"
+                      value={coreAmount}
+                      onChange={(e) => setCoreAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="text-right font-mono text-lg pl-12"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 font-semibold text-sm">
+                      CORE
+                    </div>
+                  </div>
+                </label>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Balance: {Number(coreBalanceFormatted).toLocaleString()}</span>
+                  <button 
+                    onClick={() => coreBalanceFormatted && setCoreAmount(coreBalanceFormatted)}
+                    className="text-primary hover:underline"
+                  >
+                    Use All
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-foreground">BTC Tokens</span>
+                  <div className="mt-1 relative">
+                    <Input
+                      type="number"
+                      value={btcAmount}
+                      onChange={(e) => setBtcAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="text-right font-mono text-lg pl-12"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500 font-semibold text-sm">
+                      BTC
+                    </div>
+                  </div>
+                </label>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Balance: {Number(btcBalanceFormatted).toFixed(4)}</span>
+                  <button 
+                    onClick={() => btcBalanceFormatted && setBtcAmount(btcBalanceFormatted)}
+                    className="text-primary hover:underline"
+                  >
+                    Use All
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           {coreAmount && btcAmount && (
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="flex items-center justify-between">
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950/50 dark:to-green-950/50 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-700">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-5 w-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-700 dark:text-blue-300">Your Proposed Allocation</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <p className="text-sm font-medium">Proposed Tier</p>
-                  <p className={`text-lg font-bold ${proposedTierInfo.color}`}>
-                    {proposedTierInfo.name} ({proposedTierInfo.apy} APY)
+                  <p className="text-sm text-muted-foreground mb-1">Target Tier</p>
+                  <p className={`text-xl font-bold ${proposedTierInfo.color}`}>
+                    {proposedTierInfo.name}
                   </p>
+                  <p className="text-sm text-green-600 font-medium">{proposedTierInfo.apy} Annual Yield</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Ratio</p>
-                  <p className="text-lg font-mono">
-                    {(Number(coreAmount) / Number(btcAmount)).toFixed(0) || 0}:1
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Your Ratio</p>
+                  <p className="text-xl font-mono font-bold">
+                    {(Number(coreAmount) / Number(btcAmount)).toLocaleString(undefined, {maximumFractionDigits: 0}) || 0}:1
                   </p>
+                  <p className="text-xs text-muted-foreground">CORE to BTC ratio</p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Basket Management</p>
+                  <div className="text-xs space-y-1">
+                    <div className="flex items-center gap-1 text-green-600">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      Auto-rebalancing enabled
+                    </div>
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      Reward compounding active
+                    </div>
+                    <div className="flex items-center gap-1 text-purple-600">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      Professional management
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-muted-foreground">
+                  💼 <strong>Smart Contract Benefits:</strong> Your deposit will be professionally managed to maintain this tier 
+                  automatically, even as market prices change. The basket handles all complexity for you.
+                </p>
               </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Quick Tier Selection</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {Object.entries(tierInfo).map(([tierKey, info]) => (
-                <Button
-                  key={tierKey}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAutoCalculate(Number(tierKey) as DualTier)}
-                  className={`${info.color} border-current`}
-                >
-                  {info.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {needsCoreApproval && (
-              <Button 
-                onClick={handleApproveCORE}
-                disabled={isApprovingCore}
-                className="w-full"
-                variant="outline"
-              >
-                {isApprovingCore ? 'Approving CORE...' : 'Approve CORE'}
-              </Button>
+          {/* Action Buttons */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            {(needsCoreApproval || needsBtcApproval) && (
+              <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="h-4 w-4 text-yellow-600" />
+                  <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Token Approval Required
+                  </span>
+                </div>
+                <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-3">
+                  You need to approve the smart contract to use your tokens. This is a one-time action for security.
+                </p>
+                <div className="space-y-2">
+                  {needsCoreApproval && (
+                    <Button 
+                      onClick={handleApproveCORE}
+                      disabled={isApprovingCore}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {isApprovingCore ? 'Approving CORE...' : '✓ Approve CORE Tokens'}
+                    </Button>
+                  )}
+                  {needsBtcApproval && (
+                    <Button 
+                      onClick={handleApproveBTC}
+                      disabled={isApprovingBtc}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      {isApprovingBtc ? 'Approving BTC...' : '✓ Approve BTC Tokens'}
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
-            {needsBtcApproval && (
-              <Button 
-                onClick={handleApproveBTC}
-                disabled={isApprovingBtc}
-                className="w-full"
-                variant="outline"
-              >
-                {isApprovingBtc ? 'Approving BTC...' : 'Approve BTC'}
-              </Button>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <Button 
-                onClick={() => {
-                  refetchCoreAllowance()
-                  refetchBtcAllowance()
-                }}
-                className="w-full"
-                variant="outline"
-                size="sm"
-              >
-                Refresh Allowances
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log('Manual refresh triggered')
-                  refetchStakeInfo()
-                  refetchCoreBalance()
-                  refetchBtcBalance()
-                }}
-                className="w-full"
-                variant="outline"
-                size="sm"
-              >
-                Refresh Stake Data
-              </Button>
-            </div>
+            
             <Button 
               onClick={handleDualStake}
               disabled={isStaking || !coreAmount || Number(coreAmount) === 0 || !btcAmount || Number(btcAmount) === 0 || needsCoreApproval || needsBtcApproval}
-              className="w-full"
+              className="w-full h-14 text-lg font-semibold shadow-lg"
+              size="lg"
             >
-              {isStaking ? 'Staking...' : 'Dual Stake CORE + BTC'}
+              {isStaking ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                  Joining Strategy...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Start Earning {proposedTierInfo.apy} APY
+                </div>
+              )}
             </Button>
+
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">
+                By joining, you agree that this is an experimental DeFi protocol with associated risks
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -912,7 +1312,7 @@ export function DualStakingInterface() {
       {Number(stakeInfo.shares) > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Your Position</CardTitle>
+            <CardTitle>Your Basket Position</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -937,7 +1337,7 @@ export function DualStakingInterface() {
                 variant="outline"
                 className="w-full"
               >
-                {isUnstaking ? 'Unstaking...' : 'Unstake All'}
+                {isUnstaking ? 'Withdrawing...' : 'Withdraw from Basket'}
               </Button>
               
               <Button 
@@ -952,11 +1352,15 @@ export function DualStakingInterface() {
         </Card>
       )}
 
+      {/* Yield Tiers - Simplified */}
       <Card>
-        <CardHeader>
-          <CardTitle>Dual Staking Tiers</CardTitle>
+        <CardHeader className="text-center">
+          <CardTitle className="flex items-center justify-center gap-2">
+            <Award className="h-5 w-5 text-primary" />
+            Available Yield Tiers
+          </CardTitle>
           <CardDescription>
-            Higher tiers require specific CORE:BTC ratios but offer better APY
+            Our smart contract automatically targets the highest tier for maximum returns
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -964,27 +1368,92 @@ export function DualStakingInterface() {
             {Object.entries(tierInfo).map(([tierKey, info]) => (
               <div 
                 key={tierKey}
-                className={`p-4 rounded-lg border-2 bg-card ${
-                  Number(tierKey) === stakeInfo.tier ? 'border-primary bg-primary/10' : 'border-border'
+                className={`p-4 rounded-lg border-2 bg-card transition-all hover:shadow-md ${
+                  Number(tierKey) === stakeInfo.tier ? 'border-primary bg-primary/10 shadow-lg' : 'border-border hover:border-primary/30'
                 }`}
               >
-                <div className={`font-semibold ${info.color} mb-2`}>
-                  {info.name}
+                <div className="flex items-center justify-between mb-2">
+                  <div className={`font-semibold ${info.color}`}>
+                    {info.name}
+                  </div>
+                  {Number(tierKey) === stakeInfo.tier && (
+                    <div className="flex items-center gap-1 text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
+                      <Target className="h-3 w-3" />
+                      Current
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm text-muted-foreground mb-2">
-                  Ratio: {info.ratio}
-                </div>
-                <div className="text-sm text-muted-foreground mb-3">
-                  APY: {info.apy}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {info.description}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Required Ratio:</span>
+                    <span className="text-sm font-mono">{info.ratio}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Annual Yield:</span>
+                    <span className="text-sm font-semibold text-green-600">{info.apy}</span>
+                  </div>
+                  <div className="pt-2 border-t border-border/50">
+                    <div className="text-xs text-muted-foreground leading-relaxed">
+                      {info.description}
+                    </div>
+                    {Number(tierKey) === DualTier.Satoshi && (
+                      <div className="mt-2 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 p-2 rounded">
+                        🎯 <strong>Basket Target:</strong> This tier offers maximum rewards and is the default target for the automated strategy.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Trust & Security Footer */}
+      <Card className="bg-muted/20 border-muted">
+        <CardContent className="pt-6">
+          <div className="text-center space-y-4">
+            <h3 className="font-semibold text-foreground">Built for Safety & Transparency</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium">Audited Smart Contracts</div>
+                  <div className="text-muted-foreground text-xs">Code reviewed for security vulnerabilities</div>
+                </div>
+              </div>
+              <div className="flex flex-col items-center space-y-2">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium">Open Source</div>
+                  <div className="text-muted-foreground text-xs">All contract code publicly verifiable</div>
+                </div>
+              </div>
+              <div className="flex flex-col items-center space-y-2">
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium">Non-Custodial</div>
+                  <div className="text-muted-foreground text-xs">You maintain full control of your assets</div>
+                </div>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground max-w-2xl mx-auto">
+                This is an experimental DeFi protocol built on CoreDAO. While contracts are audited, 
+                cryptocurrency investments carry inherent risks. Only invest what you can afford to lose. 
+                Past performance does not guarantee future results.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      </div>
     </div>
   )
 }

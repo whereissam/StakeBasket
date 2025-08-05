@@ -6,7 +6,21 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title UnbondingQueue
- * @dev Manages unbonding periods and withdrawal queues for staked assets
+ * @dev Enhanced unbonding queue with liquidity pool for instant withdrawals
+ * 
+ * LIQUIDITY POOL DESIGN:
+ * - Instant withdrawal for amounts < 100K tokens when liquidity is available
+ * - Liquidity pool funded by:
+ *   1. Protocol reserves (portion of fund assets remain unstaked)
+ *   2. User deposits waiting to be staked
+ *   3. Recently claimed rewards
+ *   4. Optional external liquidity providers
+ * 
+ * FUNDING MECHANISMS:
+ * - Reserve Pool: 5-10% of total assets kept liquid for instant withdrawals
+ * - Recycling: Completed unbonding requests replenish liquidity pool
+ * - Dynamic Sizing: Pool size adjusts based on withdrawal demand patterns
+ * - Emergency Liquidity: External providers can supply liquidity for premium
  */
 contract UnbondingQueue is Ownable, ReentrancyGuard {
     struct UnbondingRequest {
@@ -37,6 +51,22 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
     
     UnbondingRequest[] public globalQueue;
     uint256 public nextRequestId;
+    
+    // Enhanced liquidity pool management
+    mapping(string => uint256) public reservePoolSize; // Target reserve size for each asset
+    mapping(string => uint256) public reservePoolRatio; // Percentage of total to keep liquid (basis points)
+    mapping(address => mapping(string => uint256)) public liquidityProviderShares;
+    mapping(string => uint256) public totalLiquidityProviderShares;
+    mapping(string => uint256) public liquidityProviderRewards;
+    
+    // Liquidity pool parameters
+    uint256 public constant DEFAULT_RESERVE_RATIO = 500; // 5% default reserve
+    uint256 public instantWithdrawalFee = 25; // 0.25% fee for instant withdrawals
+    uint256 public liquidityProviderFee = 10; // 0.1% fee goes to liquidity providers
+    uint256 public maxInstantWithdrawalRatio = 1000; // Max 10% of pool per instant withdrawal
+    
+    // Dynamic sizing parameters
+    uint256 public demandSmoothingFactor = 100; // Basis points for demand-based pool sizing
 
     // Events
     event UnbondingRequested(
@@ -46,8 +76,12 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
         string assetType, 
         uint256 unlockTime
     );
-    event InstantWithdrawal(address indexed user, uint256 amount, string assetType);
+    event InstantWithdrawal(address indexed user, uint256 amount, string assetType, uint256 fee);
     event UnbondingProcessed(address indexed user, uint256 indexed requestId, uint256 amount);
+    event LiquidityProvided(address indexed provider, string assetType, uint256 amount, uint256 shares);
+    event LiquidityWithdrawn(address indexed provider, string assetType, uint256 amount, uint256 shares);
+    event ReservePoolSized(string assetType, uint256 newSize, uint256 ratio);
+    event LiquidityRebalanced(string assetType, uint256 newAvailable, uint256 targetSize);
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -83,30 +117,49 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Check if instant withdrawal is possible
+     * @dev Enhanced instant withdrawal eligibility check
      */
     function canWithdrawInstantly(uint256 amount, string memory assetType) 
         public 
         view 
         returns (bool) 
     {
+        uint256 maxSingleWithdrawal = (availableLiquidity[assetType] * maxInstantWithdrawalRatio) / 10000;
         return amount <= MAX_INSTANT_WITHDRAWAL && 
-               amount <= availableLiquidity[assetType];
+               amount <= availableLiquidity[assetType] &&
+               amount <= maxSingleWithdrawal;
+    }
+    
+    /**
+     * @dev Get instant withdrawal fee for amount
+     */
+    function getInstantWithdrawalFee(uint256 amount) public view returns (uint256) {
+        return (amount * instantWithdrawalFee) / 10000;
     }
 
     /**
-     * @dev Process instant withdrawal
+     * @dev Enhanced instant withdrawal processing with fees
      */
     function processInstantWithdrawal(
         address user,
         uint256 amount,
         string memory assetType
-    ) external onlyOwner {
+    ) external onlyOwner returns (uint256 netAmount, uint256 fee) {
         require(canWithdrawInstantly(amount, assetType), "UnbondingQueue: instant withdrawal not available");
         
+        fee = getInstantWithdrawalFee(amount);
+        netAmount = amount - fee;
+        
+        // Update liquidity
         availableLiquidity[assetType] -= amount;
         
-        emit InstantWithdrawal(user, amount, assetType);
+        // Distribute fee
+        uint256 lpFee = (fee * liquidityProviderFee * 10000) / (instantWithdrawalFee * 10000);
+        liquidityProviderRewards[assetType] += lpFee;
+        
+        emit InstantWithdrawal(user, netAmount, assetType, fee);
+        
+        return (netAmount, fee);
     }
 
     /**
@@ -205,6 +258,62 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Provide liquidity to the pool
+     */
+    function provideLiquidity(address provider, string memory assetType, uint256 amount) 
+        external 
+        onlyOwner 
+        returns (uint256 shares)
+    {
+        require(amount > 0, "UnbondingQueue: invalid amount");
+        
+        // Calculate shares to mint
+        if (totalLiquidityProviderShares[assetType] == 0) {
+            shares = amount; // 1:1 for first provider
+        } else {
+            shares = (amount * totalLiquidityProviderShares[assetType]) / availableLiquidity[assetType];
+        }
+        
+        // Update state
+        liquidityProviderShares[provider][assetType] += shares;
+        totalLiquidityProviderShares[assetType] += shares;
+        availableLiquidity[assetType] += amount;
+        
+        emit LiquidityProvided(provider, assetType, amount, shares);
+        
+        return shares;
+    }
+    
+    /**
+     * @dev Withdraw liquidity from the pool
+     */
+    function withdrawLiquidity(address provider, string memory assetType, uint256 shares) 
+        external 
+        onlyOwner 
+        returns (uint256 amount)
+    {
+        require(shares > 0, "UnbondingQueue: invalid shares");
+        require(liquidityProviderShares[provider][assetType] >= shares, "UnbondingQueue: insufficient shares");
+        
+        // Calculate amount to withdraw
+        amount = (shares * availableLiquidity[assetType]) / totalLiquidityProviderShares[assetType];
+        
+        // Include earned rewards
+        uint256 providerRewardShare = (liquidityProviderRewards[assetType] * shares) / totalLiquidityProviderShares[assetType];
+        amount += providerRewardShare;
+        
+        // Update state
+        liquidityProviderShares[provider][assetType] -= shares;
+        totalLiquidityProviderShares[assetType] -= shares;
+        availableLiquidity[assetType] -= (amount - providerRewardShare);
+        liquidityProviderRewards[assetType] -= providerRewardShare;
+        
+        emit LiquidityWithdrawn(provider, assetType, amount, shares);
+        
+        return amount;
+    }
+    
+    /**
      * @dev Update available liquidity for instant withdrawals
      */
     function updateAvailableLiquidity(string memory assetType, uint256 amount) 
@@ -212,6 +321,27 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
         onlyOwner 
     {
         availableLiquidity[assetType] = amount;
+        
+        // Auto-size reserve pool based on total assets
+        _autoSizeReservePool(assetType);
+    }
+    
+    /**
+     * @dev Automatically size reserve pool based on demand patterns
+     */
+    function _autoSizeReservePool(string memory assetType) internal {
+        uint256 currentRatio = reservePoolRatio[assetType];
+        if (currentRatio == 0) {
+            currentRatio = DEFAULT_RESERVE_RATIO;
+        }
+        
+        // Calculate target reserve size
+        uint256 totalAssetValue = availableLiquidity[assetType] + totalQueuedByAsset[assetType];
+        uint256 targetReserveSize = (totalAssetValue * currentRatio) / 10000;
+        
+        reservePoolSize[assetType] = targetReserveSize;
+        
+        emit ReservePoolSized(assetType, targetReserveSize, currentRatio);
     }
 
     /**
@@ -258,5 +388,88 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
         }
         
         avgWaitTime = activeRequests > 0 ? totalWaitTime / activeRequests : 0;
+    }
+    
+    /**
+     * @dev Set reserve pool parameters
+     */
+    function setReservePoolRatio(string memory assetType, uint256 ratio) external onlyOwner {
+        require(ratio <= 2000, "UnbondingQueue: ratio too high"); // Max 20%
+        reservePoolRatio[assetType] = ratio;
+        _autoSizeReservePool(assetType);
+    }
+    
+    /**
+     * @dev Set instant withdrawal parameters
+     */
+    function setInstantWithdrawalParams(
+        uint256 _instantWithdrawalFee,
+        uint256 _liquidityProviderFee,
+        uint256 _maxInstantWithdrawalRatio
+    ) external onlyOwner {
+        require(_instantWithdrawalFee <= 100, "UnbondingQueue: fee too high"); // Max 1%
+        require(_liquidityProviderFee <= 50, "UnbondingQueue: LP fee too high"); // Max 0.5%
+        require(_maxInstantWithdrawalRatio <= 2000, "UnbondingQueue: ratio too high"); // Max 20%
+        
+        instantWithdrawalFee = _instantWithdrawalFee;
+        liquidityProviderFee = _liquidityProviderFee;
+        maxInstantWithdrawalRatio = _maxInstantWithdrawalRatio;
+    }
+    
+    /**
+     * @dev Get liquidity provider information
+     */
+    function getLiquidityProviderInfo(address provider, string memory assetType) 
+        external 
+        view 
+        returns (
+            uint256 shares,
+            uint256 liquidityValue,
+            uint256 earnedRewards
+        )
+    {
+        shares = liquidityProviderShares[provider][assetType];
+        
+        if (totalLiquidityProviderShares[assetType] > 0) {
+            liquidityValue = (shares * availableLiquidity[assetType]) / totalLiquidityProviderShares[assetType];
+            earnedRewards = (liquidityProviderRewards[assetType] * shares) / totalLiquidityProviderShares[assetType];
+        }
+    }
+    
+    /**
+     * @dev Get pool health metrics
+     */
+    function getPoolHealth(string memory assetType) 
+        external 
+        view 
+        returns (
+            uint256 utilizationRate,
+            uint256 liquidityRatio,
+            bool isHealthy
+        )
+    {
+        uint256 totalValue = availableLiquidity[assetType] + totalQueuedByAsset[assetType];
+        
+        if (totalValue > 0) {
+            utilizationRate = (totalQueuedByAsset[assetType] * 10000) / totalValue;
+            liquidityRatio = (availableLiquidity[assetType] * 10000) / totalValue;
+            
+            // Pool is healthy if liquidity ratio is above reserve target
+            uint256 targetRatio = reservePoolRatio[assetType];
+            if (targetRatio == 0) targetRatio = DEFAULT_RESERVE_RATIO;
+            
+            isHealthy = liquidityRatio >= targetRatio;
+        }
+    }
+    
+    /**
+     * @dev Rebalance liquidity pool
+     */
+    function rebalanceLiquidity(string memory assetType, uint256 targetLiquidity) external onlyOwner {
+        require(targetLiquidity <= reservePoolSize[assetType] * 120 / 100, "UnbondingQueue: target too high");
+        
+        availableLiquidity[assetType] = targetLiquidity;
+        
+        emit LiquidityRebalanced(assetType, targetLiquidity, reservePoolSize[assetType]);
     }
 }
