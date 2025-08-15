@@ -2,6 +2,32 @@
 
 A comprehensive DeFi protocol for multi-asset staking and liquid staking on CoreDAO, featuring governance, tiered rewards, and automated yield optimization.
 
+## 🌐 Live Deployment - Core Testnet2
+
+**🧪 Complete System Deployed (2025-08-10)**
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| **StakeBasket** | [`0x13F8b7693445c180Ec11f211d9Af425920B795Af`](https://scan.test2.btcs.network/address/0x13F8b7693445c180Ec11f211d9Af425920B795Af) | Main ETF contract |
+| **StakeBasketToken** | [`0x78B9B8e98d3df0F05cB0f7790524fB1432d430fD`](https://scan.test2.btcs.network/address/0x78B9B8e98d3df0F05cB0f7790524fB1432d430fD) | ETF share tokens |
+| **BasketGovernance** | [`0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e`](https://scan.test2.btcs.network/address/0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e) | DAO governance |
+| **BasketStaking** | [`0xC2072F6546Af5FfE732707De5Db2925C55a2975B`](https://scan.test2.btcs.network/address/0xC2072F6546Af5FfE732707De5Db2925C55a2975B) | Tiered staking rewards |
+| **CoreLiquidStakingManager** | [`0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E`](https://scan.test2.btcs.network/address/0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E) | Liquid staking |
+| **StCoreToken** | [`0x19640421A039E231312c2C0941D8b112e02876C5`](https://scan.test2.btcs.network/address/0x19640421A039E231312c2C0941D8b112e02876C5) | Liquid staking tokens |
+| **DualStakingBasket** | [`0x0C9A264bA0c35e327ae0CdB4507F2D6142BD8a3f`](https://scan.test2.btcs.network/address/0x0C9A264bA0c35e327ae0CdB4507F2D6142BD8a3f) | Dual staking optimization |
+| **StakingManager** | [`0x076A2418F51fc1eBd54e30030FD670709f8735B4`](https://scan.test2.btcs.network/address/0x076A2418F51fc1eBd54e30030FD670709f8735B4) | Validator management |
+| **PriceFeed** | [`0x61C9A97fC6B790d09024676AFaC07e467cd4f74d`](https://scan.test2.btcs.network/address/0x61C9A97fC6B790d09024676AFaC07e467cd4f74d) | Price oracle |
+| **UnbondingQueue** | [`0x0A4a6dB1718A515EA613873271b505BA5b1aB256`](https://scan.test2.btcs.network/address/0x0A4a6dB1718A515EA613873271b505BA5b1aB256) | Withdrawal queue |
+
+**🧪 Test Tokens:**
+- **MockCORE**: [`0xFb9c7Fb19351316B48eaD2c96E19880Cabc1BbC1`](https://scan.test2.btcs.network/address/0xFb9c7Fb19351316B48eaD2c96E19880Cabc1BbC1)
+- **MockCoreBTC**: [`0xe9A0850ED0A4f51A0426CaB7079Cc10921A07096`](https://scan.test2.btcs.network/address/0xe9A0850ED0A4f51A0426CaB7079Cc10921A07096)
+- **BasketToken**: [`0xA6ae2E223A8916314b841a92AfC338e72b9f74ED`](https://scan.test2.btcs.network/address/0xA6ae2E223A8916314b841a92AfC338e72b9f74ED)
+
+**Network:** Core Testnet2 (Chain ID: 1114)  
+**RPC:** `https://rpc.test2.btcs.network`  
+**Explorer:** `https://scan.test2.btcs.network`
+
 ## 🏗️ Architecture Overview
 
 ### Core Governance & Management Layer

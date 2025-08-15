@@ -57,6 +57,7 @@ contract BasketStaking is ReentrancyGuard, Ownable {
     event Staked(address indexed user, uint256 amount, Tier tier);
     event Unstaked(address indexed user, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
+    event RewardsWithdrawn(address indexed user, uint256 amount);
     event ProtocolFeesDeposited(uint256 amount);
     event TierUpgraded(address indexed user, Tier oldTier, Tier newTier);
     
@@ -141,8 +142,11 @@ contract BasketStaking is ReentrancyGuard, Ownable {
         emit Unstaked(msg.sender, amount);
     }
     
+    // Pull-based reward system for enhanced security
+    mapping(address => uint256) public withdrawableRewards;
+    
     /**
-     * @dev Claim accumulated rewards
+     * @dev Mark rewards as available for withdrawal (safer pull pattern)
      */
     function claimRewards() external nonReentrant {
         _updateRewards();
@@ -154,15 +158,28 @@ contract BasketStaking is ReentrancyGuard, Ownable {
         require(rewards > 0, "BasketStaking: no rewards to claim");
         require(protocolFeePool >= rewards, "BasketStaking: insufficient reward pool");
         
+        // Update state before making rewards available
         userStake.pendingRewards = 0;
         userStake.lastClaimTime = block.timestamp;
         protocolFeePool -= rewards;
+        withdrawableRewards[msg.sender] += rewards;
         
-        // Transfer rewards in ETH (or could be BASKET tokens)
+        emit RewardsClaimed(msg.sender, rewards);
+    }
+    
+    /**
+     * @dev Withdraw previously claimed rewards (pull pattern)
+     */
+    function withdrawRewards() external nonReentrant {
+        uint256 rewards = withdrawableRewards[msg.sender];
+        require(rewards > 0, "BasketStaking: no rewards to withdraw");
+        
+        withdrawableRewards[msg.sender] = 0;
+        
         (bool success, ) = payable(msg.sender).call{value: rewards}("");
         require(success, "BasketStaking: reward transfer failed");
         
-        emit RewardsClaimed(msg.sender, rewards);
+        emit RewardsWithdrawn(msg.sender, rewards);
     }
     
     /**
@@ -384,10 +401,18 @@ contract BasketStaking is ReentrancyGuard, Ownable {
         }
     }
     
-    // Allow contract to receive ETH for fee distribution
+    // Allow contract to receive ETH for fee distribution (fixed to avoid recursion)
     receive() external payable {
         if (msg.value > 0) {
-            this.depositProtocolFees{value: msg.value}();
+            _updateRewards();
+            
+            if (totalStaked > 0) {
+                uint256 rewardPerToken = (msg.value * PRECISION) / totalStaked;
+                rewardIndex += rewardPerToken;
+            }
+            
+            protocolFeePool += msg.value;
+            emit ProtocolFeesDeposited(msg.value);
         }
     }
 }

@@ -1,0 +1,13 @@
+{
+  "api3PriceFeed": "0xBf68f7afB7490882b62e79a248e0Dd0C2D4E3D38",
+  "stakeBasket": "0x4f57eaEF37eAC9A61f5dFaba62fE8BafcC11E422",
+  "features": {
+    "api3Ready": true,
+    "fallbackPrices": true,
+    "manualUpdates": true,
+    "batchUpdates": true
+  },
+  "network": "Core Testnet2",
+  "chainId": 1114,
+  "explorer": "https://scan.test2.btcs.network"
+}

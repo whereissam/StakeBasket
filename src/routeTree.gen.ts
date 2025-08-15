@@ -13,6 +13,7 @@ import { Route as StakingRouteImport } from './routes/staking'
 import { Route as SparksRouteImport } from './routes/sparks'
 import { Route as GovernanceRouteImport } from './routes/governance'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as FaucetRouteImport } from './routes/faucet'
 import { Route as DualStakingRouteImport } from './routes/dual-staking'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContractsRouteImport } from './routes/contracts'
@@ -37,6 +38,11 @@ const GovernanceRoute = GovernanceRouteImport.update({
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaucetRoute = FaucetRouteImport.update({
+  id: '/faucet',
+  path: '/faucet',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DualStakingRoute = DualStakingRouteImport.update({
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/dual-staking': typeof DualStakingRoute
+  '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
   '/sparks': typeof SparksRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/dual-staking': typeof DualStakingRoute
+  '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
   '/sparks': typeof SparksRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/contracts': typeof ContractsRoute
   '/dashboard': typeof DashboardRoute
   '/dual-staking': typeof DualStakingRoute
+  '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
   '/sparks': typeof SparksRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/dual-staking'
+    | '/faucet'
     | '/features'
     | '/governance'
     | '/sparks'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/dual-staking'
+    | '/faucet'
     | '/features'
     | '/governance'
     | '/sparks'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/dashboard'
     | '/dual-staking'
+    | '/faucet'
     | '/features'
     | '/governance'
     | '/sparks'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   ContractsRoute: typeof ContractsRoute
   DashboardRoute: typeof DashboardRoute
   DualStakingRoute: typeof DualStakingRoute
+  FaucetRoute: typeof FaucetRoute
   FeaturesRoute: typeof FeaturesRoute
   GovernanceRoute: typeof GovernanceRoute
   SparksRoute: typeof SparksRoute
@@ -175,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faucet': {
+      id: '/faucet'
+      path: '/faucet'
+      fullPath: '/faucet'
+      preLoaderRoute: typeof FaucetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dual-staking': {
@@ -221,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContractsRoute: ContractsRoute,
   DashboardRoute: DashboardRoute,
   DualStakingRoute: DualStakingRoute,
+  FaucetRoute: FaucetRoute,
   FeaturesRoute: FeaturesRoute,
   GovernanceRoute: GovernanceRoute,
   SparksRoute: SparksRoute,

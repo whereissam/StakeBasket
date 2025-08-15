@@ -9,14 +9,19 @@ import { TrendingUp, Wallet, DollarSign, RefreshCw, ExternalLink } from 'lucide-
 import { useContractData } from '../hooks/useContractData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useTransactionHistory } from '../hooks/useTransactionHistory'
+import { usePriceFeedManager } from '../hooks/usePriceFeedManager'
 import { useAccount, useChainId } from 'wagmi'
 import { getNetworkByChainId } from '../config/contracts'
 import { useContractStore, useEnvironmentContracts } from '../store/useContractStore'
 import { useContractHealth } from '../hooks/useContractHealth'
 import { ContractSettings } from './ContractSettings'
+import { PriceStalenessIndicator } from './PriceStalenessIndicator'
+// import { WalletDiagnostic } from './WalletDiagnostic'
+import { DirectPriceUpdate } from './DirectPriceUpdate'
+import { toast } from 'sonner'
 
 export function DashboardV3() {
-  const { address } = useAccount()
+  const { address, isConnected: walletConnected, isConnecting, isReconnecting } = useAccount()
   const chainId = useChainId()
   const { config } = getNetworkByChainId(chainId)
   
@@ -47,8 +52,10 @@ export function DashboardV3() {
     supportedAssets,
     isConnected,
     priceError,
-    priceLoading
+    priceLoading,
+    refetchBasketBalance
   } = useContractData(address)
+
 
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
@@ -57,13 +64,26 @@ export function DashboardV3() {
   const {
     depositCore,
     redeemBasket,
+    approveBasketTokens,
     isDepositing,
     isRedeeming,
+    isApprovingBasket,
     depositSuccess,
     redeemSuccess,
+    approveSuccess,
     depositHash,
-    redeemHash
+    redeemHash,
+    approveHash,
+    needsBasketApproval,
+    basketAllowance
   } = useStakeBasketTransactions()
+
+  // Price feed management
+  const {
+    updateCorePrice,
+    isUpdating: isPriceUpdating,
+    updateSuccess: priceUpdateSuccess
+  } = usePriceFeedManager()
 
   // Get real transaction history from blockchain
   const { transactions, loading: txLoading, error: txError } = useTransactionHistory()
@@ -73,34 +93,74 @@ export function DashboardV3() {
 
   const handleDeposit = async () => {
     if (!depositAmount) return
+    
+    // Check wallet connection first
+    if (!address || !walletConnected) {
+      toast.error('Wallet not connected. Please connect your wallet first.')
+      return
+    }
+    
+    // Validate sufficient balance
+    const depositAmountNum = parseFloat(depositAmount)
+    const gasEstimate = 0.02 // Estimate 0.02 for gas
+    const totalNeeded = depositAmountNum + gasEstimate
+    
+    if (coreBalance < totalNeeded) {
+      const shortfall = totalNeeded - coreBalance
+      const tokenSymbol = chainId === 31337 ? 'ETH' : 'tCORE2'
+      toast.error(`Insufficient balance. Need ${shortfall.toFixed(4)} more ${tokenSymbol} (including gas fees)`)
+      return
+    }
+    
     try {
       await depositCore(depositAmount)
     } catch (error) {
-      console.error('Deposit failed:', error)
     }
   }
 
   const handleWithdraw = async () => {
     if (!withdrawAmount) return
+    
     try {
+      // Check if approval is needed first
+      if (needsBasketApproval(withdrawAmount)) {
+        toast.info('Approving BASKET tokens first...')
+        await approveBasketTokens(withdrawAmount)
+        // Wait a moment for approval to be processed
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+      
+      // Now proceed with redemption
       await redeemBasket(withdrawAmount)
     } catch (error) {
-      console.error('Redeem failed:', error)
+      // Error handling is done in the hooks
     }
   }
 
-  // Clear inputs on successful transactions
+
+  // Clear inputs and refetch balances on successful transactions
   useEffect(() => {
     if (depositSuccess) {
       setDepositAmount('')
+      refetchBasketBalance?.() // Refresh BASKET token balance after deposit
     }
-  }, [depositSuccess])
+  }, [depositSuccess, refetchBasketBalance])
 
   useEffect(() => {
     if (redeemSuccess) {
+      refetchBasketBalance?.() // Refresh BASKET token balance after redeem
       setWithdrawAmount('')
     }
-  }, [redeemSuccess])
+  }, [redeemSuccess, refetchBasketBalance])
+
+
+  // Handle price update success
+  useEffect(() => {
+    if (priceUpdateSuccess) {
+      // Refresh data after price update
+      window.location.reload() // Simple way to refresh all price-dependent data
+    }
+  }, [priceUpdateSuccess])
 
   if (!isConnected) {
     return (
@@ -109,7 +169,7 @@ export function DashboardV3() {
           <CardHeader>
             <CardTitle className="text-lg sm:text-xl">Connect to Core Network</CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Please connect your wallet to Core Testnet2 to view your dashboard
+              Please connect your wallet to view your dashboard
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,10 +177,10 @@ export function DashboardV3() {
               <p className="text-sm text-muted-foreground">
                 Current network: {config.name} (Chain ID: {chainId})
               </p>
-              {chainId !== 1114 && (
+              {chainId !== 1114 && chainId !== 31337 && (
                 <div className="p-4 border border-border bg-accent/50 rounded-lg">
                   <p className="text-sm text-accent-foreground">
-                    ⚠️ Please switch to Core Testnet2 (Chain ID: 1114) to see your contracts and portfolio data.
+                    ⚠️ Please switch to Core Testnet2 (Chain ID: 1114) or Local Hardhat (Chain ID: 31337) to see your contracts and portfolio data.
                   </p>
                 </div>
               )}
@@ -133,6 +193,12 @@ export function DashboardV3() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Wallet Diagnostic */}
+      {/* <WalletDiagnostic /> */}
+      
+      {/* Direct Price Update */}
+      {/* <DirectPriceUpdate /> */}
+      
       {/* Contract Settings */}
       <div className="flex justify-between items-center">
         <div>
@@ -140,6 +206,12 @@ export function DashboardV3() {
           <p className="text-muted-foreground">
             Contract Health: {healthSummary.healthPercentage}% ({healthSummary.healthyContracts}/{healthSummary.totalContracts} healthy)
           </p>
+          <div className="mt-2">
+            <PriceStalenessIndicator 
+              onUpdatePrice={updateCorePrice}
+              isUpdating={isPriceUpdating}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -151,7 +223,17 @@ export function DashboardV3() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
             Check Health
           </Button>
-          <ContractSettings />
+          {/* <Button
+            variant="outline"
+            size="sm"
+            onClick={updateCorePrice}
+            disabled={isPriceUpdating}
+            className="bg-primary/5 hover:bg-primary/10 border-primary/20"
+          >
+            <DollarSign className={`h-4 w-4 mr-2 ${isPriceUpdating ? 'animate-spin' : ''}`} />
+            {isPriceUpdating ? 'Updating...' : 'Update Prices'}
+          </Button> */}
+          {/* <ContractSettings /> */}
         </div>
       </div>
       {/* Network Status */}
@@ -168,7 +250,7 @@ export function DashboardV3() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <p className="text-muted-foreground">CORE Price</p>
+                <p className="text-muted-foreground">{chainId === 31337 ? 'ETH' : 'CORE'} Price</p>
                 <p className="font-semibold">
                   {priceLoading ? (
                     <RefreshCw className="w-4 h-4 animate-spin inline" />
@@ -189,7 +271,7 @@ export function DashboardV3() {
               </div>
               <div>
                 <p className="text-muted-foreground">Total Pooled</p>
-                <p className="font-semibold">{totalPooledCore.toFixed(2)} CORE</p>
+                <p className="font-semibold">{totalPooledCore.toFixed(2)} {chainId === 31337 ? 'ETH' : 'CORE'}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Oracle Assets</p>
@@ -200,6 +282,26 @@ export function DashboardV3() {
             {priceError && (
               <div className="p-2 bg-accent/50 border border-border rounded text-xs text-accent-foreground">
                 ⚠️ {priceError}
+                {priceError.includes('stale') && (
+                  <div className="mt-2">
+                    <Button
+                      onClick={updateCorePrice}
+                      disabled={isPriceUpdating}
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-xs"
+                    >
+                      {isPriceUpdating ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update Price Feed'
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -223,7 +325,7 @@ export function DashboardV3() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CORE Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">{chainId === 31337 ? 'ETH' : 'CORE'} Balance</CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -261,16 +363,16 @@ export function DashboardV3() {
         {/* Deposit */}
         <Card>
           <CardHeader>
-            <CardTitle>Deposit Assets</CardTitle>
-            <CardDescription>Deposit native CORE tokens to your ETF portfolio</CardDescription>
+            <CardTitle>Stake {chainId === 31337 ? 'ETH' : 'CORE'} Tokens</CardTitle>
+            <CardDescription>Stake native {chainId === 31337 ? 'ETH (for local testing)' : 'CORE tokens'} to earn BASKET tokens and yield rewards</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Amount to Deposit</label>
+              <label className="text-sm font-medium">Amount to Stake</label>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <Input
                   type="number"
-                  placeholder="Enter native CORE amount"
+                  placeholder={`Enter ${chainId === 31337 ? 'ETH' : 'CORE'} amount to stake`}
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   className="flex-1"
@@ -283,20 +385,55 @@ export function DashboardV3() {
                   {isDepositing ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Depositing...
+                      Staking...
                     </>
                   ) : (
-                    'Deposit Native CORE'
+                    `Stake Native ${chainId === 31337 ? 'ETH' : 'CORE'}`
                   )}
                 </Button>
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              Available: {coreBalance.toFixed(4)} native CORE (${(coreBalance * corePrice).toFixed(2)})
+              <div className="flex justify-between items-center">
+                <span>Available: {coreBalance.toFixed(4)} native {chainId === 31337 ? 'ETH' : 'CORE'} (${(coreBalance * corePrice).toFixed(2)})</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      // Calculate max safe amount (leaving 0.02 for gas)
+                      const maxSafe = Math.max(0, coreBalance - 0.02)
+                      setDepositAmount(maxSafe.toFixed(4))
+                    }}
+                    className="text-primary hover:underline text-xs"
+                  >
+                    Max Safe
+                  </button>
+                  <button 
+                    onClick={() => setDepositAmount(coreBalance.toFixed(4))}
+                    className="text-muted-foreground hover:text-foreground text-xs"
+                  >
+                    Use All
+                  </button>
+                </div>
+              </div>
+              {coreBalance < 5.1 && coreBalance >= 1 && chainId !== 31337 && (
+                <div className="text-yellow-600 mt-1">
+                  ⚠️ For 5 tCORE2 deposit, you need 5.02 tCORE2 total (including gas). Try "Max Safe" button for your current balance.
+                </div>
+              )}
+              {coreBalance < 1 && (
+                <div className="text-red-600 mt-1">
+                  ❌ Insufficient balance. {chainId === 31337 ? 'Get more ETH for local testing.' : 'Get more tCORE2 from faucet to make deposits.'}
+                </div>
+              )}
             </div>
             <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
-              ℹ️ This ETF uses native CORE tokens (not MockCORE ERC-20). Your wallet balance shows your native CORE.
+              ℹ️ This ETF uses native {chainId === 31337 ? 'ETH tokens for local testing' : 'CORE tokens (not MockCORE ERC-20)'}. Your wallet balance shows your native tokens.
             </div>
+            
+            <PriceStalenessIndicator 
+              onUpdatePrice={updateCorePrice}
+              isUpdating={isPriceUpdating}
+            />
             {parseFloat(depositAmount) > 0 && (
               <div className="p-3 bg-primary/10 rounded-md">
                 <p className="text-sm text-primary">
@@ -311,12 +448,12 @@ export function DashboardV3() {
         <Card>
           <CardHeader>
             <CardTitle>Withdraw Assets</CardTitle>
-            <CardDescription>Redeem your BASKET tokens for underlying assets</CardDescription>
+            <CardDescription>Redeem your BASKET tokens for {chainId === 31337 ? 'ETH' : 'CORE'} tokens immediately</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">BASKET Tokens to Redeem</label>
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <div className="flex flex-col space-y-2">
                 <Input
                   type="number"
                   placeholder="Enter BASKET amount"
@@ -324,30 +461,64 @@ export function DashboardV3() {
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   className="flex-1"
                 />
+                
                 <Button 
                   onClick={handleWithdraw} 
-                  disabled={isRedeeming || !withdrawAmount}
-                  variant="outline"
-                  className="w-full sm:w-auto sm:whitespace-nowrap min-h-[44px]"
+                  disabled={isRedeeming || isApprovingBasket || !withdrawAmount}
+                  className="w-full min-h-[44px]"
                 >
-                  {isRedeeming ? (
+                  {isApprovingBasket ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Approving BASKET Tokens...
+                    </>
+                  ) : isRedeeming ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       Redeeming...
                     </>
                   ) : (
-                    'Redeem'
+                    'Redeem BASKET Tokens'
                   )}
                 </Button>
               </div>
             </div>
+            
             <div className="text-xs text-muted-foreground">
               Available: {basketBalance.toFixed(4)} BASKET (${portfolioValueUSD.toFixed(2)})
             </div>
+            
+            {/* BASKET Token Status */}
+            <div className="p-3 bg-muted border border-border rounded-md">
+              <h4 className="text-sm font-medium text-foreground mb-2">🔑 BASKET Token Status</h4>
+              <div className="text-xs text-muted-foreground space-y-1">
+                {needsBasketApproval(withdrawAmount || '1') ? (
+                  <p>• BASKET tokens will be approved automatically when you redeem</p>
+                ) : (
+                  <p>• ✅ BASKET tokens approved (allowance: {parseFloat(basketAllowance).toFixed(4)})</p>
+                )}
+                <p>• BASKET Token: {contractAddresses.StakeBasketToken}</p>
+                <p>• Spender: {contractAddresses.StakeBasket}</p>
+              </div>
+            </div>
+            
+            {/* Withdrawal explanation */}
+            <div className="p-3 bg-accent/50 border border-border rounded-md">
+              <h4 className="text-sm font-medium text-accent-foreground mb-2">📋 How Withdrawal Works</h4>
+              <div className="space-y-2 text-xs text-accent-foreground/80">
+                <p>• BASKET tokens are redeemed immediately for {chainId === 31337 ? 'ETH' : 'CORE'} tokens</p>
+                <p>• Withdrawal amount depends on current Net Asset Value (NAV)</p>
+                <p>• Requires BASKET token approval before redemption</p>
+              </div>
+            </div>
+            
             {parseFloat(withdrawAmount) > 0 && (
               <div className="p-3 bg-secondary/50 rounded-md">
                 <p className="text-sm text-secondary-foreground">
-                  You will receive approximately {(parseFloat(withdrawAmount) * 1.085).toFixed(4)} CORE
+                  You will receive approximately {(parseFloat(withdrawAmount) / 1.085).toFixed(4)} {chainId === 31337 ? 'ETH' : 'CORE'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Actual amount depends on current NAV per share
                 </p>
               </div>
             )}
@@ -383,9 +554,9 @@ export function DashboardV3() {
               />
             )}
             <ContractAddress
-              label="Mock CORE Token"
-              address={contractAddresses.MockCORE}
-              explorerUrl={`${config.explorer}/address/${contractAddresses.MockCORE}`}
+              label="Staking Manager"
+              address={contractAddresses.StakingManager}
+              explorerUrl={`${config.explorer}/address/${contractAddresses.StakingManager}`}
             />
           </div>
         </CardContent>
@@ -416,7 +587,7 @@ export function DashboardV3() {
                 <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">⏳</span>
+                      <span className="text-lg">🕐</span>
                       <div>
                         <p className="font-medium text-sm">Deposit Pending</p>
                         <p className="text-xs text-muted-foreground">Transaction submitted</p>
@@ -443,10 +614,10 @@ export function DashboardV3() {
                 <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">⏳</span>
+                      <span className="text-lg">🕐</span>
                       <div>
-                        <p className="font-medium text-sm">Redeem Pending</p>
-                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                        <p className="font-medium text-sm">Withdrawal Pending</p>
+                        <p className="text-xs text-muted-foreground">Processing transaction</p>
                       </div>
                     </div>
                     <Button
@@ -538,7 +709,7 @@ export function DashboardV3() {
                 <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">⏳</span>
+                      <span className="text-lg">🕐</span>
                       <div>
                         <p className="font-medium text-sm">Deposit Pending</p>
                         <p className="text-xs text-muted-foreground">Transaction submitted</p>
@@ -565,10 +736,10 @@ export function DashboardV3() {
                 <div className="p-3 bg-accent/50 border border-border rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <span className="text-lg">⏳</span>
+                      <span className="text-lg">🕐</span>
                       <div>
-                        <p className="font-medium text-sm">Redeem Pending</p>
-                        <p className="text-xs text-muted-foreground">Transaction submitted</p>
+                        <p className="font-medium text-sm">Withdrawal Pending</p>
+                        <p className="text-xs text-muted-foreground">Processing transaction</p>
                       </div>
                     </div>
                     <Button

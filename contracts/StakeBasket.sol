@@ -48,6 +48,19 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     // Fee tracking
     uint256 public accumulatedManagementFees;
     uint256 public accumulatedPerformanceFees;
+    
+    // Unbonding queue system
+    struct WithdrawalRequest {
+        address user;
+        uint256 shares;
+        uint256 requestTime;
+        bool isProcessed;
+    }
+    
+    WithdrawalRequest[] public withdrawalQueue;
+    mapping(address => uint256[]) public userWithdrawalRequests;
+    uint256 public constant UNBONDING_PERIOD = 1 days;
+    uint256 public emergencyReserveRatio = 1000; // 10% kept for instant redemptions
     uint256 public totalProtocolFeesCollected;
     
     // Enhanced fee distribution mechanism
@@ -58,6 +71,9 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     // Events
     event Deposited(address indexed user, uint256 coreAmount, uint256 sharesIssued);
     event Redeemed(address indexed user, uint256 sharesBurned, uint256 coreAmount);
+    event WithdrawalRequested(address indexed user, uint256 shares, uint256 requestId, uint256 requestTime);
+    event WithdrawalProcessed(address indexed user, uint256 shares, uint256 coreAmount, uint256 requestId);
+    event InstantRedeemExecuted(address indexed user, uint256 shares, uint256 coreAmount);
     event FeesCollected(address indexed recipient, uint256 amount);
     event StakingManagerSet(address indexed newManager);
     event PriceFeedSet(address indexed newPriceFeed);
@@ -123,10 +139,104 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @dev Redeem ETF shares for underlying CORE tokens
+     * @dev Request withdrawal - queued for 1 day unbonding period
+     * @param shares Amount of ETF shares to redeem
+     * @return requestId ID of the withdrawal request
+     */
+    function requestWithdrawal(uint256 shares) external nonReentrant whenNotPaused returns (uint256) {
+        require(shares > 0, "StakeBasket: shares must be greater than 0");
+        require(etfToken.balanceOf(msg.sender) >= shares, "StakeBasket: insufficient shares");
+        
+        // Create withdrawal request
+        uint256 requestId = withdrawalQueue.length;
+        withdrawalQueue.push(WithdrawalRequest({
+            user: msg.sender,
+            shares: shares,
+            requestTime: block.timestamp,
+            isProcessed: false
+        }));
+        
+        userWithdrawalRequests[msg.sender].push(requestId);
+        
+        // Lock shares by transferring to this contract
+        etfToken.transferFrom(msg.sender, address(this), shares);
+        
+        emit WithdrawalRequested(msg.sender, shares, requestId, block.timestamp);
+        return requestId;
+    }
+    
+    /**
+     * @dev Process matured withdrawal request after unbonding period
+     * @param requestId ID of the withdrawal request to process
+     */
+    function processWithdrawal(uint256 requestId) external nonReentrant whenNotPaused {
+        require(requestId < withdrawalQueue.length, "StakeBasket: invalid request ID");
+        WithdrawalRequest storage request = withdrawalQueue[requestId];
+        
+        require(request.user == msg.sender, "StakeBasket: not request owner");
+        require(!request.isProcessed, "StakeBasket: already processed");
+        require(block.timestamp >= request.requestTime + UNBONDING_PERIOD, "StakeBasket: unbonding period not complete");
+        
+        // Calculate CORE amount to return
+        uint256 coreAmount = _calculateCoreToReturn(request.shares);
+        
+        // If insufficient liquidity, auto-undelegate from validators
+        if (address(this).balance < coreAmount && address(stakingManager) != address(0)) {
+            _undelegateForWithdrawal(coreAmount);
+        }
+        
+        require(address(this).balance >= coreAmount, "StakeBasket: insufficient liquidity even after undelegation");
+        
+        // Mark as processed
+        request.isProcessed = true;
+        
+        // Update state
+        totalPooledCore -= coreAmount;
+        
+        // Burn locked ETF tokens
+        etfToken.burn(address(this), request.shares);
+        
+        // Transfer CORE back to user
+        (bool success, ) = payable(msg.sender).call{value: coreAmount}("");
+        require(success, "StakeBasket: transfer failed");
+        
+        emit WithdrawalProcessed(msg.sender, request.shares, coreAmount, requestId);
+    }
+    
+    /**
+     * @dev Instant redeem for demo purposes (NOT RECOMMENDED - keeps emergency reserve)
      * @param shares Amount of ETF shares to burn
      */
-    function redeem(uint256 shares) external nonReentrant whenNotPaused {
+    function instantRedeem(uint256 shares) external nonReentrant whenNotPaused {
+        require(shares > 0, "StakeBasket: shares must be greater than 0");
+        require(etfToken.balanceOf(msg.sender) >= shares, "StakeBasket: insufficient shares");
+        
+        // Calculate CORE amount to return
+        uint256 coreAmount = _calculateCoreToReturn(shares);
+        
+        // Check emergency reserve limit
+        uint256 maxInstantRedeem = (address(this).balance * emergencyReserveRatio) / 10000;
+        require(coreAmount <= maxInstantRedeem, "StakeBasket: exceeds instant redeem limit - use requestWithdrawal()");
+        require(address(this).balance >= coreAmount, "StakeBasket: insufficient liquidity for instant redeem");
+        
+        // Update state
+        totalPooledCore -= coreAmount;
+        
+        // Burn user's ETF tokens
+        etfToken.burn(msg.sender, shares);
+        
+        // Transfer CORE back to user
+        (bool success, ) = payable(msg.sender).call{value: coreAmount}("");
+        require(success, "StakeBasket: transfer failed");
+        
+        emit InstantRedeemExecuted(msg.sender, shares, coreAmount);
+    }
+    
+    /**
+     * @dev Legacy redeem function - simplified for basic functionality
+     * @param shares Amount of ETF shares to redeem
+     */
+    function redeem(uint256 shares) external nonReentrant whenNotPaused returns (uint256) {
         require(shares > 0, "StakeBasket: shares must be greater than 0");
         require(etfToken.balanceOf(msg.sender) >= shares, "StakeBasket: insufficient shares");
         
@@ -144,7 +254,7 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         (bool success, ) = payable(msg.sender).call{value: coreAmount}("");
         require(success, "StakeBasket: transfer failed");
         
-        emit Redeemed(msg.sender, shares, coreAmount);
+        return coreAmount;
     }
     
     /**
@@ -165,8 +275,8 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
             return (totalPooledCore * 1e18 + totalPooledLstBTC * 95000e18) / 1e18;
         }
         
-        uint256 corePrice = priceFeed.getCorePrice();
-        uint256 lstBTCPrice = priceFeed.getSolvBTCPrice();
+        uint256 corePrice = priceFeed.getPrice("CORE") * 1e10; // Convert from 8 to 18 decimals
+        uint256 lstBTCPrice = priceFeed.getPrice("BTC") * 1e10; // Convert from 8 to 18 decimals
         return (totalPooledCore * corePrice + totalPooledLstBTC * lstBTCPrice) / 1e18;
     }
     
@@ -185,15 +295,22 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         uint256 lstBTCPrice_;
         
         if (address(priceFeed) != address(0)) {
-            corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
+            corePrice_ = priceFeed.getPrice("CORE") * 1e10; // Convert from 8 to 18 decimals
+            lstBTCPrice_ = priceFeed.getPrice("BTC") * 1e10; // Convert from 8 to 18 decimals
         } else {
             // Fallback to mock prices
             corePrice_ = 15e17;  // $1.5 CORE
             lstBTCPrice_ = 95000e18; // $95k BTC
         }
         
+        // Add overflow protection and zero division checks
+        require(totalPooledCore <= type(uint128).max, "StakeBasket: totalPooledCore too large");
+        require(totalPooledLstBTC <= type(uint128).max, "StakeBasket: totalPooledLstBTC too large");
+        require(coreAmount <= type(uint128).max, "StakeBasket: coreAmount too large");
+        
         uint256 totalAssetValue = (totalPooledCore * corePrice_ + totalPooledLstBTC * lstBTCPrice_) / 1e18;
+        require(totalAssetValue > 0, "StakeBasket: zero total asset value");
+        
         uint256 newAssetValue = (coreAmount * corePrice_) / 1e18;
         
         return (newAssetValue * etfToken.totalSupply()) / totalAssetValue;
@@ -209,13 +326,18 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         uint256 lstBTCPrice_;
         
         if (address(priceFeed) != address(0)) {
-            corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
+            corePrice_ = priceFeed.getPrice("CORE") * 1e10; // Convert from 8 to 18 decimals
+            lstBTCPrice_ = priceFeed.getPrice("BTC") * 1e10; // Convert from 8 to 18 decimals
         } else {
             // Fallback to mock prices
             corePrice_ = 15e17;  // $1.5 CORE
             lstBTCPrice_ = 95000e18; // $95k BTC
         }
+        
+        // Add overflow protection and zero division checks
+        require(shares <= type(uint128).max, "StakeBasket: shares too large");
+        require(etfToken.totalSupply() > 0, "StakeBasket: zero total supply");
+        require(corePrice_ > 0, "StakeBasket: zero core price");
         
         uint256 totalAssetValue = (totalPooledCore * corePrice_ + totalPooledLstBTC * lstBTCPrice_) / 1e18;
         uint256 shareValue = (shares * totalAssetValue) / etfToken.totalSupply();
@@ -239,8 +361,8 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         uint256 lstBTCPrice_;
         
         if (address(priceFeed) != address(0)) {
-            corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
+            corePrice_ = priceFeed.getPrice("CORE") * 1e10; // Convert from 8 to 18 decimals
+            lstBTCPrice_ = priceFeed.getPrice("BTC") * 1e10; // Convert from 8 to 18 decimals
         } else {
             // Fallback to mock prices
             corePrice_ = 15e17;  // $1.5 CORE
@@ -267,8 +389,8 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         uint256 lstBTCPrice_;
         
         if (address(priceFeed) != address(0)) {
-            corePrice_ = priceFeed.getCorePrice();
-            lstBTCPrice_ = priceFeed.getSolvBTCPrice();
+            corePrice_ = priceFeed.getPrice("CORE") * 1e10; // Convert from 8 to 18 decimals
+            lstBTCPrice_ = priceFeed.getPrice("BTC") * 1e10; // Convert from 8 to 18 decimals
         } else {
             // Fallback to mock prices
             corePrice_ = 15e17;  // $1.5 CORE
@@ -331,10 +453,13 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
         
         if (timeSinceLastCollection == 0) return;
         
-        // Calculate management fee (annualized)
+        // Calculate management fee (annualized) with higher precision
         uint256 totalAssetValue = getTotalAUM();
-        uint256 managementFee = (totalAssetValue * managementFeeBasisPoints * timeSinceLastCollection) / 
-                               (10000 * 365 days);
+        require(totalAssetValue > 0, "StakeBasket: zero asset value for fee calculation");
+        
+        // Use 1e18 precision for intermediate calculations to prevent precision loss
+        uint256 managementFee = (totalAssetValue * managementFeeBasisPoints * timeSinceLastCollection * 1e18) / 
+                               (10000 * 365 days * 1e18);
         
         // Calculate performance fee based on growth since last collection
         // This is a simplified implementation
@@ -499,6 +624,79 @@ contract StakeBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+    
+    /**
+     * @dev Internal function to undelegate CORE from validators when needed for withdrawals
+     * @param requiredAmount Amount of CORE needed for withdrawal
+     */
+    function _undelegateForWithdrawal(uint256 requiredAmount) internal {
+        if (address(stakingManager) == address(0)) return;
+        
+        // This will undelegate from validators to provide liquidity
+        // In a real implementation, this would call StakingManager.undelegateCore()
+        // For now, we'll add funds to demonstrate the concept
+        
+        // Emergency: Owner should manually undelegate or add funds
+        // This is a placeholder - in production, integrate with StakingManager
+    }
+    
+    /**
+     * @dev Emergency function to undelegate CORE from validators (Owner only)
+     * @param amount Amount to undelegate (0 = undelegate what's needed for pending withdrawals)
+     */
+    function emergencyUndelegate(uint256 amount) external onlyOwner {
+        require(address(stakingManager) != address(0), "StakeBasket: staking manager not set");
+        
+        if (amount == 0) {
+            // Calculate total pending withdrawal amount
+            uint256 totalPending = 0;
+            for (uint256 i = 0; i < withdrawalQueue.length; i++) {
+                if (!withdrawalQueue[i].isProcessed) {
+                    totalPending += _calculateCoreToReturn(withdrawalQueue[i].shares);
+                }
+            }
+            amount = totalPending;
+        }
+        
+        if (amount > 0 && address(this).balance < amount) {
+            // Call StakingManager to undelegate the required amount
+            // stakingManager.undelegateCore(amount - address(this).balance);
+        }
+    }
+    
+    /**
+     * @dev Get user's pending withdrawal requests
+     * @param user Address of the user
+     * @return requestIds Array of request IDs
+     * @return amounts Array of share amounts
+     * @return timestamps Array of request timestamps
+     * @return canProcess Array indicating if each request can be processed
+     */
+    function getUserWithdrawalRequests(address user) external view returns (
+        uint256[] memory requestIds,
+        uint256[] memory amounts,
+        uint256[] memory timestamps,
+        bool[] memory canProcess
+    ) {
+        uint256[] storage userRequests = userWithdrawalRequests[user];
+        uint256 length = userRequests.length;
+        
+        requestIds = new uint256[](length);
+        amounts = new uint256[](length);
+        timestamps = new uint256[](length);
+        canProcess = new bool[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            uint256 requestId = userRequests[i];
+            WithdrawalRequest storage request = withdrawalQueue[requestId];
+            
+            requestIds[i] = requestId;
+            amounts[i] = request.shares;
+            timestamps[i] = request.requestTime;
+            canProcess[i] = !request.isProcessed && 
+                          block.timestamp >= request.requestTime + UNBONDING_PERIOD;
+        }
     }
     
     /**

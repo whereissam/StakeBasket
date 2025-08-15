@@ -1,26 +1,26 @@
 import { defineChain } from 'viem'
 
-export const coreTestnet = defineChain({
-  id: 1115,
-  name: 'Core Testnet',
-  network: 'core-testnet',
+export const coreTestnet2 = defineChain({
+  id: 1114,
+  name: 'Core Testnet2',
+  network: 'core-testnet2',
   nativeCurrency: {
     decimals: 18,
     name: 'Core',
-    symbol: 'tCORE',
+    symbol: 'tCORE2',
   },
   rpcUrls: {
     default: {
-      http: ['https://rpc.test.btcs.network'],
+      http: ['https://rpcar.test2.btcs.network', 'https://rpc.test2.btcs.network'],
     },
     public: {
-      http: ['https://rpc.test.btcs.network'],
+      http: ['https://rpcar.test2.btcs.network', 'https://rpc.test2.btcs.network'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Core Testnet Explorer',
-      url: 'https://scan.test.btcs.network',
+      name: 'Core Testnet2 Explorer',
+      url: 'https://scan.test2.btcs.network',
     },
   },
   testnet: true,

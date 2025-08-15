@@ -10,13 +10,16 @@
     "lint": "eslint . --config config-files/eslint.config.js",
     "preview": "vite preview",
     "deploy:local": "npx hardhat run scripts/deploy-complete-system.cjs --network localhost",
-    "test:interactive": "npx hardhat run scripts/test-deployed-contracts.cjs --network localhost",
-    "test:demo": "npx hardhat run scripts/demo-etf-functionality.cjs --network localhost",
-    "test:automated": "npx hardhat run scripts/automated-test-suite.cjs --network localhost",
+    "deploy:mocks": "npx hardhat run scripts/deployment/deploy-with-mocks.cjs --network localhost",
+    "deploy:testnet2": "npx hardhat run scripts/deploy-testnet2.cjs --network coreTestnet2",
     "node:start": "npx hardhat node",
     "contracts:compile": "npx hardhat compile",
-    "deploy:mocks": "npx hardhat run scripts/deploy-with-mocks.cjs --network localhost",
-    "test:all": "npm run contracts:compile && npm run deploy:mocks && npm run test:automated"
+    "test:verify": "npx hardhat run tests/organized/core/verify-deployment.cjs --network localhost",
+    "test:verify:testnet2": "npx hardhat run tests/organized/core/verify-testnet2-deployment.cjs --network coreTestnet2",
+    "test:integration": "npx hardhat run tests/organized/integration/automated-test-suite.cjs --network localhost",
+    "test:demo": "npx hardhat run tests/organized/integration/demo-etf-functionality.cjs --network localhost",
+    "test:interactive": "npx hardhat run tests/organized/integration/test-deployed-contracts.cjs --network localhost",
+    "test:all": "npm run contracts:compile && npm run deploy:mocks && npm run test:verify"
   },
   "dependencies": {
     "@radix-ui/react-dropdown-menu": "^2.1.15",

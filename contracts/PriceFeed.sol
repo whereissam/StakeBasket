@@ -380,7 +380,11 @@ contract PriceFeed is Ownable {
      * @return deviation Deviation in basis points (100 = 1%)
      */
     function _calculateDeviation(uint256 oldPrice, uint256 newPrice) internal pure returns (uint256 deviation) {
-        if (oldPrice == 0) return 0;
+        if (oldPrice == 0) {
+            // For new assets, require non-zero price and return maximum deviation to trigger checks
+            require(newPrice > 0, "PriceFeed: invalid price for new asset");
+            return type(uint256).max; // Maximum deviation to trigger circuit breaker logic
+        }
         
         uint256 diff = newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice;
         return (diff * 10000) / oldPrice; // Return in basis points
@@ -547,7 +551,7 @@ contract PriceFeed is Ownable {
         view 
         returns (
             bool isActive,
-            bool isPriceValid,
+            bool isPriceValidResult,
             bool circuitBreakerTriggered,
             bool hasBackup,
             uint256 priceAge,
@@ -556,7 +560,7 @@ contract PriceFeed is Ownable {
     {
         PriceData memory data = priceData[asset];
         isActive = data.isActive;
-        isPriceValid = data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
+        isPriceValidResult = data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
         circuitBreakerTriggered = assetCircuitBreakerTriggered[asset];
         hasBackup = backupPriceFeeds[asset] != address(0);
         priceAge = block.timestamp - data.lastUpdated;

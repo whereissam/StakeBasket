@@ -13,6 +13,7 @@ contract StakeBasketToken is ERC20, Ownable {
     address public stakeBasketContract;
     
     event StakeBasketContractSet(address indexed newContract);
+    event StakeBasketContractProposed(address indexed newContract, uint256 effectiveTime);
     
     modifier onlyStakeBasket() {
         require(msg.sender == stakeBasketContract, "StakeBasketToken: caller is not the StakeBasket contract");
@@ -25,11 +26,52 @@ contract StakeBasketToken is ERC20, Ownable {
         address initialOwner
     ) ERC20(name, symbol) Ownable(initialOwner) {}
     
+    // Two-step ownership transfer for enhanced security
+    address public pendingStakeBasketContract;
+    uint256 public stakeBasketContractSetTime;
+    uint256 public constant TIMELOCK_DELAY = 2 days;
+    
     /**
-     * @dev Set the StakeBasket contract address that can mint/burn tokens
+     * @dev Propose new StakeBasket contract address (step 1)
+     * @param _stakeBasketContract Address of the new StakeBasket contract
+     */
+    function proposeStakeBasketContract(address _stakeBasketContract) external onlyOwner {
+        require(_stakeBasketContract != address(0), "StakeBasketToken: invalid contract address");
+        require(_stakeBasketContract != stakeBasketContract, "StakeBasketToken: same contract address");
+        
+        pendingStakeBasketContract = _stakeBasketContract;
+        stakeBasketContractSetTime = block.timestamp + TIMELOCK_DELAY;
+        
+        emit StakeBasketContractProposed(_stakeBasketContract, stakeBasketContractSetTime);
+    }
+    
+    /**
+     * @dev Confirm new StakeBasket contract address (step 2)
+     */
+    function confirmStakeBasketContract() external onlyOwner {
+        require(pendingStakeBasketContract != address(0), "StakeBasketToken: no pending contract");
+        require(block.timestamp >= stakeBasketContractSetTime, "StakeBasketToken: timelock not expired");
+        
+        stakeBasketContract = pendingStakeBasketContract;
+        pendingStakeBasketContract = address(0);
+        stakeBasketContractSetTime = 0;
+        
+        emit StakeBasketContractSet(stakeBasketContract);
+    }
+    
+    /**
+     * @dev Cancel pending contract change
+     */
+    function cancelStakeBasketContract() external onlyOwner {
+        pendingStakeBasketContract = address(0);
+        stakeBasketContractSetTime = 0;
+    }
+    
+    /**
+     * @dev Emergency function to set contract immediately (testing only)
      * @param _stakeBasketContract Address of the StakeBasket contract
      */
-    function setStakeBasketContract(address _stakeBasketContract) external onlyOwner {
+    function emergencySetStakeBasketContract(address _stakeBasketContract) external onlyOwner {
         require(_stakeBasketContract != address(0), "StakeBasketToken: invalid contract address");
         stakeBasketContract = _stakeBasketContract;
         emit StakeBasketContractSet(_stakeBasketContract);

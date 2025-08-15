@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
 import { WebSocketServer } from 'ws'
 import cron from 'node-cron'
+
+// Security middleware imports
+import { securityHeaders, corsConfig, requestSizeLimit, requestLogger, errorHandler } from './middleware/security'
 
 import { monitoringRoutes } from './routes/monitoring'
 import { alertsRoutes } from './routes/alerts'
@@ -11,6 +12,7 @@ import { validatorRoutes } from './routes/validators'
 import { automationRoutes } from './routes/automation'
 import { metricsRoutes } from './routes/metrics'
 import { oracleRoutes } from './routes/oracle'
+import { faucetRoutes } from './routes/faucet'
 
 import { ContractMonitor } from './services/ContractMonitor'
 import { ValidatorMonitor } from './services/ValidatorMonitor'
@@ -20,12 +22,12 @@ import { MetricsCollector } from './services/MetricsCollector'
 
 const app = new Hono()
 
-// Middleware
-app.use('*', logger())
-app.use('*', cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // Frontend URLs
-  credentials: true,
-}))
+// Security middleware (order matters!)
+app.use('*', errorHandler())
+app.use('*', requestLogger())
+app.use('*', securityHeaders())
+app.use('*', corsConfig())
+app.use('*', requestSizeLimit(2 * 1024 * 1024)) // 2MB limit
 
 // Health check
 app.get('/health', (c) => {
@@ -36,7 +38,8 @@ app.get('/health', (c) => {
       monitoring: true,
       alerts: true,
       validators: true,
-      automation: true
+      automation: true,
+      faucet: true
     }
   })
 })
@@ -48,6 +51,7 @@ app.route('/api/validators', validatorRoutes)
 app.route('/api/automation', automationRoutes)
 app.route('/api/metrics', metricsRoutes)
 app.route('/api/oracle', oracleRoutes)
+app.route('/api/faucet', faucetRoutes)
 
 // Initialize services
 const contractMonitor = new ContractMonitor()

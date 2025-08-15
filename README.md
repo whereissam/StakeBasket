@@ -2,55 +2,23 @@
 
 A decentralized ETF platform for staking multiple Core DAO assets with automated rebalancing and governance features.
 
-## 🚀 Quick Start
+## 🌐 Live Deployment
 
-### Prerequisites
-- Node.js 18+
-- npm or bun
-- MetaMask or compatible wallet
+**🧪 Core Testnet2 (Chain ID: 1114)** - **LIVE NOW!**
 
-### Installation
-```bash
-npm install
-```
+- **StakeBasket ETF**: [`0x13F8b7693445c180Ec11f211d9Af425920B795Af`](https://scan.test2.btcs.network/address/0x13F8b7693445c180Ec11f211d9Af425920B795Af)
+- **Governance**: [`0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e`](https://scan.test2.btcs.network/address/0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e)
+- **Liquid Staking**: [`0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E`](https://scan.test2.btcs.network/address/0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E)
+- **Dual Staking**: [`0x0C9A264bA0c35e327ae0CdB4507F2D6142BD8a3f`](https://scan.test2.btcs.network/address/0x0C9A264bA0c35e327ae0CdB4507F2D6142BD8a3f)
 
-### Development
-```bash
-npm run dev
-```
+**🎯 Try It Now:**
+1. Add Core Testnet2 to MetaMask (Chain ID: 1114, RPC: `https://rpc.test2.btcs.network`)
+2. Get testnet CORE from [Core Faucet](https://scan.test2.btcs.network/faucet)
+3. Visit the app and start staking!
 
-### Build
-```bash
-npm run build
-```
+## 🚀 Getting Started
 
-## 📁 Project Structure
-
-```
-staking/
-├── 📂 src/                    # Frontend source code
-│   ├── 📂 components/         # React components
-│   ├── 📂 hooks/             # Custom React hooks
-│   ├── 📂 store/             # State management
-│   ├── 📂 config/            # Configuration files
-│   └── 📂 routes/            # Application routes
-├── 📂 contracts/             # Smart contracts
-├── 📂 scripts/               # Deployment & utility scripts
-│   ├── 📂 deployment/        # Contract deployment scripts
-│   ├── 📂 testing/           # Test scripts
-│   ├── 📂 utilities/         # Utility scripts
-│   ├── 📂 balance-check/     # Balance checking tools
-│   └── 📂 token-utilities/   # Token management tools
-├── 📂 docs/                  # Documentation
-│   ├── 📂 deployment/        # Deployment guides
-│   ├── 📂 testing/           # Testing documentation
-│   └── 📂 configuration/     # Configuration guides
-├── 📂 test/                  # Test files
-├── 📂 backend/               # Backend services
-├── 📂 deployment-data/       # Deployment configuration files
-├── 📂 logs/                  # Log files
-└── 📂 examples/              # Code examples
-```
+For a comprehensive guide on how to get started with StakeBasket development, please see the [Developer Guide](DEVELOPER_GUIDE.md).
 
 ## ✨ Features
 
@@ -64,134 +32,242 @@ staking/
 
 ## 🏗️ Architecture
 
-The platform consists of:
-- **StakeBasket**: Main ETF contract
-- **StakingManager**: Handles external staking protocols
-- **BasketGovernance**: Decentralized governance system
-- **PriceFeed**: Oracle integration for asset pricing
-- **Dynamic Contract Store**: Flexible contract configuration system
+StakeBasket is a comprehensive DeFi ecosystem built on Core DAO featuring:
+
+### Core Components
+- **StakeBasket ETF**: Multi-asset staking with automated rebalancing
+- **Governance System**: BASKET token-based DAO with tiered voting
+- **Liquid Staking**: Stake CORE → get stCORE liquid tokens
+- **Dual Staking**: Optimized CORE:BTC ratio strategies
+- **Price Oracles**: Real-time asset pricing with circuit breakers
+
+### Smart Contract Architecture
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Governance    │    │   Liquid        │    │   Multi-Asset   │
+│   System        │    │   Staking       │    │   ETF           │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ BasketGovernance│    │ CoreLiquidMgr   │    │ StakeBasket     │
+│ BasketStaking   │────│ StCoreToken     │────│ StakingManager  │
+│ BasketToken     │    │ UnbondingQueue  │    │ DualStakingETF  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+          │                        │                        │
+          └────────────────────────┼────────────────────────┘
+                                   │
+                            ┌─────────────────┐
+                            │   Infrastructure │
+                            ├─────────────────┤
+                            │ PriceFeed       │
+                            │ Mock Contracts  │
+                            │ Testing Suite   │
+                            └─────────────────┘
+```
+
+## 💰 Staking Tiers & Benefits
+
+| Tier | BASKET Required | Fee Discount | Voting Power | Annual Rewards |
+|------|----------------|--------------|--------------|----------------|
+| 🥉 **Bronze** | 100 | 5% | 1.0x | Protocol fees |
+| 🥈 **Silver** | 1,000 | 10% | 1.1x | + Bonus rewards |
+| 🥇 **Gold** | 10,000 | 25% | 1.25x | + Premium APY |
+| 💎 **Platinum** | 100,000 | 50% | 1.5x | + VIP benefits |
+
+## 🚀 Quick Start
+
+### For Users
+1. **Connect Wallet** → MetaMask to Core Testnet2
+2. **Get CORE** → [Core Faucet](https://scan.test2.btcs.network/faucet)
+3. **Get Test Tokens** → Visit `/faucet` route in the app
+4. **Start Staking** → Deposit CORE → Earn BASKET
+
+### For Developers
+```bash
+# Clone repository
+git clone https://github.com/your-repo/staking
+cd staking
+
+# Install dependencies
+npm install
+cd backend && npm install
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# Start development
+npm run dev          # Frontend (http://localhost:5173)
+cd backend && npm start  # Backend (http://localhost:3001)
+
+# Deploy contracts
+npx hardhat run scripts/deployment/deploy-complete-system.cjs --network coreTestnet2
+```
+
+## 📊 Yield Sources
+
+1. **🏆 CORE Staking Rewards**: ~8% APY from validator delegation
+2. **🪙 lstBTC Yield**: Bitcoin liquid staking rewards  
+3. **⚡ Dual Staking Bonuses**: Up to 50% bonus for optimal ratios
+4. **🎯 Fee Optimization**: Tiered discounts reduce costs
+5. **🤖 Auto-Rebalancing**: Continuous yield maximization
+
+## 🛠️ Technology Stack
+
+### Frontend
+- **React 18** with TypeScript
+- **TanStack Router** for routing
+- **Wagmi v2** for Web3 integration
+- **Viem** for Ethereum interactions
+- **Tailwind CSS** for styling
+- **Shadcn/ui** components
+
+### Backend
+- **Node.js** with Express
+- **TypeScript** for type safety
+- **Ethers.js** for blockchain interaction
+- **JWT** authentication
+- **RESTful API** architecture
+
+### Smart Contracts
+- **Solidity 0.8.20+**
+- **Hardhat** development framework
+- **OpenZeppelin** security standards
+- **Comprehensive test suite**
+- **Gas optimized**
+
+### Infrastructure
+- **Core DAO Testnet2** deployment
+- **IPFS** for decentralized storage
+- **Chainlink** price feeds integration
+- **Multi-signature** governance
+
+## 🧪 Testing
+
+### Contract Testing
+```bash
+# Run all tests
+npx hardhat test
+
+# Run specific test suite
+npx hardhat test test/StakeBasket.test.cjs
+npx hardhat test test/Governance.test.cjs
+
+# Coverage report
+npx hardhat coverage
+```
+
+### Frontend Testing
+```bash
+# Unit tests
+npm test
+
+# E2E tests
+npm run test:e2e
+
+# Type checking
+npm run type-check
+```
+
+## 🔐 Security
+
+- ✅ **ReentrancyGuard** on all state-changing functions
+- ✅ **Access Control** with role-based permissions  
+- ✅ **Circuit Breakers** for price deviation protection
+- ✅ **Timelock** governance with execution delays
+- ✅ **Pausable** emergency stop functionality
+- ✅ **Comprehensive Auditing** and testing
+
+## 🌍 Network Support
+
+| Network | Status | Chain ID | RPC |
+|---------|--------|----------|-----|
+| **Core Testnet2** | ✅ Live | 1114 | `https://rpc.test2.btcs.network` |
+| **Core Mainnet** | 🚧 Coming Soon | 1116 | `https://rpc.coredao.org` |
+| **Hardhat Local** | ✅ Development | 31337 | `http://127.0.0.1:8545` |
+
+## 📈 Roadmap
+
+### Phase 1: Core ETF ✅ **COMPLETED**
+- [x] Multi-asset staking (CORE + lstBTC)
+- [x] Automated rebalancing
+- [x] Price feed integration
+- [x] Basic governance
+
+### Phase 2: Advanced Features ✅ **COMPLETED**  
+- [x] Tiered staking rewards
+- [x] Liquid staking (stCORE)
+- [x] Dual staking optimization
+- [x] Enhanced governance
+
+### Phase 3: Ecosystem Expansion 🚧 **IN PROGRESS**
+- [ ] Additional asset support (stETH, wBTC)
+- [ ] Cross-chain integration
+- [ ] Advanced trading strategies
+- [ ] Mobile app
+
+### Phase 4: Mainnet & Scale 🎯 **PLANNED**
+- [ ] Core Mainnet deployment
+- [ ] Security audits
+- [ ] Liquidity mining programs
+- [ ] Institutional partnerships
+
+## 🏆 Key Features
+
+### 🎯 For Stakers
+- **Low Gas Fees**: Built on Core DAO
+- **Auto-Compounding**: Rewards automatically reinvested
+- **Flexible Withdrawals**: 7-day unstaking period
+- **Risk Management**: Diversified validator selection
+
+### 🏛️ For DAO Members  
+- **Governance Rights**: Vote on protocol changes
+- **Fee Sharing**: Earn from protocol revenue
+- **Strategy Input**: Propose new yield strategies
+- **Treasury Access**: Community-controlled funds
+
+### 🔧 For Developers
+- **Open Source**: MIT licensed, contribute freely
+- **Well Documented**: Comprehensive guides and APIs
+- **Modular Design**: Easy to extend and integrate
+- **Testing Suite**: Robust testing framework
+
+## 📞 Community & Support
+
+- **🐦 Twitter**: [@StakeBasket](https://twitter.com/stakebasket)
+- **💬 Discord**: [Join Community](https://discord.gg/stakebasket)
+- **📧 Email**: team@stakebasket.fi
+- **📖 Docs**: [Documentation Site](https://docs.stakebasket.fi)
+- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/staking/issues)
 
 ## 📚 Documentation
 
-| Directory | Description |
-|-----------|-------------|
-| `docs/configuration/` | Contract configuration guides |
-| `docs/deployment/` | Deployment instructions |
-| `docs/testing/` | Testing guides and results |
-| `docs/` | General project documentation |
-
-### Key Documents
-- 📋 `docs/configuration/CONTRACT_CONFIGURATION.md` - Easy contract configuration guide
-- 🚀 `docs/deployment/COREDAO_DEPLOYMENT_GUIDE.md` - CoreDAO deployment guide
-- 🧪 `docs/testing/TESTING_GUIDE.md` - Testing instructions
-- 📊 `docs/PROJECT_STRUCTURE.md` - Detailed project structure
-
-## 🛠️ Development
-
-### Contract Configuration
-The project now supports easy contract configuration:
-
-```bash
-# Via environment variables
-VITE_STAKE_BASKET_ADDRESS=0x4f57eaEF37eAC9A61f5dFaba62fE8BafcC11E422
-VITE_DUAL_STAKING_ADDRESS=0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8
-```
-
-Or use the Contract Settings UI in any page to configure visually.
-
-### Testing
-```bash
-# Run frontend tests
-npm test
-
-# Deploy and test contracts locally
-node scripts/deployment/deploy-complete-system.cjs
-
-# Test specific functionality
-node scripts/testing/legacy/test-dual-staking.cjs
-```
-
-### Deployment
-```bash
-# Deploy to testnet
-node scripts/deploy-testnet.cjs
-
-# Deploy dual staking
-node scripts/deploy-dual-staking.cjs
-```
-
-## 🔧 Scripts Directory
-
-| Directory | Purpose |
-|-----------|---------|
-| `scripts/deployment/` | Contract deployment scripts |
-| `scripts/testing/` | Testing and validation scripts |
-| `scripts/utilities/` | Debug and utility tools |
-| `scripts/balance-check/` | Balance checking tools |
-| `scripts/token-utilities/` | Token management utilities |
-
-## 🏥 Health Monitoring
-
-The platform includes built-in contract health monitoring:
-- Real-time contract deployment checking
-- Network connectivity validation
-- Visual health indicators in dashboard
-- Automatic environment variable detection
-
-## 🌐 Network Configuration
-
-### Supported Networks
-
-| Network | Chain ID | Status |
-|---------|----------|--------|
-| Hardhat Local | 31337 | ✅ Ready |
-| Core Testnet2 | 1114 | ✅ Ready |
-| Core Mainnet | 1116 | 🎯 Target |
-
-### Contract Addresses
-
-**Core Testnet2 (Chain ID: 1114)**:
-- StakeBasket: 0x4f57eaEF37eAC9A61f5dFaba62fE8BafcC11E422
-- StakeBasketToken: 0x65507FCcfe3daE3cfb456Eb257a2eaefd463336B
-- StakingManager: 0x4dE3513095f841b06A01CC3FFd5C25b1dfb69019
-- CoreOracle: 0xf630BC778a0030dd658F116b40cB23B4dd37051E
-
-*See `src/config/contracts.ts` for complete address configuration.*
-
-## 🔧 Backend Services (Optional)
-
-The StakeBasket backend provides enterprise-grade monitoring, automation, and operational intelligence. See `backend/` directory for setup instructions.
-
-## 🛡️ Security
-
-- **Audited Dependencies**: Using OpenZeppelin battle-tested contracts
-- **Reentrancy Protection**: Safeguards on all critical functions
-- **Access Control**: Proper permission management
-- **Price Feed Validation**: Oracle manipulation resistance
-- **Comprehensive Testing**: Extensive test coverage
-- **Contract Health Monitoring**: Real-time validation
+For detailed documentation, please see:
+- [Developer Guide](DEVELOPER_GUIDE.md) - Setup and development
+- [API Documentation](API3_INTEGRATION_GUIDE.md) - Backend APIs
+- [Contract Architecture](contracts/README.md) - Smart contract details
+- [Project Structure](PROJECT_STRUCTURE.md) - Codebase organization
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly using the scripts in `scripts/testing/`
-5. Submit a pull request
+We welcome contributions from the community! 
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+See [Developer Guide](DEVELOPER_GUIDE.md) for detailed contribution guidelines.
+
+## ⚖️ Legal
+
+This project is for educational and research purposes. Smart contracts are experimental technology. Use at your own risk. See [full disclaimer](LEGAL.md).
 
 ## 📝 License
 
-MIT
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-## Legacy Information
+**Built with ❤️ for the Core DAO ecosystem**
 
-This README has been reorganized for better navigation. For the complete original documentation including detailed feature descriptions and roadmap, see the individual files in the `docs/` directory.
-
-Key legacy features:
-- Multi-asset staking ETF for CORE and lstBTC
-- Automated yield optimization and rebalancing
-- Professional-grade backend services
-- Integration with CoreDAO's Satoshi Plus consensus
-- Comprehensive testing suite and documentation
+*StakeBasket represents the future of DeFi on Core DAO - combining the security of Bitcoin with the innovation of Ethereum DeFi.*

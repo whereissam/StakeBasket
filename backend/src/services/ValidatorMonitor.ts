@@ -1,5 +1,5 @@
 import { createPublicClient, http, parseAbi } from 'viem'
-import { coreTestnet } from '../config/chains'
+import { coreTestnet2 } from '../config/chains'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 
 export interface ValidatorInfo {
@@ -38,7 +38,7 @@ export class ValidatorMonitor {
 
   constructor() {
     this.client = createPublicClient({
-      chain: coreTestnet,
+      chain: coreTestnet2,
       transport: http()
     })
 
@@ -52,7 +52,7 @@ export class ValidatorMonitor {
     ])
 
     this.mockCoreStaking = {
-      address: CONTRACT_ADDRESSES.coreTestnet.MockCoreStaking,
+      address: CONTRACT_ADDRESSES.coreTestnet2.MockCoreStaking,
       abi: mockCoreStakingAbi
     }
   }

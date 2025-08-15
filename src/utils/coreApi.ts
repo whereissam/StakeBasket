@@ -75,10 +75,14 @@ export class CoreApiClient {
   private chainId: number
   private baseUrl: string
 
-  constructor(chainId: number, apiKey: string = '206fcf6379b641f5b12b3ccbbb933180') {
+  constructor(chainId: number, apiKey?: string) {
     this.chainId = chainId
-    this.apiKey = apiKey
+    this.apiKey = apiKey || import.meta.env.VITE_CORE_API_KEY || ''
     this.baseUrl = getCoreApiUrl(chainId)
+    
+    if (!this.apiKey) {
+      console.warn('CoreAPI: No API key provided. Some features may be limited.')
+    }
   }
 
   private async request<T>(params: Record<string, string>): Promise<T> {

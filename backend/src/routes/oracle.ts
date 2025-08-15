@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { CoreAPIService } from '../services/CoreAPIService.js';
 import { OracleUpdater } from '../services/OracleUpdater.js';
+import { apiKeyAuth, requireRole, UserRole, rateLimit } from '../middleware/auth';
+import { validateQuery, validateBody, oracleUpdateSchema } from '../middleware/validation';
 
 const oracle = new Hono();
 

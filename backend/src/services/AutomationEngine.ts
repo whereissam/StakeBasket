@@ -1,6 +1,6 @@
 import { createWalletClient, http, parseEther, formatEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { coreTestnet } from '../config/chains'
+import { coreTestnet2 } from '../config/chains'
 import { ContractMonitor } from './ContractMonitor'
 import { ValidatorMonitor } from './ValidatorMonitor'
 import { AlertManager } from './AlertManager'
@@ -54,7 +54,7 @@ export class AutomationEngine {
       const account = privateKeyToAccount(process.env.AUTOMATION_PRIVATE_KEY as `0x${string}`)
       this.walletClient = createWalletClient({
         account,
-        chain: coreTestnet,
+        chain: coreTestnet2,
         transport: http()
       })
     }

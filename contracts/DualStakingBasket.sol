@@ -9,6 +9,20 @@ import "./StakeBasketToken.sol";
 import "./PriceFeed.sol";
 import "./interfaces/IDualStaking.sol";
 
+// Uniswap V2 Router interface for DEX integration
+interface IUniswapV2Router {
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+    
+    function getAmountsOut(uint amountIn, address[] calldata path)
+        external view returns (uint[] memory amounts);
+}
+
 
 /**
  * @title DualStakingBasket
@@ -135,6 +149,45 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
             coreToken.transferFrom(msg.sender, address(this), coreAmount);
             totalPooledCORE += coreAmount;
         }
+        if (btcAmount > 0) {
+            btcToken.transferFrom(msg.sender, address(this), btcAmount);
+            totalPooledBTC += btcAmount;
+        }
+        
+        // Calculate shares before rebalancing
+        uint256 sharesToMint = _calculateShares(coreAmount, btcAmount);
+        
+        // Rebalance to maintain target ratio
+        _rebalanceIfNeeded();
+        
+        // Stake in dual staking contract
+        _stakeToDualStaking();
+        
+        // Mint shares to user
+        basketToken.mint(msg.sender, sharesToMint);
+        
+        emit Deposited(msg.sender, coreAmount, btcAmount, sharesToMint);
+    }
+    
+    /**
+     * @dev Deposit native CORE and BTC tokens
+     * @param btcAmount Amount of BTC tokens to deposit (0 if none)
+     */
+    function depositNativeCORE(uint256 btcAmount) 
+        external 
+        payable
+        nonReentrant 
+        whenNotPaused 
+    {
+        uint256 coreAmount = msg.value;
+        require(coreAmount > 0 || btcAmount > 0, "DualStaking: no assets provided");
+        
+        // Handle native CORE
+        if (coreAmount > 0) {
+            totalPooledCORE += coreAmount;
+        }
+        
+        // Handle BTC tokens
         if (btcAmount > 0) {
             btcToken.transferFrom(msg.sender, address(this), btcAmount);
             totalPooledBTC += btcAmount;
@@ -350,15 +403,28 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         
         uint256 coreBalanceBefore = coreToken.balanceOf(address(this));
         
-        // Execute swap through router (implementation depends on specific DEX)
-        // This would be replaced with actual DEX integration
-        // IUniswapV2Router(swapRouter).swapExactTokensForTokens(
-        //     btcAmount,
-        //     minCoreOut,
-        //     getPath(address(btcToken), address(coreToken)),
-        //     address(this),
-        //     block.timestamp + 300
-        // );
+        // Execute swap through router with proper error handling
+        require(trustedRouters[swapRouter], "DualStaking: untrusted router");
+        
+        // Create swap path
+        address[] memory path = new address[](2);
+        path[0] = address(btcToken);
+        path[1] = address(coreToken);
+        
+        // Execute swap with try-catch for safety
+        try IUniswapV2Router(swapRouter).swapExactTokensForTokens(
+            btcAmount,
+            minCoreOut,
+            path,
+            address(this),
+            block.timestamp + 300
+        ) returns (uint256[] memory amounts) {
+            // Swap successful, amounts[1] contains received CORE
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("DualStaking: swap failed - ", reason)));
+        } catch {
+            revert("DualStaking: swap failed - unknown error");
+        }
         
         uint256 coreBalanceAfter = coreToken.balanceOf(address(this));
         coreReceived = coreBalanceAfter - coreBalanceBefore;
@@ -407,22 +473,38 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @dev Stake available assets in dual staking contract
+     * @dev Stake available assets in dual staking contract (with success validation)
      */
     function _stakeToDualStaking() internal {
         uint256 availableCORE = totalPooledCORE - totalStakedCORE;
         uint256 availableBTC = totalPooledBTC - totalStakedBTC;
         
         if (availableCORE > 0) {
+            uint256 coreBalanceBefore = coreToken.balanceOf(address(this));
             coreToken.approve(address(dualStakingContract), availableCORE);
-            dualStakingContract.stakeCORE(availableCORE);
-            totalStakedCORE += availableCORE;
+            
+            try dualStakingContract.stakeCORE(availableCORE) {
+                uint256 coreBalanceAfter = coreToken.balanceOf(address(this));
+                uint256 actualStaked = coreBalanceBefore - coreBalanceAfter;
+                totalStakedCORE += actualStaked;
+            } catch {
+                // Reset approval if staking fails
+                coreToken.approve(address(dualStakingContract), 0);
+            }
         }
         
         if (availableBTC > 0) {
+            uint256 btcBalanceBefore = btcToken.balanceOf(address(this));
             btcToken.approve(address(dualStakingContract), availableBTC);
-            dualStakingContract.stakeBTC(availableBTC);
-            totalStakedBTC += availableBTC;
+            
+            try dualStakingContract.stakeBTC(availableBTC) {
+                uint256 btcBalanceAfter = btcToken.balanceOf(address(this));
+                uint256 actualStaked = btcBalanceBefore - btcBalanceAfter;
+                totalStakedBTC += actualStaked;
+            } catch {
+                // Reset approval if staking fails
+                btcToken.approve(address(dualStakingContract), 0);
+            }
         }
     }
     

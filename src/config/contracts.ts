@@ -14,7 +14,10 @@ export const NETWORKS = {
   coreTestnet2: {
     chainId: 1114,
     name: 'Core Testnet2',
-    rpcUrl: 'https://rpc.test2.btcs.network',
+    // Use proxy in development, direct endpoint in production
+    rpcUrl: typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+      ? '/api/rpc' 
+      : 'https://rpcar.test2.btcs.network',
     explorer: 'https://scan.test2.btcs.network',
     nativeCurrency: {
       name: 'Core',
@@ -37,70 +40,74 @@ export const NETWORKS = {
 
 export const CONTRACT_ADDRESSES = {
   hardhat: {
-    // Mock Tokens
-    MockCORE: '0x95401dc811bb5740090279Ba06cfA8fcF6113778',
-    MockCoreBTC: '0x998abeb3E57409262aE5b751f60747921B33613E',
+    // Mock Tokens (from local deployment)
+    MockCORE: '0x525C7063E7C20997BaaE9bDa922159152D0e8417',
+    MockCoreBTC: '0x38a024C0b412B9d1db8BC398140D00F5Af3093D4',
     
     // Mock Staking
-    MockCoreStaking: '0x8F4ec854Dd12F1fe79500a1f53D0cbB30f9b6134',
-    MockLstBTC: '0xaB7B4c595d3cE8C85e16DA86630f2fc223B05057', // Using coreBTC as lstBTC
+    MockCoreStaking: '0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8',
+    MockLstBTC: '0x38a024C0b412B9d1db8BC398140D00F5Af3093D4', // Using MockCoreBTC as lstBTC
     
-    // StakeBasket Core
-    PriceFeed: '0x2b5A4e5493d4a54E717057B127cf0C000C876f9B',
-    StakingManager: '0x12Bcb546bC60fF39F1Adfc7cE4605d5Bd6a6A876',
-    StakeBasketToken: '0xeF31027350Be2c7439C1b0BE022d49421488b72C',
-    StakeBasket: '0xaC47e91215fb80462139756f43438402998E4A3a',
-    BasketStaking: '0x5133BBdfCCa3Eb4F739D599ee4eC45cBCD0E16c5',
-    CoreOracle: '', // Not deployed on hardhat
+    // StakeBasket Core (from local deployment)
+    PriceFeed: '0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c',
+    StakingManager: '0x2a810409872AfC346F9B5b26571Fd6eC42EA4849',
+    StakeBasketToken: '0xB82008565FdC7e44609fA118A4a681E92581e680',
+    StakeBasket: '0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C',
+    BasketStaking: '0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C',
+    CoreOracle: '0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c', // Using PriceFeed as oracle
     
     // Governance
-    BasketGovernance: '0x71089Ba41e478702e1904692385Be3972B2cBf9e',
-    BasketToken: '0xAD523115cd35a8d4E60B3C0953E0E0ac10418309', // BASKET governance token
+    BasketGovernance: '0x0000000000000000000000000000000000000000',
+    BasketToken: '0xB82008565FdC7e44609fA118A4a681E92581e680', // Using StakeBasketToken
     
     // Liquid Staking
-    CoreLiquidStakingManager: '0xC66AB83418C20A65C3f8e83B3d11c8C3a6097b6F',
-    StCoreToken: '0xc96825EB7Cf77649A9324562d9dE5Ed9605EAA0A',
+    CoreLiquidStakingManager: '0x0000000000000000000000000000000000000000',
+    StCoreToken: '0x0000000000000000000000000000000000000000',
     
-    // Dual Staking Contracts
-    MockDualStaking: '0xf4B146FbA71F41E0592668ffbF264F1D186b2Ca8', // ProperDualStaking contract
-    DualStakingBasket: '0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3',
-    SatoshiTierBasket: '0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3', // Using DualStakingBasket
+    // Dual Staking Contracts (from local deployment)
+    MockDualStaking: '0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8',
+    DualStakingBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849',
+    SatoshiTierBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849', // Using DualStakingBasket
     
     // Unbonding
-    UnbondingQueue: '0x1780bCf4103D3F501463AD3414c7f4b654bb7aFd',
+    UnbondingQueue: '0x0000000000000000000000000000000000000000',
     
     // Sparks System Contracts
     SparksManager: '0x0000000000000000000000000000000000000000', // To be deployed
     StakeBasketWithSparks: '0x0000000000000000000000000000000000000000', // To be deployed
   },
   coreTestnet2: {
-    // Core Testnet2 deployed contracts
-    PriceFeed: '0x44bADCE57249649CD4ECa8852020527148323584',
-    StakingManager: '0x4dE3513095f841b06A01CC3FFd5C25b1dfb69019',
-    StakeBasketToken: '0x65507FCcfe3daE3cfb456Eb257a2eaefd463336B',
-    StakeBasket: '0x4f57eaEF37eAC9A61f5dFaba62fE8BafcC11E422',
-    BasketStaking: '0x0000000000000000000000000000000000000000', // To be deployed
-    MockCORE: '0x16a77F70571b099B659BD5255d341ae57e913F52',
-    MockCoreBTC: '0x67eF484F426B92894eaE16DC1Aa3dba5B8F9f051',
-    MockCoreStaking: '0x44Aa833Ad1a9aD19743Ee6CC7A1Cae096f5CDD9E',
-    MockLstBTC: '0xfC802f5ce0bf76644874C2Eb5d8885fD852244bC',
-    CoreOracle: '0xf630BC778a0030dd658F116b40cB23B4dd37051E',
+    // Core Testnet2 deployed contracts - DUAL STAKING DEPLOYMENT 2025-08-15 WITH MINTER FIX
+    PriceFeed: '0x92d36203C9e13f839Fb5668655b123d678bC8049',
+    StakingManager: '0x076A2418F51fc1eBd54e30030FD670709f8735B4', // Keep existing
+    StakeBasketToken: '0x78B9B8e98d3df0F05cB0f7790524fB1432d430fD', // Actual token address used by StakeBasket
+    StakeBasket: '0x13F8b7693445c180Ec11f211d9Af425920B795Af', // Original StakeBasket for native CORE deposits
+    BasketStaking: '0xC2072F6546Af5FfE732707De5Db2925C55a2975B', // Keep existing
+    MockCORE: '0x191e94fa59739e188dce837f7f6978d84727ad01', // WCORE on Core Testnet2
+    MockCoreBTC: '0xB85d3F7E9AB21A113710E197082cEE752c52BC95', // Updated TestBTC
+    MockCoreStaking: '0x19D3d383f362CdE3Ee4D5b351A05f8a789F71Fc2', // Keep existing
+    MockLstBTC: '0xB85d3F7E9AB21A113710E197082cEE752c52BC95', // Same as TestBTC
+    CoreOracle: '0x92d36203C9e13f839Fb5668655b123d678bC8049', // Using new PriceFeed
     
     // Governance
-    BasketGovernance: '0x0000000000000000000000000000000000000000', // To be deployed
-    BasketToken: '0x0000000000000000000000000000000000000000', // To be deployed
+    BasketGovernance: '0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e', // Keep existing
+    BasketToken: '0xBF609d32481229F68313073738836Fe39BFc2b9f', // Updated to new StakeBasketToken
     
     // Liquid Staking
-    CoreLiquidStakingManager: '0x0000000000000000000000000000000000000000', // To be deployed
-    StCoreToken: '0x0000000000000000000000000000000000000000', // To be deployed
+    CoreLiquidStakingManager: '0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E', // Keep existing
+    StCoreToken: '0x19640421A039E231312c2C0941D8b112e02876C5', // Keep existing
     
-    // Dual Staking Contracts
-    MockDualStaking: '0x0000000000000000000000000000000000000000', // To be deployed
-    DualStakingBasket: '0x0000000000000000000000000000000000000000', // To be deployed
-    SatoshiTierBasket: '0x0000000000000000000000000000000000000000', // To be deployed
+    // Dual Staking Contracts - UPDATED WITH MINTER FIX
+    MockDualStaking: '0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9', // Deployer address as placeholder
+    DualStakingBasket: '0xe7D1fF015ba6Af089063B6a5B2DD9203EabBFEfa', // NEW: Fixed minter authorization
+    SatoshiTierBasket: '0xe7D1fF015ba6Af089063B6a5B2DD9203EabBFEfa', // Using new DualStakingBasket
+    
+    // Test Tokens and Faucet
+    TestBTC: '0xB85d3F7E9AB21A113710E197082cEE752c52BC95', // New TestBTC token
+    SimpleBTCFaucet: '0x71C75968d5A8a1634552F4B5352CBf996bA9b3E0', // Faucet for TestBTC
     
     // Unbonding
-    UnbondingQueue: '0x0000000000000000000000000000000000000000', // To be deployed
+    UnbondingQueue: '0x0A4a6dB1718A515EA613873271b505BA5b1aB256', // Keep existing
     
     // Sparks System Contracts
     SparksManager: '0x0000000000000000000000000000000000000000', // To be deployed

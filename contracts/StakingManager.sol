@@ -276,10 +276,13 @@ contract StakingManager is Ownable, ReentrancyGuard {
             "StakingManager: validator has delegated CORE"
         );
         
-        // Find and remove validator from array
-        for (uint256 i = 0; i < activeCoreValidators.length; i++) {
+        // Find and remove validator from array (with gas limit protection)
+        uint256 validatorsLength = activeCoreValidators.length;
+        require(validatorsLength <= 100, "StakingManager: too many validators for removal");
+        
+        for (uint256 i = 0; i < validatorsLength; i++) {
             if (activeCoreValidators[i] == validatorAddress) {
-                activeCoreValidators[i] = activeCoreValidators[activeCoreValidators.length - 1];
+                activeCoreValidators[i] = activeCoreValidators[validatorsLength - 1];
                 activeCoreValidators.pop();
                 break;
             }

@@ -259,7 +259,7 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
             basketGovernance.getProposalVoting(proposal.basketProposalId);
         
         uint256 totalVotes = forVotes + againstVotes + abstainVotes;
-        uint256 totalSupply = basketGovernance.getTotalVotingPower();
+        uint256 totalSupply = basketGovernance.basketToken().totalSupply();
         
         // Verify minimum quorum
         require(
@@ -302,8 +302,7 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
         require(!blacklistedValidators[validator], "CoreDAOGovernanceProxy: validator blacklisted");
         
         // Check delegation concentration limit
-        uint256 totalStaked = address(coreStaking) != address(0) ? 
-            coreStaking.getTotalStaked() : totalDelegatedAmount;
+        uint256 totalStaked = totalDelegatedAmount;
         require(
             (amount * 10000) / (totalStaked + amount) <= maxSingleValidatorDelegation,
             "CoreDAOGovernanceProxy: delegation concentration too high"
@@ -743,7 +742,7 @@ contract CoreDAOGovernanceProxy is ReentrancyGuard, Ownable {
     /**
      * @dev Check if address has specific permission
      */
-    function hasPermission(address operator, uint256 permission) external view returns (bool) {
+    function checkPermission(address operator, uint256 permission) external view returns (bool) {
         if (operator == owner()) return true;
         return authorizedOperators[operator] && (operatorPermissions[operator] & permission) != 0;
     }

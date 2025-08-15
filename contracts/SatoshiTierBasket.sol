@@ -32,6 +32,7 @@ contract SatoshiTierBasket is DualStakingBasket {
     event RatioMaintained(uint256 coreAmount, uint256 btcAmount, uint256 ratio);
     event EmergencyModeToggled(bool enabled);
     event PerformanceUpdated(uint256 newAPY, uint256 totalRewards);
+    event RewardsCompounded(address indexed user, uint256 rewardAmount, uint256 timestamp);
     
     constructor(
         address _basketToken,
@@ -201,7 +202,7 @@ contract SatoshiTierBasket is DualStakingBasket {
             // Restake optimally
             _stakeToDualStaking();
             
-            emit RewardsCompounded(newRewards);
+            emit RewardsCompounded(msg.sender, newRewards, block.timestamp);
             emit PerformanceUpdated(averageAPY, totalRewardsEarned);
         }
         

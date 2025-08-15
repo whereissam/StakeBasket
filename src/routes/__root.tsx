@@ -6,7 +6,7 @@ import { ConnectWallet } from '@/components/ConnectWallet'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { NavDropdown } from '@/components/NavDropdown'
 import { LogoIcon, LogoCompact } from '@/components/ui/logo'
-import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard } from 'lucide-react'
+import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard, Droplets } from 'lucide-react'
 
 export const Route = createRootRoute({
   component: () => (
@@ -73,6 +73,12 @@ export const Route = createRootRoute({
                       icon: <Vote className="h-4 w-4 text-green-500" />,
                       description: "Vote on protocol proposals and changes"
                     },
+                    // {
+                    //   to: "/faucet",
+                    //   label: "Test Faucet",
+                    //   icon: <Droplets className="h-4 w-4 text-cyan-500" />,
+                    //   description: "Get test tokens for development"
+                    // },
                     {
                       to: "/contracts",
                       label: "Contracts",

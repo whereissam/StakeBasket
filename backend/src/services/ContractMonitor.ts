@@ -1,5 +1,5 @@
 import { createPublicClient, http, formatEther, parseAbi } from 'viem'
-import { coreTestnet } from '../config/chains'
+import { coreTestnet2 } from '../config/chains'
 import { CONTRACT_ADDRESSES } from '../config/contracts'
 
 export interface ContractMetrics {
@@ -36,7 +36,7 @@ export class ContractMonitor {
 
   constructor() {
     this.client = createPublicClient({
-      chain: coreTestnet,
+      chain: coreTestnet2,
       transport: http()
     })
 
@@ -58,11 +58,11 @@ export class ContractMonitor {
 
     this.contracts = {
       stakeBasket: {
-        address: CONTRACT_ADDRESSES.coreTestnet.StakeBasket,
+        address: CONTRACT_ADDRESSES.coreTestnet2.StakeBasket,
         abi: stakeBasketAbi
       },
       priceFeed: {
-        address: CONTRACT_ADDRESSES.coreTestnet.PriceFeed,
+        address: CONTRACT_ADDRESSES.coreTestnet2.PriceFeed,
         abi: priceFeedAbi
       }
     }

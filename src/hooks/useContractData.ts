@@ -69,12 +69,13 @@ export function useContractData(userAddress?: string) {
   // Get real-time price data from Core APIs
   const realPriceData = useRealPriceData()
 
-  // Get native CORE balance from Core API and wallet
-  const { data: nativeCoreBalance } = useBalance({
+  // Get native CORE balance from wallet
+  const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
     address: userAddress as `0x${string}`,
     query: { 
       enabled: !!userAddress,
-      refetchInterval: 5000 // Refresh every 5 seconds
+      refetchInterval: 2000, // Refresh every 2 seconds
+      staleTime: 0 // Don't use stale data
     }
   })
 
@@ -108,14 +109,14 @@ export function useContractData(userAddress?: string) {
     return () => clearInterval(interval)
   }, [userAddress, chainId])
 
-  // Get BASKET token balance (governance token)
-  const { data: basketBalance } = useReadContract({
-    address: contracts.BasketToken as `0x${string}`,
+  // Get BASKET token balance (StakeBasketToken - the token you get from staking)
+  const { data: basketBalance, refetch: refetchBasketBalance } = useReadContract({
+    address: contracts.StakeBasketToken as `0x${string}`,
     abi: CORE_TOKEN_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress as `0x${string}`] : undefined,
     query: { 
-      enabled: !!userAddress && !!contracts.BasketToken,
+      enabled: !!userAddress && !!contracts.StakeBasketToken,
       refetchInterval: 2000 // Refresh every 2 seconds
     }
   })
@@ -156,9 +157,19 @@ export function useContractData(userAddress?: string) {
     query: { enabled: !!contracts.CoreOracle }
   })
 
+  // Debug logging
+  const finalCoreBalance = nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : coreApiBalance
+  console.log('Balance debug:', {
+    nativeCoreBalance: nativeCoreBalance?.value?.toString(),
+    nativeCoreBalanceFormatted: nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0,
+    coreApiBalance,
+    finalCoreBalance,
+    chainId
+  })
+
   return {
-    // User balances - prefer Core API balance for accuracy, fallback to wagmi
-    coreBalance: coreApiBalance > 0 ? coreApiBalance : (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0),
+    // User balances - prefer wagmi balance for reliability, with Core API as backup
+    coreBalance: finalCoreBalance,
     basketBalance: basketBalance ? Number(basketBalance) / 1e18 : 0,
     
     // Real-time prices from Core APIs (preferred) with oracle fallback
@@ -181,6 +192,10 @@ export function useContractData(userAddress?: string) {
     chainId,
     
     // Network status
-    isConnected: !!contracts.StakeBasket
+    isConnected: !!contracts.StakeBasket,
+    
+    // Refetch functions
+    refetchBasketBalance,
+    refetchCoreBalance
   }
 }

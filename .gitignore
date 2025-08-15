@@ -119,8 +119,50 @@ contracts/cache/
 *.pem
 mnemonic.txt
 private-key.txt
+.secret
+.private
+wallet.json
+keystore/
+accounts.json
+
+# Environment files that may contain keys
+.env*
+!.env.example
+.environment
+secrets.json
+config.json
+
+# Hardhat/Truffle deployment addresses and keys
+.openzeppelin/
+deployments/
+deployed-contracts.json
+deployment-addresses.json
 
 # Test files that might contain sensitive data
 test-accounts.json
 test-wallets.json
+test-keys.json
+*private-key*
+*mnemonic*
+*seed*
+
+# Scripts that might contain hardcoded keys
+scripts/*-keys.cjs
+scripts/*-private.cjs
+scripts/deploy-mainnet*.cjs
+
+# Backup and temporary files
+*.backup
+*.bak
+*.tmp
+*~
+.#*
+
+# IDE workspace files
+.vscode/settings.json
+.vscode/launch.json
+
 scripts/
+test/
+tools/
+docs/
