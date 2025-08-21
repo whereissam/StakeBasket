@@ -15,7 +15,7 @@ import "./interfaces/ILstBTC.sol";
  */
 contract StakingManager is Ownable, ReentrancyGuard {
     // State variables
-    address public immutable stakeBasketContract;
+    address public stakeBasketContract;
     ICoreStaking public coreStakingContract;
     ILstBTC public lstBTCContract;
     IERC20 public coreBTCContract;
@@ -71,8 +71,7 @@ contract StakingManager is Ownable, ReentrancyGuard {
         address _coreToken,
         address initialOwner
     ) Ownable(initialOwner) {
-        require(_stakeBasketContract != address(0), "StakingManager: invalid StakeBasket contract");
-        
+        // Allow zero address for stakeBasketContract initially (will be set later)
         stakeBasketContract = _stakeBasketContract;
         if (_coreStakingContract != address(0)) {
             coreStakingContract = ICoreStaking(_coreStakingContract);
@@ -309,6 +308,14 @@ contract StakingManager is Ownable, ReentrancyGuard {
     
     function setCoreTokenContract(address _coreToken) external onlyOwner {
         coreToken = IERC20(_coreToken);
+    }
+    
+    /**
+     * @dev Set StakeBasket contract address (for factory deployment)
+     */
+    function setStakeBasketContract(address _stakeBasketContract) external onlyOwner {
+        require(_stakeBasketContract != address(0), "StakingManager: invalid StakeBasket contract");
+        stakeBasketContract = _stakeBasketContract;
     }
     
     /**

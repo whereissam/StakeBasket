@@ -109,14 +109,16 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     ) Ownable(initialOwner) {
         require(_basketToken != address(0), "DualStaking: invalid basket token");
         require(_priceFeed != address(0), "DualStaking: invalid price feed");
-        require(_coreToken != address(0), "DualStaking: invalid core token");
+        // Allow zero address for native CORE token usage
         require(_btcToken != address(0), "DualStaking: invalid btc token");
         require(_dualStakingContract != address(0), "DualStaking: invalid dual staking contract");
         require(_feeRecipient != address(0), "DualStaking: invalid fee recipient");
         
         basketToken = StakeBasketToken(_basketToken);
         priceFeed = PriceFeed(_priceFeed);
-        coreToken = IERC20(_coreToken);
+        if (_coreToken != address(0)) {
+            coreToken = IERC20(_coreToken);
+        }
         btcToken = IERC20(_btcToken);
         dualStakingContract = IDualStaking(_dualStakingContract);
         feeRecipient = _feeRecipient;
@@ -473,37 +475,56 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @dev Stake available assets in dual staking contract (with success validation)
+     * @dev Stake available assets in dual staking contract (with native CORE support)
      */
     function _stakeToDualStaking() internal {
         uint256 availableCORE = totalPooledCORE - totalStakedCORE;
         uint256 availableBTC = totalPooledBTC - totalStakedBTC;
         
-        if (availableCORE > 0) {
-            uint256 coreBalanceBefore = coreToken.balanceOf(address(this));
-            coreToken.approve(address(dualStakingContract), availableCORE);
+        // Check if we have both assets for dual staking
+        if (availableCORE > 0 && availableBTC > 0 && targetRatio > 0) {
+            // Use dual staking for tier benefits
+            uint256 coreToStake = availableCORE;
+            uint256 btcToStake = availableBTC;
             
-            try dualStakingContract.stakeCORE(availableCORE) {
-                uint256 coreBalanceAfter = coreToken.balanceOf(address(this));
-                uint256 actualStaked = coreBalanceBefore - coreBalanceAfter;
-                totalStakedCORE += actualStaked;
-            } catch {
-                // Reset approval if staking fails
-                coreToken.approve(address(dualStakingContract), 0);
+            // Adjust amounts to maintain target ratio
+            uint256 requiredCore = (btcToStake * targetRatio) / 1e18;
+            if (requiredCore < coreToStake) {
+                coreToStake = requiredCore;
+            } else {
+                btcToStake = (coreToStake * 1e18) / targetRatio;
             }
-        }
-        
-        if (availableBTC > 0) {
-            uint256 btcBalanceBefore = btcToken.balanceOf(address(this));
-            btcToken.approve(address(dualStakingContract), availableBTC);
             
-            try dualStakingContract.stakeBTC(availableBTC) {
-                uint256 btcBalanceAfter = btcToken.balanceOf(address(this));
-                uint256 actualStaked = btcBalanceBefore - btcBalanceAfter;
-                totalStakedBTC += actualStaked;
-            } catch {
-                // Reset approval if staking fails
-                btcToken.approve(address(dualStakingContract), 0);
+            if (coreToStake > 0 && btcToStake > 0) {
+                btcToken.approve(address(dualStakingContract), btcToStake);
+                
+                try dualStakingContract.stakeDual{value: coreToStake}(btcToStake) {
+                    totalStakedCORE += coreToStake;
+                    totalStakedBTC += btcToStake;
+                } catch {
+                    // Reset approval if staking fails
+                    btcToken.approve(address(dualStakingContract), 0);
+                }
+            }
+        } else {
+            // Separate staking for individual assets
+            if (availableCORE > 0) {
+                try dualStakingContract.stakeCORE{value: availableCORE}(availableCORE) {
+                    totalStakedCORE += availableCORE;
+                } catch {
+                    // Staking failed, continue
+                }
+            }
+            
+            if (availableBTC > 0) {
+                btcToken.approve(address(dualStakingContract), availableBTC);
+                
+                try dualStakingContract.stakeBTC(availableBTC) {
+                    totalStakedBTC += availableBTC;
+                } catch {
+                    // Reset approval if staking fails
+                    btcToken.approve(address(dualStakingContract), 0);
+                }
             }
         }
     }
@@ -512,14 +533,41 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      * @dev Unstake assets from dual staking contract
      */
     function _unstakeFromDualStaking(uint256 coreAmount, uint256 btcAmount) internal {
+        // Try to unstake using dual unstaking first (maintains ratios)
+        if (coreAmount > 0 && btcAmount > 0 && totalStakedCORE >= coreAmount && totalStakedBTC >= btcAmount) {
+            // Calculate shares as percentage of total stake
+            uint256 coreShare = (coreAmount * 10000) / totalStakedCORE;
+            uint256 btcShare = (btcAmount * 10000) / totalStakedBTC;
+            uint256 shares = coreShare < btcShare ? coreShare : btcShare;
+            
+            try dualStakingContract.unstakeDual(shares) {
+                // Calculate actual amounts unstaked
+                uint256 actualCoreUnstaked = (totalStakedCORE * shares) / 10000;
+                uint256 actualBtcUnstaked = (totalStakedBTC * shares) / 10000;
+                
+                totalStakedCORE -= actualCoreUnstaked;
+                totalStakedBTC -= actualBtcUnstaked;
+                return;
+            } catch {
+                // Fall back to individual unstaking
+            }
+        }
+        
+        // Individual unstaking fallback
         if (coreAmount > 0 && totalStakedCORE >= coreAmount) {
-            dualStakingContract.unstakeCORE(coreAmount);
-            totalStakedCORE -= coreAmount;
+            try dualStakingContract.unstakeCORE(coreAmount) {
+                totalStakedCORE -= coreAmount;
+            } catch {
+                // Unstaking failed
+            }
         }
         
         if (btcAmount > 0 && totalStakedBTC >= btcAmount) {
-            dualStakingContract.unstakeBTC(btcAmount);
-            totalStakedBTC -= btcAmount;
+            try dualStakingContract.unstakeBTC(btcAmount) {
+                totalStakedBTC -= btcAmount;
+            } catch {
+                // Unstaking failed
+            }
         }
     }
     
@@ -596,18 +644,26 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function _claimAllRewards() internal returns (uint256 coreRewards, uint256 btcRewards) {
         // Record balances before claiming
-        uint256 coreBalanceBefore = coreToken.balanceOf(address(this));
+        uint256 ethBalanceBefore = address(this).balance;
         uint256 btcBalanceBefore = btcToken.balanceOf(address(this));
         
         // Claim rewards from dual staking contract
         try dualStakingContract.claimRewards() {
-            // Calculate actual rewards received
-            coreRewards = coreToken.balanceOf(address(this)) - coreBalanceBefore;
+            // Calculate actual rewards received (CORE rewards come as native ETH)
+            coreRewards = address(this).balance - ethBalanceBefore;
             btcRewards = btcToken.balanceOf(address(this)) - btcBalanceBefore;
         } catch {
             // Handle reward claiming failure gracefully
             coreRewards = 0;
             btcRewards = 0;
+        }
+        
+        // Also try claiming specific rewards
+        try dualStakingContract.claimCoreRewards() {
+            uint256 additionalCore = address(this).balance - ethBalanceBefore - coreRewards;
+            coreRewards += additionalCore;
+        } catch {
+            // Continue with main rewards
         }
     }
     

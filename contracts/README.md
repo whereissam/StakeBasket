@@ -30,6 +30,160 @@ A comprehensive DeFi protocol for multi-asset staking and liquid staking on Core
 
 ## 🏗️ Architecture Overview
 
+### 📊 Visual System Architecture
+
+```mermaid
+graph TD
+    User[👤 User] --> |"Deposits ETH + BTC"| DSB[🧠 DualStakingBasket]
+    User --> |"Deposits Assets"| SB[🏦 StakeBasket]
+    
+    subgraph "Logic Layer"
+        DSB --> |"Calculates shares<br/>Manages ratios<br/>Handles staking"| SBT[🎫 StakeBasketToken]
+        SB --> |"Multi-asset ETF<br/>Rebalancing<br/>Fee management"| SBT
+    end
+    
+    DSB --> |"Stakes CORE + BTC"| MDS[🎯 MockDualStaking]
+    SB --> |"Delegates CORE"| MCS[⚡ MockCoreStaking]
+    
+    subgraph "External Protocols"
+        MDS --> |"Tier bonuses<br/>8-20% APY"| Rewards[💰 Staking Rewards]
+        MCS --> |"Validator rewards<br/>~8% APY"| Rewards
+    end
+    
+    SBT --> |"cbETF tokens<br/>(ERC20)"| User
+    Rewards --> |"Compound & distribute"| DSB
+    Rewards --> |"Auto-compound"| SB
+    
+    style User fill:#e1f5fe
+    style DSB fill:#f3e5f5
+    style SB fill:#f3e5f5
+    style SBT fill:#e8f5e8
+    style MDS fill:#fff3e0
+    style MCS fill:#fff3e0
+    style Rewards fill:#fce4ec
+```
+
+### 🔄 Contract Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant DSB as 🧠 DualStakingBasket
+    participant SBT as 🎫 StakeBasketToken
+    participant MDS as 🎯 MockDualStaking
+    participant PF as 📊 PriceFeed
+    
+    Note over User, PF: Deposit Flow (50 ETH + 1 BTC)
+    
+    User->>DSB: depositNativeCORE(1 BTC) + 50 ETH
+    DSB->>PF: getPrice("BTC/USD", "ETH/USD")
+    PF-->>DSB: $50,000, $2,000
+    
+    Note over DSB: Calculate optimal ratio (50:1)
+    Note over DSB: Determine share value = $100,000
+    
+    DSB->>MDS: stakeDual(1 BTC) + 50 ETH
+    MDS-->>DSB: Success, Tier SUPER activated
+    
+    DSB->>SBT: mint(user, 75 cbETF)
+    SBT-->>User: 75 cbETF tokens
+    
+    Note over User, PF: Reward Flow (Daily)
+    
+    MDS->>DSB: Daily rewards (tier bonus applied)
+    DSB->>SBT: updateTotalSupply() for NAV
+    
+    Note over User, PF: Withdrawal Flow
+    
+    User->>DSB: requestWithdraw(10 cbETF)
+    DSB->>SBT: burn(user, 10 cbETF)
+    DSB->>MDS: unstakeDual(proportional amounts)
+    DSB-->>User: ETH + BTC returned
+```
+
+### 🎯 Why Two Contracts?
+
+| Aspect | StakeBasketToken (Token) | DualStakingBasket (Logic) |
+|--------|-------------------------|---------------------------|
+| **Purpose** | Represents user shares | Handles all operations |
+| **Functionality** | Mint/burn tokens only | Staking, rewards, calculations |
+| **Complexity** | Simple ERC20 | Complex business logic |
+| **Security** | Minimal attack surface | Protected by access controls |
+| **Upgradability** | Stable token address | Logic can be upgraded |
+| **User Interaction** | Users hold these tokens | Users call functions here |
+
+### 🏛️ Complete System Architecture
+
+```mermaid
+graph TB
+    subgraph "👤 User Layer"
+        User[User Wallet]
+        cbETF[cbETF Tokens]
+        User -.->|holds| cbETF
+    end
+    
+    subgraph "🎫 Token Layer"
+        SBT[StakeBasketToken<br/>📝 ERC20 Contract]
+        SBT -.->|mints/burns| cbETF
+    end
+    
+    subgraph "🧠 Logic Layer"
+        DSB[DualStakingBasket<br/>🏦 Main Logic]
+        SB[StakeBasket<br/>📊 ETF Strategy]
+        SM[StakingManager<br/>⚡ Coordinator]
+        BS[BasketStaking<br/>🎯 Governance]
+        
+        DSB -->|controls| SBT
+        SB -->|controls| SBT
+        DSB -.->|uses| SM
+        SB -.->|uses| SM
+        BS -.->|provides discounts| DSB
+    end
+    
+    subgraph "📊 Infrastructure Layer"
+        PF[PriceFeed<br/>💰 Oracle]
+        UQ[UnbondingQueue<br/>⏰ Withdrawals]
+        
+        DSB -->|reads prices| PF
+        SB -->|reads prices| PF
+        DSB -->|manages queue| UQ
+        SB -->|manages queue| UQ
+    end
+    
+    subgraph "🎯 External Protocols"
+        MDS[MockDualStaking<br/>🚀 CoreDAO Dual]
+        MCS[MockCoreStaking<br/>⚡ Validators]
+        
+        DSB -->|stakes assets| MDS
+        SM -->|delegates| MCS
+        MDS -.->|rewards| DSB
+        MCS -.->|rewards| SM
+    end
+    
+    subgraph "🏛️ Governance Layer"
+        BG[BasketGovernance<br/>🗳️ DAO Voting]
+        CGP[CoreDAOGovernance<br/>🌐 Proxy]
+        
+        BS -->|voting power| BG
+        BG -->|proposals| CGP
+    end
+    
+    User -->|deposits| DSB
+    User -->|deposits| SB
+    User -->|stakes BASKET| BS
+    User -->|votes| BG
+    
+    style User fill:#e1f5fe
+    style cbETF fill:#e8f5e8
+    style SBT fill:#e8f5e8
+    style DSB fill:#f3e5f5
+    style SB fill:#f3e5f5
+    style MDS fill:#fff3e0
+    style MCS fill:#fff3e0
+    style PF fill:#f1f8e9
+    style BG fill:#fce4ec
+```
+
 ### Core Governance & Management Layer
 
 #### **BasketGovernance.sol**

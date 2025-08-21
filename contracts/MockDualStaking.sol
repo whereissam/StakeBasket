@@ -64,18 +64,16 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Stake CORE tokens
+     * @dev Stake native CORE tokens (ETH on local testnet)
      */
-    function stakeCORE(uint256 amount) external override nonReentrant {
+    function stakeCORE(uint256 amount) external payable override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
+        require(msg.value == amount, "MockDualStaking: sent value must equal amount");
         
         // Update rewards before changing stake
         _updateRewards(msg.sender);
         
-        // Transfer CORE tokens
-        coreToken.transferFrom(msg.sender, address(this), amount);
-        
-        // Update user stake
+        // Update user stake (native CORE staking)
         userStakes[msg.sender].coreAmount += amount;
         totalStakedCORE += amount;
         
@@ -102,7 +100,7 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Unstake CORE tokens
+     * @dev Unstake native CORE tokens (ETH on local testnet)
      */
     function unstakeCORE(uint256 amount) external override nonReentrant {
         require(amount > 0, "MockDualStaking: amount must be greater than 0");
@@ -118,8 +116,9 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
         userStakes[msg.sender].coreAmount -= amount;
         totalStakedCORE -= amount;
         
-        // Transfer CORE tokens back
-        coreToken.transfer(msg.sender, amount);
+        // Transfer native CORE back
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "MockDualStaking: transfer failed");
         
         emit COREUnstaked(msg.sender, amount);
     }
@@ -157,15 +156,91 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
         if (rewards > 0) {
             userStakes[msg.sender].accumulatedRewards = 0;
             
-            // Transfer rewards in CORE tokens
+            // Transfer rewards in native CORE
             require(rewardPool >= rewards, "MockDualStaking: insufficient reward pool");
             rewardPool -= rewards;
-            coreToken.transfer(msg.sender, rewards);
+            
+            (bool success, ) = payable(msg.sender).call{value: rewards}("");
+            require(success, "MockDualStaking: reward transfer failed");
             
             emit RewardsClaimed(msg.sender, rewards);
         }
         
         return rewards;
+    }
+
+    /**
+     * @dev Combined dual staking function (CORE + BTC together for tier benefits)
+     */
+    function stakeDual(uint256 btcAmount) external payable override nonReentrant {
+        require(msg.value > 0 && btcAmount > 0, "MockDualStaking: both amounts must be positive");
+        
+        uint256 coreAmount = msg.value;
+        
+        // Calculate the ratio and validate it meets minimum requirements
+        uint256 ratio = (coreAmount * 1e18) / btcAmount;
+        require(ratio >= BOOST_TIER, "MockDualStaking: ratio too low for dual staking benefits");
+        
+        // Update rewards before changing stake
+        _updateRewards(msg.sender);
+        
+        // Transfer BTC tokens
+        btcToken.transferFrom(msg.sender, address(this), btcAmount);
+        
+        // Update user stakes
+        userStakes[msg.sender].coreAmount += coreAmount;
+        userStakes[msg.sender].btcAmount += btcAmount;
+        totalStakedCORE += coreAmount;
+        totalStakedBTC += btcAmount;
+        
+        emit COREStaked(msg.sender, coreAmount);
+        emit BTCStaked(msg.sender, btcAmount);
+    }
+
+    /**
+     * @dev Unstake from dual staking (maintains ratio)
+     */
+    function unstakeDual(uint256 shares) external override nonReentrant {
+        require(shares > 0, "MockDualStaking: shares must be positive");
+        
+        UserStake storage userStake = userStakes[msg.sender];
+        require(userStake.coreAmount > 0 && userStake.btcAmount > 0, "MockDualStaking: no dual stake");
+        
+        // Update rewards before changing stake
+        _updateRewards(msg.sender);
+        
+        // Calculate proportional amounts (shares represent percentage in basis points)
+        uint256 coreToUnstake = (userStake.coreAmount * shares) / 10000;
+        uint256 btcToUnstake = (userStake.btcAmount * shares) / 10000;
+        
+        // Update stakes
+        userStake.coreAmount -= coreToUnstake;
+        userStake.btcAmount -= btcToUnstake;
+        totalStakedCORE -= coreToUnstake;
+        totalStakedBTC -= btcToUnstake;
+        
+        // Transfer tokens back
+        (bool success, ) = payable(msg.sender).call{value: coreToUnstake}("");
+        require(success, "MockDualStaking: CORE transfer failed");
+        
+        btcToken.transfer(msg.sender, btcToUnstake);
+        
+        emit COREUnstaked(msg.sender, coreToUnstake);
+        emit BTCUnstaked(msg.sender, btcToUnstake);
+    }
+
+    /**
+     * @dev Claim CORE-specific rewards
+     */
+    function claimCoreRewards() external override nonReentrant returns (uint256) {
+        return this.claimRewards(); // Call external claimRewards function
+    }
+
+    /**
+     * @dev Claim BTC-specific rewards  
+     */
+    function claimBtcRewards() external override nonReentrant returns (uint256) {
+        return 0; // No separate BTC rewards in this implementation
     }
     
     /**
@@ -247,12 +322,26 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Get user's current CORE:BTC ratio
+     * @dev Get user's current CORE:BTC ratio  
      */
-    function getUserRatio(address user) external view returns (uint256) {
+    function getUserRatio(address user) external view override returns (uint256) {
         UserStake memory stake = userStakes[user];
         if (stake.btcAmount == 0) return 0;
         return (stake.coreAmount * 1e18) / stake.btcAmount;
+    }
+
+    /**
+     * @dev Calculate tier based on CORE and BTC amounts
+     */
+    function calculateTier(uint256 coreAmount, uint256 btcAmount) external pure override returns (uint8) {
+        if (btcAmount == 0) return 0;
+        
+        uint256 ratio = (coreAmount * 1e18) / btcAmount;
+        
+        if (ratio >= SATOSHI_TIER) return 4;
+        if (ratio >= SUPER_TIER) return 3;
+        if (ratio >= BOOST_TIER) return 2;
+        return 1;
     }
     
     /**
@@ -358,4 +447,22 @@ contract MockDualStaking is IDualStaking, Ownable, ReentrancyGuard {
     ) {
         return (totalStakedCORE, totalStakedBTC, rewardPool);
     }
+
+    /**
+     * @dev Get total staked amounts (IDualStaking interface)
+     */
+    function getTotalStaked() external view override returns (uint256 totalCORE, uint256 totalBTC) {
+        return (totalStakedCORE, totalStakedBTC);
+    }
+
+    /**
+     * @dev Fund the reward pool with native CORE
+     */
+    function fundRewardPoolNative() external payable onlyOwner {
+        rewardPool += msg.value;
+        emit RewardPoolFunded(msg.value);
+    }
+
+    // Allow contract to receive ETH
+    receive() external payable {}
 }

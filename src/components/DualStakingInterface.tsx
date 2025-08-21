@@ -104,7 +104,7 @@ export function DualStakingInterface() {
   const { contracts, chainId, isTestnet } = useContracts()
   const currentChainId = chainId || storeChainId || 31337
   const stakingContractAddress = currentChainId === 1114 
-    ? '0x9921016FC63cd34199b1c04D8Af1e69D79A7deEb' // NEW working DualStakingBasket
+    ? '0x78F398a57774429a41fA73e1CE7AC0915B37157a' // FINAL DualStaking with no timelock
     : '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849' // DualStakingBasket for local development
   
   // Debug logging

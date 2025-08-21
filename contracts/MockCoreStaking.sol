@@ -41,7 +41,7 @@ contract MockCoreStaking is Ownable, ReentrancyGuard {
     
     // Simulation parameters
     uint256 public constant ANNUAL_REWARD_RATE = 800; // 8% APY in basis points
-    uint256 public constant UNBONDING_PERIOD = 7 days;
+    uint256 public constant UNBONDING_PERIOD = 1 days; // Reduced for testing
     uint256 public constant BASIS_POINTS = 10000;
     
     // Events

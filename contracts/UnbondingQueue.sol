@@ -40,7 +40,7 @@ contract UnbondingQueue is Ownable, ReentrancyGuard {
     }
 
     // Constants
-    uint256 public constant CORE_UNBONDING_PERIOD = 7 days;
+    uint256 public constant CORE_UNBONDING_PERIOD = 1 days; // Reduced for testing
     uint256 public constant LSTBTC_UNBONDING_PERIOD = 1 days;
     uint256 public constant MAX_INSTANT_WITHDRAWAL = 100000 ether; // 100k tokens
 
