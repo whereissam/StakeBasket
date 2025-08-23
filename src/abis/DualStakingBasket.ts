@@ -1,3 +1,3 @@
-import DualStakingBasketArtifact from '../../artifacts/contracts/DualStakingBasket.sol/DualStakingBasket.json'
+import DualStakingBasketABIData from './DualStakingBasketABI.json'
 
-export const DualStakingBasketABI = DualStakingBasketArtifact.abi
+export const DualStakingBasketABI = DualStakingBasketABIData
