@@ -17,107 +17,89 @@ import { useNetworkStore } from '../store/useNetworkStore'
 import { toast } from 'sonner'
 import { getNetworkByChainId } from '../config/contracts'
 import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
+import { DualTier, DualStakeInfo, TierInfo } from '../types/staking'
 
-
-interface DualStakeInfo {
-  coreStaked: string
-  btcStaked: string
-  shares: string
-  rewards: string
-  tier: number
-  ratio: string
-  apy: string
-}
-
-enum DualTier {
-  None = -1,
-  Base = 0,
-  Boost = 1,
-  Super = 2,
-  Satoshi = 3
-}
-
-interface TierInfo {
-  name: string
-  ratio: string
-  apy: string
-  color: string
-  bgColor: string
-  description: string
-}
-
-const TIER_RATIOS: Record<DualTier, number> = {
+// Target ratios for optimal bonus within each tier
+const TIER_OPTIMAL_RATIOS: Record<DualTier, number> = {
   [DualTier.None]: 0,
-  [DualTier.Base]: 0,
-  [DualTier.Boost]: 2000,
-  [DualTier.Super]: 6000,
-  [DualTier.Satoshi]: 16000
+  [DualTier.Bronze]: 5000,   // 5,000:1 CORE:BTC optimal for Bronze
+  [DualTier.Silver]: 10000,  // 10,000:1 CORE:BTC optimal for Silver  
+  [DualTier.Gold]: 20000,    // 20,000:1 CORE:BTC optimal for Gold
+  [DualTier.Satoshi]: 25000  // 25,000:1 CORE:BTC optimal for Satoshi
+}
+
+// USD value thresholds for tier qualification
+const TIER_USD_THRESHOLDS: Record<DualTier, { min: number; max: number }> = {
+  [DualTier.None]: { min: 0, max: 1000 },
+  [DualTier.Bronze]: { min: 1000, max: 10000 },
+  [DualTier.Silver]: { min: 10000, max: 100000 },
+  [DualTier.Gold]: { min: 100000, max: 500000 },
+  [DualTier.Satoshi]: { min: 500000, max: Infinity }
 }
 
 const TIER_INFO: Record<DualTier, TierInfo> = {
   [DualTier.None]: {
-    name: 'Not Staking',
-    ratio: '0:0',
+    name: 'Not Qualified',
+    ratio: '< $1,000 total value',
     apy: '0%',
     color: 'text-muted-foreground',
     bgColor: 'bg-muted/50',
-    description: 'No active stakes - Start staking to earn rewards'
+    description: 'Minimum $1,000 total value required to qualify for dual staking rewards'
   },
-  [DualTier.Base]: {
-    name: 'Base Tier',
-    ratio: 'Any + 0.0005 BTC min',
-    apy: '8%',
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
-    description: 'Entry level - Minimal BTC commitment required'
-  },
-  [DualTier.Boost]: {
-    name: 'Boost Tier',
-    ratio: '2,000:1 + 0.002 BTC min',
-    apy: '12%',
+  [DualTier.Bronze]: {
+    name: 'Bronze Pool',
+    ratio: '$1k - $10k total value',
+    apy: '8% + up to 25% bonus',
     color: 'text-chart-1',
     bgColor: 'bg-chart-1/10',
-    description: 'Enhanced rewards - Meaningful BTC stake required'
+    description: 'Entry tier with ratio bonuses - Optimal 5,000:1 CORE:BTC ratio'
   },
-  [DualTier.Super]: {
-    name: 'Super Tier',
-    ratio: '6,000:1 + 0.005 BTC min',
-    apy: '16%',
+  [DualTier.Silver]: {
+    name: 'Silver Pool', 
+    ratio: '$10k - $100k total value',
+    apy: '12% + up to 35% bonus',
     color: 'text-chart-3',
     bgColor: 'bg-chart-3/10',
-    description: 'Premium yields - Substantial BTC commitment needed'
+    description: 'Enhanced tier with higher base yields - Optimal 10,000:1 CORE:BTC ratio'
+  },
+  [DualTier.Gold]: {
+    name: 'Gold Pool',
+    ratio: '$100k - $500k total value',
+    apy: '16% + up to 50% bonus',
+    color: 'text-chart-4',
+    bgColor: 'bg-chart-4/10',
+    description: 'Premium tier with maximum bonuses - Optimal 20,000:1 CORE:BTC ratio'
   },
   [DualTier.Satoshi]: {
-    name: 'Satoshi Tier',
-    ratio: '16,000:1 + 0.01 BTC min',
-    apy: '20%',
-    color: 'text-chart-2',
-    bgColor: 'bg-chart-2/10',
-    description: 'Maximum rewards - Significant BTC holdings required'
+    name: 'Satoshi Pool',
+    ratio: '$500k+ total value',
+    apy: '20% + up to 60% bonus',
+    color: 'text-chart-5',
+    bgColor: 'bg-chart-5/10',
+    description: 'Elite tier for whale stakers - Optimal 25,000:1 CORE:BTC ratio'
   }
 }
 
-// Minimum deposit requirements
+// Base minimum deposit requirements (prevents dust gaming)
 const MIN_DEPOSIT_REQUIREMENTS = {
-  CORE: 0.1,     // Minimum 0.1 CORE/ETH
-  BTC: 0.0001    // Minimum 0.0001 BTC
+  CORE: 100,      // Minimum 100 CORE tokens
+  BTC: 0.01,      // Minimum 0.01 BTC tokens
+  USD_VALUE: 1000 // Minimum $1000 total USD value for any tier
 }
 
-// Tier minimum requirements
-const TIER_MIN_BTC: Record<DualTier, number> = {
-  [DualTier.None]: 0,         // Not used for None tier
-  [DualTier.Base]: 0.0005,    // 0.0005 BTC minimum
-  [DualTier.Boost]: 0.002,    // 0.002 BTC minimum  
-  [DualTier.Super]: 0.005,    // 0.005 BTC minimum
-  [DualTier.Satoshi]: 0.01    // 0.01 BTC minimum
+// Price assumptions (should be replaced with oracle data)
+const ASSET_PRICES_USD = {
+  CORE: 1.5,      // $1.50 per CORE token
+  BTC: 65000      // $65,000 per BTC token
 }
 
-const TIER_MIN_VALUES: Record<DualTier, number> = {
-  [DualTier.None]: 0,      // Not used for None tier
-  [DualTier.Base]: 1,      // 1 CORE total value
-  [DualTier.Boost]: 20,    // 20 CORE total value  
-  [DualTier.Super]: 50,    // 50 CORE total value
-  [DualTier.Satoshi]: 100  // 100 CORE total value
+// Maximum bonus caps per tier (prevents excessive rewards)
+const TIER_MAX_BONUS: Record<DualTier, number> = {
+  [DualTier.None]: 0,
+  [DualTier.Bronze]: 0.25,   // +25% max bonus
+  [DualTier.Silver]: 0.35,   // +35% max bonus
+  [DualTier.Gold]: 0.50,     // +50% max bonus
+  [DualTier.Satoshi]: 0.60   // +60% max bonus
 }
 
 export function DualStakingInterface() {
@@ -238,63 +220,96 @@ export function DualStakingInterface() {
     }
   }, [approveBtcSuccess, refetchBtcAllowance])
 
+  // Calculate total USD value of the stake
+  const calculateTotalUSDValue = (core: string, btc: string): number => {
+    const coreNum = Number(core) || 0
+    const btcNum = Number(btc) || 0
+    return (coreNum * ASSET_PRICES_USD.CORE) + (btcNum * ASSET_PRICES_USD.BTC)
+  }
+  
+  // Calculate ratio bonus based on how close to optimal ratio (used for future reward calculations)
+  const calculateRatioBonus = (core: string, btc: string, tier: DualTier): number => {
+    if (tier === DualTier.None) return 0
+    
+    const coreNum = Number(core) || 0
+    const btcNum = Number(btc) || 0
+    
+    if (btcNum === 0) return 0
+    
+    const actualRatio = coreNum / btcNum
+    const optimalRatio = TIER_OPTIMAL_RATIOS[tier]
+    
+    // Calculate how close to optimal (1.0 = perfect, 0.0 = very far)
+    const ratioDiff = Math.abs(actualRatio - optimalRatio) / optimalRatio
+    const ratioScore = Math.max(0, 1 - ratioDiff)
+    
+    // Apply logarithmic scaling for larger stakes
+    const totalUSDValue = calculateTotalUSDValue(core, btc)
+    const sizeMultiplier = Math.log10(Math.max(1, totalUSDValue / 1000)) / 2 // Logarithmic bonus scaling
+    
+    const maxBonus = TIER_MAX_BONUS[tier]
+    return Math.min(maxBonus, ratioScore * maxBonus * (1 + sizeMultiplier))
+  }
+  
   const calculateTier = (core: string, btc: string): DualTier => {
     const coreNum = Number(core) || 0
     const btcNum = Number(btc) || 0
     
-    // Base minimum deposit requirements from constants
-    if (btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC || coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE) return DualTier.None
-    if (btcNum === 0 || coreNum === 0) return DualTier.None
+    // Must have both assets and meet minimum requirements
+    if (coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE || btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC) {
+      return DualTier.None
+    }
     
-    // Calculate total value (using CORE as base unit)
-    const totalCoreValue = coreNum + (btcNum * 50000) // Approximate BTC:CORE price ratio
-    const tokenRatio = coreNum / btcNum
+    // Calculate total USD value
+    const totalUSDValue = calculateTotalUSDValue(core, btc)
     
-    // Enhanced tier requirements: BOTH ratio AND minimum amounts for EACH token
-    if (tokenRatio >= 16000 && totalCoreValue >= 100 && btcNum >= 0.01) {
+    // Must meet minimum USD value requirement
+    if (totalUSDValue < MIN_DEPOSIT_REQUIREMENTS.USD_VALUE) {
+      return DualTier.None
+    }
+    
+    // Assign tier based on total USD value
+    if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Satoshi].min) {
       return DualTier.Satoshi
-    } else if (tokenRatio >= 6000 && totalCoreValue >= 50 && btcNum >= 0.005) {
-      return DualTier.Super
-    } else if (tokenRatio >= 2000 && totalCoreValue >= 20 && btcNum >= 0.002) {
-      return DualTier.Boost
-    } else if (totalCoreValue >= 1 && btcNum >= 0.0005) {
-      return DualTier.Base
+    } else if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Gold].min) {
+      return DualTier.Gold
+    } else if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Silver].min) {
+      return DualTier.Silver  
+    } else if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Bronze].min) {
+      return DualTier.Bronze
     }
     
     return DualTier.None
   }
 
   const handleAutoCalculate = (targetTier: DualTier) => {
-    const requiredRatio = TIER_RATIOS[targetTier]
+    if (targetTier === DualTier.None) return
     
-    // Define minimum BTC amounts for each tier
-    const minBTC = TIER_MIN_BTC[targetTier] || 0.0005
-    const minTotalValue = TIER_MIN_VALUES[targetTier] || 1
+    // Get the minimum USD value for this tier
+    const minUSDValue = TIER_USD_THRESHOLDS[targetTier].min
+    const optimalRatio = TIER_OPTIMAL_RATIOS[targetTier]
     
-    let btcAmount: number
-    let coreAmount: number
+    // Start with minimum BTC requirement
+    const btcAmount = Math.max(MIN_DEPOSIT_REQUIREMENTS.BTC, minUSDValue * 0.1 / ASSET_PRICES_USD.BTC)
     
-    // Base tier: Any ratio is acceptable, just meet minimums
-    if (targetTier === DualTier.Base) {
-      btcAmount = minBTC  // Use minimum BTC for tier
-      coreAmount = 1      // 1 CORE meets minimum total value
-    } else {
-      // For higher tiers, use the minimum BTC required for the tier
-      btcAmount = minBTC
-      
-      // Calculate CORE needed for the ratio requirement
-      const coreForRatio = btcAmount * requiredRatio
-      
-      // Calculate CORE needed for total value requirement (accounting for BTC contribution)
-      const btcValueInCore = btcAmount * 50000
-      const coreForTotalValue = Math.max(0, minTotalValue - btcValueInCore)
-      
-      // Use whichever CORE amount is higher
-      coreAmount = Math.max(coreForRatio, coreForTotalValue)
+    // Calculate CORE amount for optimal ratio
+    const coreAmountForRatio = btcAmount * optimalRatio
+    
+    // Ensure we meet minimum USD value requirement
+    const currentUSDValue = (coreAmountForRatio * ASSET_PRICES_USD.CORE) + (btcAmount * ASSET_PRICES_USD.BTC)
+    
+    let finalCoreAmount = coreAmountForRatio
+    if (currentUSDValue < minUSDValue) {
+      // Add more CORE to reach minimum USD value
+      const additionalCoreNeeded = (minUSDValue - currentUSDValue) / ASSET_PRICES_USD.CORE
+      finalCoreAmount = coreAmountForRatio + additionalCoreNeeded
     }
     
+    // Ensure we meet minimum CORE requirement
+    finalCoreAmount = Math.max(finalCoreAmount, MIN_DEPOSIT_REQUIREMENTS.CORE)
+    
     setBtcAmount(btcAmount.toString())
-    setCoreAmount(coreAmount.toString())
+    setCoreAmount(finalCoreAmount.toString())
   }
 
   const handleApproveCORE = () => {
@@ -322,14 +337,21 @@ export function DualStakingInterface() {
       return
     }
     
-    // Check minimums only if the asset is being deposited
-    if (coreNum > 0 && coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE) {
-      toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.CORE} ${tokenSymbol} required`)
+    // Check minimum requirements for dual staking
+    if (coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE) {
+      toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.CORE} ${tokenSymbol} required for dual staking`)
       return
     }
     
-    if (btcNum > 0 && btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC) {
-      toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.BTC} BTC required`)  
+    if (btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC) {
+      toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.BTC} BTC required for dual staking`)  
+      return
+    }
+    
+    // Check minimum USD value requirement
+    const totalUSDValue = calculateTotalUSDValue(coreAmount, btcAmount)
+    if (totalUSDValue < MIN_DEPOSIT_REQUIREMENTS.USD_VALUE) {
+      toast.error(`Minimum $${MIN_DEPOSIT_REQUIREMENTS.USD_VALUE.toLocaleString()} total value required for dual staking`)
       return
     }
     
@@ -370,7 +392,7 @@ export function DualStakingInterface() {
   if (!networkValidation.isSupported || !networkValidation.isAvailable) {
     return (
       <div className="p-6 min-h-screen bg-background text-foreground">
-        <Card className="bg-card border-border shadow-md border-destructive">
+        <Card className="bg-card shadow-md border-destructive">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
@@ -449,6 +471,7 @@ export function DualStakingInterface() {
             stakeInfo={stakeInfo}
             tierInfo={TIER_INFO}
             currentTierInfo={currentTierInfo}
+            calculateRatioBonus={calculateRatioBonus}
           />
         ) : (
           <div className="space-y-4">

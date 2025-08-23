@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, AlertTriangle, XCircle, Info } from 'lucide-react'
 import { PriceStalenessIndicator } from '../PriceStalenessIndicator'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
@@ -108,18 +108,21 @@ export function StakeForm({
             </div>
           </div>
           {coreBalance < 5.1 && coreBalance >= 1 && !networkInfo.isLocal && (
-            <div className="text-yellow-600 mt-1">
-              ⚠️ For 5 {networkInfo.tokenSymbol} deposit, you need 5.02 {networkInfo.tokenSymbol} total (including gas). Try "Max Safe" button for your current balance.
+            <div className="text-yellow-600 mt-1 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              For 5 {networkInfo.tokenSymbol} deposit, you need 5.02 {networkInfo.tokenSymbol} total (including gas). Try "Max Safe" button for your current balance.
             </div>
           )}
           {coreBalance < 1 && (
-            <div className="text-red-600 mt-1">
-              ❌ Insufficient balance. {networkInfo.minimumDepositMessage}
+            <div className="text-red-600 mt-1 flex items-center gap-1">
+              <XCircle className="w-3 h-3" />
+              Insufficient balance. {networkInfo.minimumDepositMessage}
             </div>
           )}
         </div>
-        <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
-          ℹ️ This ETF uses native {networkInfo.stakingDescription}. Your wallet balance shows your native tokens.
+        <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground flex items-center gap-1">
+          <Info className="w-3 h-3" />
+          This ETF uses native {networkInfo.stakingDescription}. Your wallet balance shows your native tokens.
         </div>
         
         <PriceStalenessIndicator 

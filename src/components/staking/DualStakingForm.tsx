@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Target, Info } from 'lucide-react'
+import { Target, Info, Lightbulb, AlertTriangle, Briefcase, CheckCircle, Zap } from 'lucide-react'
 import { DualTier, TierInfo } from '../../types/staking'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
@@ -157,8 +157,9 @@ export function DualStakingForm({
                   Use All
                 </button>
               </div>
-              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                💡 Dual Staking uses your native CORE balance + BTC tokens from faucet. Get BTC tokens at /faucet first.
+              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200 flex items-start gap-2">
+                <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                <span>Dual Staking uses your native CORE balance + BTC tokens from faucet. Get BTC tokens at /faucet first.</span>
               </div>
             </div>
             <div className="space-y-3">
@@ -191,9 +192,12 @@ export function DualStakingForm({
         </div>
 
         {/* Requirements Warning */}
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <h4 className="text-sm font-medium text-amber-800 mb-2">⚠️ Enhanced Tier Requirements - BTC Incentivized!</h4>
-          <div className="text-xs text-amber-700 space-y-2">
+        <div className="p-4 bg-muted/50 border border-border rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <h4 className="text-sm font-medium text-foreground">Enhanced Tier Requirements - BTC Incentivized!</h4>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-2">
             <div>
               <p className="font-medium">Base Requirements:</p>
               <p>• Minimum 0.1 {networkInfo.tokenSymbol} + 0.0001 BTC for any tier</p>
@@ -205,8 +209,11 @@ export function DualStakingForm({
               <p>• <span className="font-medium text-purple-600">Super:</span> 6,000:1 ratio + 50 CORE total + <span className="text-orange-600 font-bold">0.005 BTC</span></p>
               <p>• <span className="font-medium text-yellow-600">Satoshi:</span> 16,000:1 ratio + 100 CORE total + <span className="text-orange-600 font-bold">0.01 BTC</span></p>
             </div>
-            <div className="bg-orange-100 border border-orange-300 rounded p-2 mt-2">
-              <p className="text-orange-800 font-medium">🟧 BTC is now properly rewarded! Higher tiers require meaningful BTC holdings, not just tiny amounts.</p>
+            <div className="bg-accent/50 border border-accent rounded p-2 mt-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-accent-foreground" />
+                <p className="text-accent-foreground font-medium">BTC is now properly rewarded! Higher tiers require meaningful BTC holdings, not just tiny amounts.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -258,10 +265,13 @@ export function DualStakingForm({
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-primary/20">
-              <p className="text-xs text-muted-foreground">
-                💼 <strong>Smart Contract Benefits:</strong> Your deposit will be professionally managed to maintain this tier 
-                automatically, even as market prices change. The basket handles all complexity for you.
-              </p>
+              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                <Briefcase className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <p>
+                  <strong>Smart Contract Benefits:</strong> Your deposit will be professionally managed to maintain this tier 
+                  automatically, even as market prices change. The basket handles all complexity for you.
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -287,7 +297,17 @@ export function DualStakingForm({
                     className="w-full"
                     variant="outline"
                   >
-                    {isApprovingCoreTx ? `Approving ${networkInfo.tokenSymbol}...` : `✓ Approve ${networkInfo.tokenSymbol} Tokens`}
+                    {isApprovingCoreTx ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Approving {networkInfo.tokenSymbol}...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Approve {networkInfo.tokenSymbol} Tokens
+                      </div>
+                    )}
                   </Button>
                 )}
                 {needsBtcApproval && (
@@ -297,7 +317,17 @@ export function DualStakingForm({
                     className="w-full"
                     variant="outline"
                   >
-                    {isApprovingBtcTx ? 'Approving BTC...' : '✓ Approve BTC Tokens'}
+                    {isApprovingBtcTx ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                        Approving BTC...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Approve BTC Tokens
+                      </div>
+                    )}
                   </Button>
                 )}
               </div>

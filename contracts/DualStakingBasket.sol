@@ -31,12 +31,12 @@ interface IUniswapV2Router {
  */
 contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     
-    // Tier definitions
+    // Enhanced Tier definitions with USD value thresholds
     enum StakingTier {
-        BASE,    // No CORE requirement
-        BOOST,   // 2,000:1 CORE:BTC
-        SUPER,   // 6,000:1 CORE:BTC
-        SATOSHI  // 16,000:1 CORE:BTC (maximum yield)
+        BRONZE,  // $1k-$10k USD value + 5,000:1 optimal ratio
+        SILVER,  // $10k-$100k USD value + 10,000:1 optimal ratio  
+        GOLD,    // $100k-$500k USD value + 20,000:1 optimal ratio
+        SATOSHI  // $500k+ USD value + 25,000:1 optimal ratio (maximum yield)
     }
     
     // Contract references
@@ -47,12 +47,24 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     
     IDualStaking public dualStakingContract;
     
-    // Strategy configuration
+    // Enhanced strategy configuration
     StakingTier public targetTier;
     uint256 public targetRatio; // CORE per 1 BTC (scaled by 1e18)
     
-    // Tier ratios (CORE per 1 BTC, scaled by 1e18)
+    // Tier optimal ratios (CORE per 1 BTC, scaled by 1e18)
     mapping(StakingTier => uint256) public tierRatios;
+    
+    // USD value thresholds for tier qualification
+    mapping(StakingTier => uint256) public tierMinUSD;
+    mapping(StakingTier => uint256) public tierMaxUSD;
+    
+    // Maximum bonus caps per tier (basis points)
+    mapping(StakingTier => uint256) public tierMaxBonus;
+    
+    // Minimum deposit requirements (prevents dust gaming)
+    uint256 public minCoreDeposit = 100 * 1e18; // 100 CORE minimum
+    uint256 public minBtcDeposit = 1e6; // 0.01 BTC minimum (8 decimals)
+    uint256 public minUsdValue = 1000; // $1000 minimum USD value
     
     // Pool state
     uint256 public totalPooledCORE;
@@ -124,11 +136,8 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         feeRecipient = _feeRecipient;
         targetTier = _targetTier;
         
-        // Initialize tier ratios (CORE per 1 BTC, scaled by 1e18)
-        tierRatios[StakingTier.BASE] = 0;
-        tierRatios[StakingTier.BOOST] = 2000 * 1e18;
-        tierRatios[StakingTier.SUPER] = 6000 * 1e18;
-        tierRatios[StakingTier.SATOSHI] = 16000 * 1e18;
+        // Initialize enhanced tier system
+        _initializeTierSystem();
         
         targetRatio = tierRatios[_targetTier];
         lastFeeCollection = block.timestamp;
@@ -136,7 +145,107 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @dev Deposit assets and receive BASKET tokens
+     * @dev Initialize the enhanced tier system with USD thresholds and bonuses
+     */
+    function _initializeTierSystem() internal {
+        // Set optimal ratios (CORE per 1 BTC, scaled by 1e18)
+        tierRatios[StakingTier.BRONZE] = 5000 * 1e18;   // 5,000:1 optimal for Bronze
+        tierRatios[StakingTier.SILVER] = 10000 * 1e18;  // 10,000:1 optimal for Silver
+        tierRatios[StakingTier.GOLD] = 20000 * 1e18;    // 20,000:1 optimal for Gold
+        tierRatios[StakingTier.SATOSHI] = 25000 * 1e18; // 25,000:1 optimal for Satoshi
+        
+        // Set USD value thresholds
+        tierMinUSD[StakingTier.BRONZE] = 1000;    // $1k minimum
+        tierMaxUSD[StakingTier.BRONZE] = 10000;   // $10k maximum
+        tierMinUSD[StakingTier.SILVER] = 10000;   // $10k minimum  
+        tierMaxUSD[StakingTier.SILVER] = 100000;  // $100k maximum
+        tierMinUSD[StakingTier.GOLD] = 100000;    // $100k minimum
+        tierMaxUSD[StakingTier.GOLD] = 500000;    // $500k maximum
+        tierMinUSD[StakingTier.SATOSHI] = 500000; // $500k minimum
+        tierMaxUSD[StakingTier.SATOSHI] = type(uint256).max; // No maximum
+        
+        // Set maximum bonus caps (basis points: 2500 = 25%)
+        tierMaxBonus[StakingTier.BRONZE] = 2500;  // +25% max bonus
+        tierMaxBonus[StakingTier.SILVER] = 3500;  // +35% max bonus
+        tierMaxBonus[StakingTier.GOLD] = 5000;    // +50% max bonus
+        tierMaxBonus[StakingTier.SATOSHI] = 6000; // +60% max bonus
+    }
+    
+    /**
+     * @dev Calculate total USD value of deposit
+     */
+    function _calculateUSDValue(uint256 coreAmount, uint256 btcAmount) internal view returns (uint256) {
+        uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18;
+        uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e8; // BTC has 8 decimals
+        return coreValue + btcValue;
+    }
+    
+    /**
+     * @dev Determine tier based on USD value and enhanced requirements
+     */
+    function _calculateTier(uint256 coreAmount, uint256 btcAmount) internal view returns (StakingTier) {
+        // Check minimum deposit requirements
+        require(coreAmount >= minCoreDeposit, "DualStaking: insufficient CORE amount");
+        require(btcAmount >= minBtcDeposit, "DualStaking: insufficient BTC amount");
+        
+        // Calculate total USD value
+        uint256 totalUSDValue = _calculateUSDValue(coreAmount, btcAmount);
+        require(totalUSDValue >= minUsdValue, "DualStaking: insufficient USD value");
+        
+        // Assign tier based on USD value thresholds
+        if (totalUSDValue >= tierMinUSD[StakingTier.SATOSHI]) {
+            return StakingTier.SATOSHI;
+        } else if (totalUSDValue >= tierMinUSD[StakingTier.GOLD]) {
+            return StakingTier.GOLD;
+        } else if (totalUSDValue >= tierMinUSD[StakingTier.SILVER]) {
+            return StakingTier.SILVER;
+        } else {
+            return StakingTier.BRONZE;
+        }
+    }
+    
+    /**
+     * @dev Calculate ratio bonus based on proximity to optimal ratio with logarithmic scaling
+     */
+    function _calculateRatioBonus(uint256 coreAmount, uint256 btcAmount, StakingTier tier) internal view returns (uint256) {
+        if (btcAmount == 0) return 0;
+        
+        uint256 actualRatio = (coreAmount * 1e18) / btcAmount;
+        uint256 optimalRatio = tierRatios[tier];
+        
+        // Calculate how close to optimal (scaled by 10000 for precision)
+        uint256 ratioDiff = actualRatio > optimalRatio 
+            ? ((actualRatio - optimalRatio) * 10000) / optimalRatio
+            : ((optimalRatio - actualRatio) * 10000) / optimalRatio;
+        
+        uint256 ratioScore = ratioDiff < 10000 ? (10000 - ratioDiff) : 0; // 0-10000 scale
+        
+        // Apply logarithmic scaling for larger stakes
+        uint256 totalUSDValue = _calculateUSDValue(coreAmount, btcAmount);
+        uint256 sizeMultiplier = _log10(totalUSDValue / 1000) * 500; // Logarithmic bonus scaling
+        
+        uint256 maxBonus = tierMaxBonus[tier];
+        uint256 bonus = (ratioScore * maxBonus) / 10000;
+        
+        // Apply size multiplier and cap at maximum
+        return bonus + sizeMultiplier > maxBonus ? maxBonus : bonus + sizeMultiplier;
+    }
+    
+    /**
+     * @dev Simple logarithm base 10 approximation for bonus scaling
+     */
+    function _log10(uint256 value) internal pure returns (uint256) {
+        if (value < 10) return 0;
+        if (value < 100) return 1;
+        if (value < 1000) return 2;
+        if (value < 10000) return 3;
+        if (value < 100000) return 4;
+        if (value < 1000000) return 5;
+        return 6; // Cap at reasonable value
+    }
+    
+    /**
+     * @dev Enhanced deposit with tier validation and bonus calculation
      * Automatically swaps to maintain target tier ratio
      */
     function deposit(uint256 coreAmount, uint256 btcAmount) 
@@ -144,7 +253,10 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         nonReentrant 
         whenNotPaused 
     {
-        require(coreAmount > 0 || btcAmount > 0, "DualStaking: no assets provided");
+        require(coreAmount > 0 && btcAmount > 0, "DualStaking: both assets required for dual staking");
+        
+        // Validate tier requirements (will revert if insufficient)
+        StakingTier depositTier = _calculateTier(coreAmount, btcAmount);
         
         // Transfer assets from user
         if (coreAmount > 0) {
@@ -182,7 +294,10 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         whenNotPaused 
     {
         uint256 coreAmount = msg.value;
-        require(coreAmount > 0 || btcAmount > 0, "DualStaking: no assets provided");
+        require(coreAmount > 0 && btcAmount > 0, "DualStaking: both assets required for dual staking");
+        
+        // Validate tier requirements (will revert if insufficient)
+        StakingTier depositTier = _calculateTier(coreAmount, btcAmount);
         
         // Handle native CORE
         if (coreAmount > 0) {
@@ -763,6 +878,37 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
+     * @dev Update minimum deposit requirements
+     */
+    function setMinimumDeposits(uint256 _minCore, uint256 _minBtc, uint256 _minUsd) external onlyOwner {
+        require(_minCore > 0, "DualStaking: invalid CORE minimum");
+        require(_minBtc > 0, "DualStaking: invalid BTC minimum");
+        require(_minUsd > 0, "DualStaking: invalid USD minimum");
+        
+        minCoreDeposit = _minCore;
+        minBtcDeposit = _minBtc;
+        minUsdValue = _minUsd;
+    }
+    
+    /**
+     * @dev Update tier USD thresholds
+     */
+    function setTierThresholds(StakingTier _tier, uint256 _minUSD, uint256 _maxUSD) external onlyOwner {
+        require(_minUSD < _maxUSD || _maxUSD == type(uint256).max, "DualStaking: invalid range");
+        
+        tierMinUSD[_tier] = _minUSD;
+        tierMaxUSD[_tier] = _maxUSD;
+    }
+    
+    /**
+     * @dev Update tier maximum bonus caps
+     */
+    function setTierMaxBonus(StakingTier _tier, uint256 _maxBonus) external onlyOwner {
+        require(_maxBonus <= 10000, "DualStaking: bonus too high"); // Max 100%
+        tierMaxBonus[_tier] = _maxBonus;
+    }
+    
+    /**
      * @dev Emergency pause rebalancing
      */
     function pauseRebalancing(string calldata reason) external onlyOwner {
@@ -800,15 +946,19 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         targetRatio_ = targetRatio;
         needsRebalance = needsRebalancing();
         
-        // Determine current tier based on ratio
-        if (currentRatio >= tierRatios[StakingTier.SATOSHI]) {
+        // Determine current tier based on ratio and USD value
+        uint256 totalUSDValue = _calculateUSDValue(totalPooledCORE, totalPooledBTC);
+        
+        if (totalUSDValue >= tierMinUSD[StakingTier.SATOSHI] && currentRatio >= tierRatios[StakingTier.SATOSHI] / 2) {
             currentTier = StakingTier.SATOSHI;
-        } else if (currentRatio >= tierRatios[StakingTier.SUPER]) {
-            currentTier = StakingTier.SUPER;
-        } else if (currentRatio >= tierRatios[StakingTier.BOOST]) {
-            currentTier = StakingTier.BOOST;
+        } else if (totalUSDValue >= tierMinUSD[StakingTier.GOLD] && currentRatio >= tierRatios[StakingTier.GOLD] / 2) {
+            currentTier = StakingTier.GOLD;
+        } else if (totalUSDValue >= tierMinUSD[StakingTier.SILVER] && currentRatio >= tierRatios[StakingTier.SILVER] / 2) {
+            currentTier = StakingTier.SILVER;
+        } else if (totalUSDValue >= tierMinUSD[StakingTier.BRONZE]) {
+            currentTier = StakingTier.BRONZE;
         } else {
-            currentTier = StakingTier.BASE;
+            currentTier = StakingTier.BRONZE; // Default to Bronze as minimum
         }
     }
     
@@ -900,13 +1050,13 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         
         // Calculate approximate APY based on current tier
         if (targetTier == StakingTier.SATOSHI) {
-            currentAPY = 1200; // ~12% APY for Satoshi tier
-        } else if (targetTier == StakingTier.SUPER) {
-            currentAPY = 1000; // ~10% APY for Super tier
-        } else if (targetTier == StakingTier.BOOST) {
-            currentAPY = 850; // ~8.5% APY for Boost tier
+            currentAPY = 2000; // ~20% base + up to 60% bonus for Satoshi tier
+        } else if (targetTier == StakingTier.GOLD) {
+            currentAPY = 1600; // ~16% base + up to 50% bonus for Gold tier
+        } else if (targetTier == StakingTier.SILVER) {
+            currentAPY = 1200; // ~12% base + up to 35% bonus for Silver tier
         } else {
-            currentAPY = 700; // ~7% APY for Base tier
+            currentAPY = 800; // ~8% base + up to 25% bonus for Bronze tier
         }
         
         targetTierName = _getTierDisplayName(targetTier);
@@ -960,25 +1110,25 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         apyBoosts = new uint256[](4);
         descriptions = new string[](4);
         
-        tierNames[0] = "Base Tier";
-        tierNames[1] = "Boost Tier";
-        tierNames[2] = "Super Tier";
-        tierNames[3] = "Satoshi Tier";
+        tierNames[0] = "Bronze Pool";
+        tierNames[1] = "Silver Pool";
+        tierNames[2] = "Gold Pool";
+        tierNames[3] = "Satoshi Pool";
         
-        ratioRequirements[0] = 0;
-        ratioRequirements[1] = 2000;
-        ratioRequirements[2] = 6000;
-        ratioRequirements[3] = 16000;
+        ratioRequirements[0] = 5000;  // 5,000:1 optimal
+        ratioRequirements[1] = 10000; // 10,000:1 optimal
+        ratioRequirements[2] = 20000; // 20,000:1 optimal
+        ratioRequirements[3] = 25000; // 25,000:1 optimal
         
-        apyBoosts[0] = 0;
-        apyBoosts[1] = 150; // +1.5% APY boost
-        apyBoosts[2] = 300; // +3% APY boost
-        apyBoosts[3] = 500; // +5% APY boost
+        apyBoosts[0] = 250;  // +2.5% max APY boost (25% of 10%)
+        apyBoosts[1] = 420;  // +4.2% max APY boost (35% of 12%)
+        apyBoosts[2] = 800;  // +8.0% max APY boost (50% of 16%)
+        apyBoosts[3] = 1200; // +12.0% max APY boost (60% of 20%)
         
-        descriptions[0] = "Standard staking rewards";
-        descriptions[1] = "Enhanced rewards with 2,000:1 CORE:BTC ratio";
-        descriptions[2] = "Premium rewards with 6,000:1 CORE:BTC ratio";
-        descriptions[3] = "Maximum rewards with 16,000:1 CORE:BTC ratio";
+        descriptions[0] = "$1k-$10k USD value + 5,000:1 optimal ratio";
+        descriptions[1] = "$10k-$100k USD value + 10,000:1 optimal ratio";
+        descriptions[2] = "$100k-$500k USD value + 20,000:1 optimal ratio";
+        descriptions[3] = "$500k+ USD value + 25,000:1 optimal ratio";
     }
     
     /**
@@ -1048,9 +1198,9 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function _getTierDisplayName(StakingTier tier) internal pure returns (string memory) {
         if (tier == StakingTier.SATOSHI) return "Satoshi";
-        if (tier == StakingTier.SUPER) return "Super";
-        if (tier == StakingTier.BOOST) return "Boost";
-        return "Base";
+        if (tier == StakingTier.GOLD) return "Gold";
+        if (tier == StakingTier.SILVER) return "Silver";
+        return "Bronze";
     }
     
     /**

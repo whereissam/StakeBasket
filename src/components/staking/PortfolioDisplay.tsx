@@ -6,9 +6,11 @@ interface PortfolioDisplayProps {
   stakeInfo: DualStakeInfo
   tierInfo: Record<DualTier, TierInfo>
   currentTierInfo: TierInfo
+  calculateRatioBonus: (core: string, btc: string, tier: DualTier) => number
 }
 
-export function PortfolioDisplay({ stakeInfo, tierInfo, currentTierInfo }: PortfolioDisplayProps) {
+export function PortfolioDisplay({ stakeInfo, tierInfo, currentTierInfo, calculateRatioBonus }: PortfolioDisplayProps) {
+  const currentRatioBonus = calculateRatioBonus(stakeInfo.coreStaked, stakeInfo.btcStaked, stakeInfo.tier as DualTier)
   return (
     <Card className="bg-gradient-to-r from-primary/5 to-chart-3/5 border-2 border-dashed border-primary/30">
       <CardHeader>
@@ -120,6 +122,12 @@ export function PortfolioDisplay({ stakeInfo, tierInfo, currentTierInfo }: Portf
                 <span className="text-sm text-muted-foreground">Est. Annual Yield</span>
                 <span className="text-sm font-medium text-chart-2">
                   {currentTierInfo.apy}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Ratio Bonus</span>
+                <span className="text-sm font-medium text-primary">
+                  +{(currentRatioBonus * 100).toFixed(1)}%
                 </span>
               </div>
               <div className="pt-2 border-t">

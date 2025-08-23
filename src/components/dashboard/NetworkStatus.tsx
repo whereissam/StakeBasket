@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
-import { RefreshCw, DollarSign, Database } from 'lucide-react'
+import { RefreshCw, DollarSign, Database, Globe } from 'lucide-react'
 import { BalanceCard } from '../shared/BalanceCard'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
@@ -35,7 +35,8 @@ export function NetworkStatus({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          🌐 Network Status
+          <Globe className="w-5 h-5" />
+          Network Status
           <span className="text-sm font-normal text-muted-foreground">
             ({config.name} - Chain ID: {chainId})
           </span>

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Key, CheckCircle, ClipboardList } from 'lucide-react'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface WithdrawFormProps {
@@ -104,12 +104,17 @@ export function WithdrawForm({
         
         {/* BASKET Token Status */}
         <div className="p-3 bg-muted border border-border rounded-md">
-          <h4 className="text-sm font-medium text-foreground mb-2">🔑 BASKET Token Status</h4>
+          <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+            <Key className="w-4 h-4" />
+            BASKET Token Status
+          </h4>
           <div className="text-xs text-muted-foreground space-y-1">
             {needsBasketApproval(withdrawAmount || '1') ? (
               <p>• BASKET tokens will be approved automatically when you redeem</p>
             ) : (
-              <p>• ✅ BASKET tokens approved (allowance: {parseFloat(basketAllowance).toFixed(4)})</p>
+              <p className="flex items-center gap-1">
+                • <CheckCircle className="w-3 h-3 text-green-500" /> BASKET tokens approved (allowance: {parseFloat(basketAllowance).toFixed(4)})
+              </p>
             )}
             <p>• BASKET Token: {contractAddresses.StakeBasketToken}</p>
             <p>• Spender: {contractAddresses.StakeBasket}</p>
@@ -118,7 +123,10 @@ export function WithdrawForm({
         
         {/* Withdrawal explanation */}
         <div className="p-3 bg-accent/50 border border-border rounded-md">
-          <h4 className="text-sm font-medium text-white mb-2">📋 How Withdrawal Works</h4>
+          <h4 className="text-sm font-medium text-white mb-2 flex items-center gap-1">
+            <ClipboardList className="w-4 h-4" />
+            How Withdrawal Works
+          </h4>
           <div className="space-y-2 text-xs text-white/90">
             <p>• BASKET tokens are redeemed immediately for {networkInfo.tokenSymbol} tokens</p>
             <p>• Withdrawal amount depends on current Net Asset Value (NAV)</p>

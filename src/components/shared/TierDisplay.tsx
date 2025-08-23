@@ -1,22 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Target, Award } from 'lucide-react'
-
-export interface TierInfo {
-  name: string
-  ratio: string
-  apy: string
-  color: string
-  bgColor: string
-  description: string
-}
-
-export enum DualTier {
-  None = -1,
-  Base = 0,
-  Boost = 1,
-  Super = 2,
-  Satoshi = 3
-}
+import { DualTier, TierInfo } from '../../types/staking'
 
 interface TierDisplayProps {
   tiers: Record<DualTier, TierInfo>

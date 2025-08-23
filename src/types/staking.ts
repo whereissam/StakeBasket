@@ -10,9 +10,9 @@ export interface DualStakeInfo {
 
 export enum DualTier {
   None = -1,
-  Base = 0,
-  Boost = 1,
-  Super = 2,
+  Bronze = 0,
+  Silver = 1,
+  Gold = 2,
   Satoshi = 3
 }
 
@@ -27,51 +27,51 @@ export interface TierInfo {
 
 export const TIER_RATIOS = {
   [DualTier.None]: 0,
-  [DualTier.Base]: 0,
-  [DualTier.Boost]: 2000,
-  [DualTier.Super]: 6000,
-  [DualTier.Satoshi]: 16000
+  [DualTier.Bronze]: 5000,
+  [DualTier.Silver]: 10000,
+  [DualTier.Gold]: 20000,
+  [DualTier.Satoshi]: 25000
 }
 
 export const tierInfo: Record<DualTier, TierInfo> = {
   [DualTier.None]: {
-    name: 'Not Staking',
-    ratio: '0:0',
+    name: 'Not Qualified',
+    ratio: '< $1,000 total value',
     apy: '0%',
     color: 'text-muted-foreground',
     bgColor: 'bg-muted/50',
-    description: 'No active stakes - Start staking to earn rewards'
+    description: 'Minimum $1,000 total value required to qualify for dual staking rewards'
   },
-  [DualTier.Base]: {
-    name: 'Base Tier',
-    ratio: 'Any + 0.0005 BTC min',
-    apy: '8%',
-    color: 'text-muted-foreground',
-    bgColor: 'bg-muted',
-    description: 'Entry level - Minimal BTC commitment required'
-  },
-  [DualTier.Boost]: {
-    name: 'Boost Tier',
-    ratio: '2,000:1 + 0.002 BTC min',
-    apy: '12%',
+  [DualTier.Bronze]: {
+    name: 'Bronze Pool',
+    ratio: '$1k - $10k total value',
+    apy: '8% + up to 25% bonus',
     color: 'text-chart-1',
     bgColor: 'bg-chart-1/10',
-    description: 'Enhanced rewards - Meaningful BTC stake required'
+    description: 'Entry tier with ratio bonuses - Optimal 5,000:1 CORE:BTC ratio'
   },
-  [DualTier.Super]: {
-    name: 'Super Tier',
-    ratio: '6,000:1 + 0.005 BTC min',
-    apy: '16%',
+  [DualTier.Silver]: {
+    name: 'Silver Pool', 
+    ratio: '$10k - $100k total value',
+    apy: '12% + up to 35% bonus',
     color: 'text-chart-3',
     bgColor: 'bg-chart-3/10',
-    description: 'Premium yields - Substantial BTC commitment needed'
+    description: 'Enhanced tier with higher base yields - Optimal 10,000:1 CORE:BTC ratio'
+  },
+  [DualTier.Gold]: {
+    name: 'Gold Pool',
+    ratio: '$100k - $500k total value',
+    apy: '16% + up to 50% bonus',
+    color: 'text-chart-4',
+    bgColor: 'bg-chart-4/10',
+    description: 'Premium tier with maximum bonuses - Optimal 20,000:1 CORE:BTC ratio'
   },
   [DualTier.Satoshi]: {
-    name: 'Satoshi Tier',
-    ratio: '16,000:1 + 0.01 BTC min',
-    apy: '20%',
-    color: 'text-chart-2',
-    bgColor: 'bg-chart-2/10',
-    description: 'Maximum rewards - Significant BTC holdings required'
+    name: 'Satoshi Pool',
+    ratio: '$500k+ total value',
+    apy: '20% + up to 60% bonus',
+    color: 'text-chart-5',
+    bgColor: 'bg-chart-5/10',
+    description: 'Elite tier for whale stakers - Optimal 25,000:1 CORE:BTC ratio'
   }
 }
