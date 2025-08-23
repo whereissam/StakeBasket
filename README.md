@@ -38,30 +38,19 @@ StakeBasket is a comprehensive DeFi ecosystem built on Core DAO featuring:
 - **StakeBasket ETF**: Multi-asset staking with automated rebalancing
 - **Governance System**: BASKET token-based DAO with tiered voting
 - **Liquid Staking**: Stake CORE → get stCORE liquid tokens
-- **Dual Staking**: Optimized CORE:BTC ratio strategies
+- **Dual Staking**: Earn boosted rewards by staking both CORE and BTC together with optimized ratio strategies
 - **Price Oracles**: Real-time asset pricing with circuit breakers
 
 ### Smart Contract Architecture
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Governance    │    │   Liquid        │    │   Multi-Asset   │
-│   System        │    │   Staking       │    │   ETF           │
-├─────────────────┤    ├─────────────────┤    ├─────────────────┤
-│ BasketGovernance│    │ CoreLiquidMgr   │    │ StakeBasket     │
-│ BasketStaking   │────│ StCoreToken     │────│ StakingManager  │
-│ BasketToken     │    │ UnbondingQueue  │    │ DualStakingETF  │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-          │                        │                        │
-          └────────────────────────┼────────────────────────┘
-                                   │
-                            ┌─────────────────┐
-                            │   Infrastructure │
-                            ├─────────────────┤
-                            │ PriceFeed       │
-                            │ Mock Contracts  │
-                            │ Testing Suite   │
-                            └─────────────────┘
-```
+
+**📊 Complete System**: Multi-layer DeFi ecosystem with governance, liquid staking, and ETF strategies
+
+- **🏛️ Governance Layer**: BasketGovernance + BasketStaking with tiered voting
+- **💧 Liquid Staking**: CoreLiquidStakingManager + StCoreToken for CORE → stCORE
+- **📈 ETF Strategies**: StakeBasket (multi-asset) + DualStakingBasket (ratio optimization)  
+- **🔧 Infrastructure**: PriceFeed oracles + UnbondingQueue + validator management
+
+> 📖 **Detailed Architecture**: See [contracts/README.md](contracts/README.md) for complete technical documentation, interaction flows, and deployment details.
 
 ## 💰 Staking Tiers & Benefits
 
@@ -71,6 +60,25 @@ StakeBasket is a comprehensive DeFi ecosystem built on Core DAO featuring:
 | 🥈 **Silver** | 1,000 | 10% | 1.1x | + Bonus rewards |
 | 🥇 **Gold** | 10,000 | 25% | 1.25x | + Premium APY |
 | 💎 **Platinum** | 100,000 | 50% | 1.5x | + VIP benefits |
+
+### 🔄 Dual Staking Rewards System
+
+**Earn boosted rewards by staking both CORE and BTC together!** 
+
+Dual Staking requires a minimum stake threshold and rewards scale with both **ratio alignment** and **total stake size**:
+
+| Tier | Min. CORE | Min. BTC | Optimal Ratio | Max Bonus | Base Requirement |
+|------|-----------|----------|---------------|-----------|------------------|
+| 🥉 **Bronze** | 1,000 | 0.01 | 50,000:1 | +10% | $1k+ total value |
+| 🥈 **Silver** | 5,000 | 0.1 | 50,000:1 | +25% | $10k+ total value |
+| 🥇 **Gold** | 25,000 | 0.5 | 50,000:1 | +40% | $100k+ total value |
+| 💎 **Platinum** | 100,000 | 2.0 | 50,000:1 | +50% | $500k+ total value |
+
+**How Bonuses Work:**
+- **Ratio Bonus**: Closer to optimal ratio = higher multiplier
+- **Size Multiplier**: Logarithmic scaling rewards larger stakes  
+- **Progressive Formula**: `Reward = BaseYield × (1 + RatioBonus × log(TotalStake))`
+- **Fair & Balanced**: Prevents dust gaming while rewarding commitment
 
 ## 🚀 Quick Start
 
@@ -106,7 +114,7 @@ npx hardhat run scripts/deployment/deploy-complete-system.cjs --network coreTest
 
 1. **🏆 CORE Staking Rewards**: ~8% APY from validator delegation
 2. **🪙 lstBTC Yield**: Bitcoin liquid staking rewards  
-3. **⚡ Dual Staking Bonuses**: Up to 50% bonus for optimal ratios
+3. **⚡ Dual Staking Bonuses**: Progressive rewards based on ratio alignment and total stake size, with tier-based bonus caps
 4. **🎯 Fee Optimization**: Tiered discounts reduce costs
 5. **🤖 Auto-Rebalancing**: Continuous yield maximization
 
