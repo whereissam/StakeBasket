@@ -79,11 +79,12 @@ export function useContractData(userAddress?: string) {
     }
   })
 
-  // Also get balance from Core API for verification
+  // Also get balance from Core API for verification (only for live networks)
   const [coreApiBalance, setCoreApiBalance] = useState<number>(0)
   
   useEffect(() => {
-    if (!userAddress || chainId !== 1114) return
+    // Skip Core API calls for local network (31337)
+    if (!userAddress || chainId === 31337 || chainId !== 1114) return
     
     const fetchCoreBalance = async () => {
       try {
@@ -158,17 +159,29 @@ export function useContractData(userAddress?: string) {
   })
 
   // Debug logging
-  const finalCoreBalance = nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : coreApiBalance
+  const finalCoreBalance = chainId === 31337 
+    ? (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0) // For local, only use wagmi balance
+    : (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : coreApiBalance) // For live networks, prefer wagmi with API backup
+    
   console.log('Balance debug:', {
     nativeCoreBalance: nativeCoreBalance?.value?.toString(),
     nativeCoreBalanceFormatted: nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0,
     coreApiBalance,
     finalCoreBalance,
-    chainId
+    chainId,
+    isLocal: chainId === 31337
+  })
+
+  console.log('Price debug:', {
+    chainId,
+    realPriceDataCorePrice: realPriceData.corePrice,
+    realPriceDataSource: realPriceData.source,
+    oracleCorePrice: oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0,
+    finalCorePrice: realPriceData.corePrice || (oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0)
   })
 
   return {
-    // User balances - prefer wagmi balance for reliability, with Core API as backup
+    // User balances - local network uses only wagmi, live networks prefer wagmi with API backup
     coreBalance: finalCoreBalance,
     basketBalance: basketBalance ? Number(basketBalance) / 1e18 : 0,
     

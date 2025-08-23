@@ -5,14 +5,14 @@ import { getNetworkByChainId } from '../config/contracts'
 import { toast } from 'sonner'
 import { useEffect } from 'react'
 
-// PriceFeed contract ABI for updating prices
+// PriceFeed contract ABI for setting prices
 const PRICE_FEED_ABI = [
   {
     "inputs": [
       {"name": "asset", "type": "string"},
       {"name": "price", "type": "uint256"}
     ],
-    "name": "updatePrice",
+    "name": "setPrice",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -78,7 +78,7 @@ export function usePriceFeedManager() {
   // Function to update CORE price to current market price (~$1.50)
   const updateCorePrice = async () => {
     try {
-      if (!contracts.CoreOracle || contracts.CoreOracle === '0x0000000000000000000000000000000000000000') {
+      if (!contracts.CoreOracle) {
         throw new Error('PriceFeed contract not configured')
       }
 
@@ -100,7 +100,7 @@ export function usePriceFeedManager() {
       updatePriceContract({
         address: contracts.CoreOracle as `0x${string}`,
         abi: PRICE_FEED_ABI,
-        functionName: 'updatePrice',
+        functionName: 'setPrice',
         args: ['CORE', priceWei],
         gas: 100000n, // Set gas limit
       })
@@ -114,7 +114,7 @@ export function usePriceFeedManager() {
   // Function to update BTC price to current market price (~$95,000)
   const updateBTCPrice = async () => {
     try {
-      if (!contracts.CoreOracle || contracts.CoreOracle === '0x0000000000000000000000000000000000000000') {
+      if (!contracts.CoreOracle) {
         throw new Error('PriceFeed contract not configured')
       }
 
@@ -128,7 +128,7 @@ export function usePriceFeedManager() {
       updatePriceContract({
         address: contracts.CoreOracle as `0x${string}`,
         abi: PRICE_FEED_ABI,
-        functionName: 'updatePrice',
+        functionName: 'setPrice',
         args: ['SolvBTC', priceWei],
         gas: 100000n,
       })

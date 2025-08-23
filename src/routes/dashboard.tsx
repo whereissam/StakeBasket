@@ -1,6 +1,334 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { DashboardV3 } from '../components/DashboardV3'
+import { Button } from '../components/ui/button'
+import { useState, useEffect } from 'react'
+import * as React from 'react'
+import { RefreshCw } from 'lucide-react'
+import { useContractData } from '../hooks/useContractData'
+import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
+import { useTransactionHistory } from '../hooks/useTransactionHistory'
+import { usePriceFeedManager } from '../hooks/usePriceFeedManager'
+import { useAccount, useChainId } from 'wagmi'
+import { getNetworkByChainId } from '../config/contracts'
+import { useContractStore, useEnvironmentContracts } from '../store/useContractStore'
+import { useContractHealth } from '../hooks/useContractHealth'
+import { PriceStalenessIndicator } from '../components/PriceStalenessIndicator'
+import { NetworkStatus } from '../components/dashboard/NetworkStatus'
+import { PortfolioOverview } from '../components/dashboard/PortfolioOverview'
+import { StakeForm } from '../components/dashboard/StakeForm'
+import { WithdrawForm } from '../components/dashboard/WithdrawForm'
+import { ContractInfo } from '../components/dashboard/ContractInfo'
+import { TransactionHistory } from '../components/dashboard/TransactionHistory'
+import { WalletConnectionPrompt } from '../components/dashboard/WalletConnectionPrompt'
+import { ApiWithdrawForm } from '../components/dashboard/ApiWithdrawForm'
+import { useWithdrawFlow } from '../hooks/useWithdrawFlow'
+import { validateNetwork, getTokenSymbol, isCoreDAONetwork, isLocalNetwork } from '../utils/networkHandler'
+import { toast } from 'sonner'
+import { DashboardDebug } from '../components/debug/DashboardDebug'
+
+function Dashboard() {
+  const { address, isConnected: walletConnected } = useAccount()
+  const chainId = useChainId()
+  const { config } = getNetworkByChainId(chainId)
+  
+  // Validate network
+  const networkValidation = validateNetwork(chainId)
+  const tokenSymbol = getTokenSymbol(chainId)
+  
+  // Check if network is supported and available
+  if (!networkValidation.isSupported || !networkValidation.isAvailable) {
+    return (
+      <div className="container mx-auto p-4 sm:p-6">
+        <div className="max-w-md mx-auto bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
+          <h2 className="text-xl font-semibold text-destructive mb-2">Unsupported Network</h2>
+          <p className="text-muted-foreground mb-4">
+            {networkValidation.error || 'This network is not supported. Please switch to a supported CoreDAO network.'}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Supported networks: Hardhat Local (dev), Core Testnet2, Core Mainnet
+          </p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Initialize environment contract overrides
+  useEnvironmentContracts()
+  
+  // Get contract configuration from store
+  const { setChainId, getAllAddresses } = useContractStore()
+  const contractAddresses = getAllAddresses()
+  
+  // Get contract health status
+  const { getHealthSummary, runFullHealthCheck, isChecking } = useContractHealth()
+  const healthSummary = getHealthSummary()
+  
+  // Update store when chain changes
+  React.useEffect(() => {
+    if (chainId) {
+      setChainId(chainId)
+    }
+  }, [chainId, setChainId])
+  
+  const {
+    coreBalance,
+    basketBalance,
+    corePrice,
+    btcPrice,
+    totalPooledCore,
+    supportedAssets,
+    isConnected,
+    priceError,
+    priceLoading,
+    refetchBasketBalance
+  } = useContractData(address)
+
+
+  const [depositAmount, setDepositAmount] = useState('')
+  const [withdrawAmount, setWithdrawAmount] = useState('')
+  
+  // Use the transaction hooks
+  const stakeBasketHooks = useStakeBasketTransactions()
+  const {
+    depositCore,
+    isDepositing,
+    depositSuccess,
+    depositHash,
+    basketAllowance
+  } = stakeBasketHooks
+
+  // Use the flexible withdraw flow hook
+  const withdrawFlow = useWithdrawFlow(
+    {
+      tokenName: 'BASKET',
+      actionName: 'Withdrawal',
+      approveText: 'Approving BASKET tokens...',
+      redeemText: 'Processing withdrawal...',
+      successText: 'Withdrawal successful! Tokens received.',
+      errorText: 'Withdrawal failed. Please try again.'
+    },
+    {
+      approveTokens: stakeBasketHooks.approveBasketTokens,
+      redeemTokens: stakeBasketHooks.redeemBasket,
+      needsApproval: stakeBasketHooks.needsBasketApproval,
+      isApproving: stakeBasketHooks.isApprovingBasket,
+      isRedeeming: stakeBasketHooks.isRedeeming,
+      approveSuccess: stakeBasketHooks.approveSuccess,
+      redeemSuccess: stakeBasketHooks.redeemSuccess
+    }
+  )
+
+  // Price feed management
+  const {
+    updateCorePrice,
+    isUpdating: isPriceUpdating,
+    updateSuccess: priceUpdateSuccess
+  } = usePriceFeedManager()
+
+  // Get real transaction history from blockchain
+  const { transactions, loading: txLoading, error: txError } = useTransactionHistory()
+
+  // Calculate portfolio value
+  const portfolioValueUSD = basketBalance * corePrice * 1.085 // Assume 8.5% premium for NAV
+
+  const handleDeposit = async () => {
+    if (!depositAmount) return
+    
+    // Clear any existing toasts first
+    toast.dismiss()
+    
+    // Check wallet connection first
+    if (!address || !walletConnected) {
+      toast.error('Wallet not connected. Please connect your wallet first.')
+      return
+    }
+    
+    // Validate sufficient balance
+    const depositAmountNum = parseFloat(depositAmount)
+    const gasEstimate = 0.01 // More realistic gas estimate for deposit function
+    const totalNeeded = depositAmountNum + gasEstimate
+    
+    if (coreBalance < totalNeeded) {
+      const shortfall = totalNeeded - coreBalance
+      toast.error(`Insufficient balance. Need ${shortfall.toFixed(4)} more ${tokenSymbol} (including gas fees)`)
+      return
+    }
+    
+    try {
+      console.log('🚀 Starting deposit:', {
+        depositAmount,
+        depositAmountNum,
+        coreBalance,
+        totalNeeded,
+        chainId,
+        address,
+        walletConnected
+      })
+      
+      await depositCore(depositAmount)
+    } catch (error) {
+      console.error('❌ Deposit failed in handleDeposit:', error)
+      // Error already handled by depositCore
+    }
+  }
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount) return
+    await withdrawFlow.startWithdrawal(withdrawAmount)
+  }
+
+
+  // Clear inputs and refetch balances on successful transactions
+  useEffect(() => {
+    if (depositSuccess) {
+      setDepositAmount('')
+      refetchBasketBalance?.() // Refresh BASKET token balance after deposit
+    }
+  }, [depositSuccess, refetchBasketBalance])
+
+  useEffect(() => {
+    if (withdrawFlow.step === 'completed') {
+      refetchBasketBalance?.() // Refresh BASKET token balance after redeem
+      setWithdrawAmount('')
+    }
+  }, [withdrawFlow.step, refetchBasketBalance])
+
+
+  // Handle price update success
+  useEffect(() => {
+    if (priceUpdateSuccess) {
+      // Refresh data after price update
+      window.location.reload() // Simple way to refresh all price-dependent data
+    }
+  }, [priceUpdateSuccess])
+
+  if (!isConnected) {
+    return <WalletConnectionPrompt config={config} chainId={chainId} />
+  }
+
+  return (
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Debug Info */}
+      <DashboardDebug />
+      
+      {/* Wallet Diagnostic */}
+      {/* <WalletDiagnostic /> */}
+      
+      {/* Direct Price Update */}
+      {/* <DirectPriceUpdate /> */}
+      
+      {/* Contract Settings */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">StakeBasket Dashboard</h1>
+          <p className="text-muted-foreground">
+            Contract Health: {healthSummary.healthPercentage}% ({healthSummary.healthyContracts}/{healthSummary.totalContracts} healthy)
+          </p>
+          <div className="mt-2">
+            <PriceStalenessIndicator 
+              onUpdatePrice={updateCorePrice}
+              isUpdating={isPriceUpdating}
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runFullHealthCheck}
+            disabled={isChecking}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isChecking ? 'animate-spin' : ''}`} />
+            Check Health
+          </Button>
+          {/* <Button
+            variant="outline"
+            size="sm"
+            onClick={updateCorePrice}
+            disabled={isPriceUpdating}
+            className="bg-primary/5 hover:bg-primary/10 border-primary/20"
+          >
+            <DollarSign className={`h-4 w-4 mr-2 ${isPriceUpdating ? 'animate-spin' : ''}`} />
+            {isPriceUpdating ? 'Updating...' : 'Update Prices'}
+          </Button> */}
+          {/* <ContractSettings /> */}
+        </div>
+      </div>
+      <NetworkStatus 
+        config={config}
+        chainId={chainId}
+        corePrice={corePrice}
+        btcPrice={btcPrice}
+        totalPooledCore={totalPooledCore}
+        supportedAssets={supportedAssets}
+        priceLoading={priceLoading}
+        priceError={priceError}
+        updateCorePrice={updateCorePrice}
+        isPriceUpdating={isPriceUpdating}
+      />
+
+      <PortfolioOverview 
+        portfolioValueUSD={portfolioValueUSD}
+        basketBalance={basketBalance}
+        coreBalance={coreBalance}
+        corePrice={corePrice}
+        chainId={chainId}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StakeForm 
+          chainId={chainId}
+          depositAmount={depositAmount}
+          setDepositAmount={setDepositAmount}
+          handleDeposit={handleDeposit}
+          isDepositing={isDepositing}
+          coreBalance={coreBalance}
+          corePrice={corePrice}
+          updateCorePrice={updateCorePrice}
+          isPriceUpdating={isPriceUpdating}
+        />
+        
+        <ApiWithdrawForm 
+          chainId={chainId}
+        />
+      </div>
+
+      {/* Legacy withdrawal form for comparison/fallback */}
+      <div className="grid grid-cols-1 gap-6">
+        <WithdrawForm 
+          chainId={chainId}
+          withdrawAmount={withdrawAmount}
+          setWithdrawAmount={setWithdrawAmount}
+          handleWithdraw={handleWithdraw}
+          isRedeeming={withdrawFlow.isWithdrawing && withdrawFlow.step === 'redemption'}
+          isApprovingBasket={withdrawFlow.isWithdrawing && withdrawFlow.step === 'approval'}
+          basketBalance={basketBalance}
+          portfolioValueUSD={portfolioValueUSD}
+          needsBasketApproval={withdrawFlow.needsApproval}
+          basketAllowance={basketAllowance}
+          contractAddresses={contractAddresses}
+        />
+      </div>
+
+      <ContractInfo 
+        config={config}
+        contractAddresses={contractAddresses}
+      />
+
+      <TransactionHistory 
+        txLoading={txLoading}
+        txError={txError}
+        transactions={transactions}
+        depositSuccess={depositSuccess}
+        redeemSuccess={withdrawFlow.step === 'completed'}
+        depositHash={depositHash}
+        redeemHash={stakeBasketHooks.redeemHash}
+        config={config}
+        address={address ?? undefined}
+      />
+      </div>
+  )
+}
 
 export const Route = createFileRoute('/dashboard')({
-  component: DashboardV3,
+  component: Dashboard,
 })

@@ -22,13 +22,6 @@ export const SUPPORTED_NETWORKS: NetworkConfig[] = [
     icon: '🧪'
   },
   {
-    id: 1115,
-    name: 'Core Testnet',
-    shortName: 'Core Test',
-    color: 'bg-blue-500',
-    icon: '⚡'
-  },
-  {
     id: 1116,
     name: 'Core Mainnet',
     shortName: 'Core',
@@ -49,8 +42,8 @@ export const isNetworkSupported = (chainId: number | undefined): boolean => {
 export const getNetworkType = (chainId: number | undefined): 'local' | 'testnet' | 'mainnet' | 'unknown' => {
   if (chainId === 31337) {
     return 'local' // Hardhat default
-  } else if (chainId === 1114 || chainId === 1115) {
-    return 'testnet' // Core Testnets
+  } else if (chainId === 1114) {
+    return 'testnet' // Core Testnet2
   } else if (chainId === 1116) {
     return 'mainnet' // Core Mainnet
   }

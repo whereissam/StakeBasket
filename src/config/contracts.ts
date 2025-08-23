@@ -41,31 +41,32 @@ export const NETWORKS = {
 export const CONTRACT_ADDRESSES = {
   hardhat: {
     // Mock Tokens (from local deployment)
-    MockCORE: '0x525C7063E7C20997BaaE9bDa922159152D0e8417',
-    MockCoreBTC: '0x38a024C0b412B9d1db8BC398140D00F5Af3093D4',
+    MockCORE: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
+    MockCoreBTC: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
     
     // Mock Staking
-    MockCoreStaking: '0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8',
-    MockLstBTC: '0x38a024C0b412B9d1db8BC398140D00F5Af3093D4', // Using MockCoreBTC as lstBTC
+    MockCoreStaking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    MockLstBTC: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
     
-    // StakeBasket Core (from local deployment)
-    PriceFeed: '0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c',
-    StakingManager: '0x2a810409872AfC346F9B5b26571Fd6eC42EA4849',
-    StakeBasketToken: '0xB82008565FdC7e44609fA118A4a681E92581e680',
-    StakeBasket: '0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C',
-    BasketStaking: '0xb9bEECD1A582768711dE1EE7B0A1d582D9d72a6C',
-    CoreOracle: '0x5fc748f1FEb28d7b76fa1c6B07D8ba2d5535177c', // Using PriceFeed as oracle
+    // StakeBasket Core (from local deployment - LATEST DEPLOYMENT)
+    PriceFeed: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
+    StakingManager: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
+    StakeBasketToken: '0x851356ae760d987E095750cCeb3bC6014560891C',
+    StakeBasket: '0xf5059a5D33d5853360D16C683c16e67980206f36',
+    BasketStaking: '0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9',
+    CoreOracle: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e', // Using PriceFeed as oracle
     
-    // Governance
-    BasketGovernance: '0x0000000000000000000000000000000000000000',
-    BasketToken: '0xB82008565FdC7e44609fA118A4a681E92581e680', // Using StakeBasketToken
+    // Governance (newly deployed)
+    BasketGovernance: '0xe70f935c32dA4dB13e7876795f1e175465e6458e',
+    BasketToken: '0xe039608E695D21aB11675EBBA00261A0e750526c', // Using newly deployed StakeBasketToken
+    CoreDAOGovernanceProxy: '0x3904b8f5b0F49cD206b7d5AABeE5D1F37eE15D8d',
     
     // Liquid Staking
     CoreLiquidStakingManager: '0x0000000000000000000000000000000000000000',
     StCoreToken: '0x0000000000000000000000000000000000000000',
     
     // Dual Staking Contracts (from local deployment)
-    MockDualStaking: '0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8',
+    MockDualStaking: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
     DualStakingBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849',
     SatoshiTierBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849', // Using DualStakingBasket
     

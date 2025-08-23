@@ -184,6 +184,274 @@ graph TB
     style BG fill:#fce4ec
 ```
 
+## 🏛️ Governance System Architecture
+
+### 📊 Complete Governance Flow
+
+```mermaid
+graph TB
+    subgraph "👥 Community Layer"
+        Users[BASKET Token Holders]
+        Stakers[BASKET Stakers]
+        Committee[Governance Committee]
+        
+        Users -.->|holds tokens| Stakers
+        Stakers -.->|enhanced voting power| Committee
+    end
+    
+    subgraph "🗳️ Governance Layer"
+        BG[BasketGovernance<br/>📋 Main DAO]
+        CGP[CoreDAOGovernanceProxy<br/>🌐 Network Bridge]
+        BS[BasketStaking<br/>💎 Voting Power]
+        
+        BG <-->|manages proposals| CGP
+        BS -->|calculates voting power| BG
+        BS -->|provides tier benefits| CGP
+    end
+    
+    subgraph "🎯 Execution Layer"
+        SB[StakeBasket<br/>📊 Protocol]
+        DSB[DualStakingBasket<br/>🏦 Strategy]
+        SM[StakingManager<br/>⚡ Validator]
+        
+        BG -->|executes decisions| SB
+        BG -->|updates parameters| DSB
+        CGP -->|delegates validators| SM
+    end
+    
+    subgraph "🌐 External Networks"
+        CoreDAO[CoreDAO Network<br/>⚡ Blockchain]
+        Validators[Validators<br/>🛡️ Network Security]
+        Mining[Bitcoin Mining<br/>⛏️ Hash Power]
+        
+        CGP -->|votes on proposals| CoreDAO
+        CGP -->|delegates CORE| Validators
+        CGP -->|coordinates mining| Mining
+    end
+    
+    Users -->|votes| BG
+    Users -->|creates proposals| CGP
+    Committee -->|multi-sig approval| CGP
+    BG -->|triggers execution| CGP
+    
+    style Users fill:#e1f5fe
+    style BG fill:#f3e5f5
+    style CGP fill:#fff3e0
+    style CoreDAO fill:#e8f5e8
+    style Committee fill:#fce4ec
+```
+
+### 🔄 Governance Interaction Flows
+
+#### 1. BASKET Protocol Governance Flow
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 BASKET Holder
+    participant BS as 💎 BasketStaking
+    participant BG as 📋 BasketGovernance
+    participant SB as 📊 StakeBasket
+    
+    Note over User, SB: Proposal Creation & Voting
+    
+    User->>BG: createProposal("Increase management fee", calldata)
+    BG->>BG: Validate proposal threshold (100 BASKET)
+    BG-->>User: Proposal ID created
+    
+    Note over User, SB: Voting Phase (3 days)
+    
+    User->>BS: Stake BASKET tokens for voting power
+    BS->>BG: updateVotingPower(user, tier_multiplier)
+    User->>BG: vote(proposalId, support, reason)
+    
+    Note over User, SB: Execution Phase
+    
+    BG->>BG: checkQuorum() & calculateResult()
+    BG->>SB: executeProposal(calldata)
+    SB-->>BG: Execution result
+    BG->>User: Proposal executed ✅
+```
+
+#### 2. CoreDAO Network Governance Flow
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 BASKET Holder
+    participant CGP as 🌐 CoreDAOGovernanceProxy
+    participant BG as 📋 BasketGovernance
+    participant CoreDAO as ⚡ CoreDAO Network
+    participant Committee as 👥 Gov Committee
+    
+    Note over User, Committee: CoreDAO Proposal Flow
+    
+    User->>CGP: createCoreDAOProposal("Increase block gas limit", snapshotId)
+    CGP->>BG: propose() [Creates linked BASKET proposal]
+    BG-->>User: Basket proposal created
+    
+    Note over User, Committee: Voting & Aggregation
+    
+    User->>BG: vote(basketProposalId, support)
+    Note over BG: 3-day voting period
+    BG->>CGP: executeCoreDAOVote(proxyProposalId)
+    
+    Note over User, Committee: Security & Execution
+    
+    CGP->>CGP: verifyQuorum() & aggregateVotes()
+    Committee->>CGP: approveGovernanceAction(actionHash)
+    CGP->>CoreDAO: submitCommunityVote(aggregatedVote)
+    CoreDAO-->>CGP: Vote recorded on CoreDAO ✅
+```
+
+#### 3. Validator Delegation Flow
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 BASKET Holder
+    participant CGP as 🌐 CoreDAOGovernanceProxy
+    participant BG as 📋 BasketGovernance
+    participant SM as ⚡ StakingManager
+    participant Validator as 🛡️ CoreDAO Validator
+    participant Committee as 👥 Committee
+    
+    Note over User, Committee: Validator Selection Process
+    
+    User->>CGP: createValidatorDelegation(validatorAddr, 1000 CORE)
+    CGP->>CGP: checkDelegationLimits() & validateValidator()
+    CGP->>BG: propose("Delegate to Validator X")
+    
+    Note over User, Committee: Community Voting
+    
+    User->>BG: vote(basketProposalId, FOR)
+    Note over BG: 3-day voting + super-majority check
+    BG->>CGP: executeValidatorDelegation(delegationId)
+    
+    Note over User, Committee: Delegation Execution
+    
+    Committee->>CGP: approveGovernanceAction(actionHash)
+    CGP->>SM: undelegate(oldValidator, amount)
+    CGP->>SM: delegate(newValidator, amount)
+    SM->>Validator: Delegate 1000 CORE
+    Validator-->>SM: Delegation confirmed ✅
+```
+
+### 🎛️ Governance Security Model
+
+```mermaid
+graph TB
+    subgraph "🔐 Security Layers"
+        TL[⏰ Timelock<br/>24h Normal / 6h Emergency]
+        MS[✋ Multi-Signature<br/>2+ Committee Approvals]
+        EP[🚨 Emergency Pause<br/>Circuit Breaker]
+        BL[🚫 Blacklist<br/>Malicious Validators]
+    end
+    
+    subgraph "📊 Risk Controls"
+        QR[📈 Quorum Requirements<br/>10% Minimum Participation]
+        SM[🗳️ Super Majority<br/>67% for Large Changes]
+        DL[⚖️ Delegation Limits<br/>Max 30% per Validator]
+        VV[✅ Vote Verification<br/>BASKET Token Weighted]
+    end
+    
+    subgraph "👥 Access Control"
+        OW[👑 Owner<br/>Full Admin Rights]
+        CM[🏛️ Committee<br/>Multi-sig Governance]
+        OP[⚡ Operators<br/>Limited Permissions]
+        EM[🚨 Emergency<br/>Pause Authority]
+    end
+    
+    TL --> MS
+    MS --> EP
+    EP --> BL
+    
+    QR --> SM
+    SM --> DL
+    DL --> VV
+    
+    OW --> CM
+    CM --> OP
+    OP --> EM
+    
+    style TL fill:#f8d7da
+    style MS fill:#d4edda
+    style EP fill:#fff3cd
+    style QR fill:#cce5ff
+```
+
+### 🎯 Governance Types & Powers
+
+```mermaid
+mindmap
+  root((BASKET Governance))
+    Protocol Governance
+      Parameter Changes
+        Management Fees
+        Performance Fees
+        Rebalance Thresholds
+      Strategy Management
+        Add New Strategies
+        Remove Strategies
+        Update Allocations
+      Contract Upgrades
+        Proxy Upgrades
+        Implementation Changes
+        Security Patches
+    CoreDAO Network
+      Network Proposals
+        Protocol Upgrades
+        Consensus Changes
+        Economic Parameters
+      Validator Delegation
+        Choose Validators
+        Delegate CORE
+        Reward Distribution
+      Hash Power Coordination
+        Mining Pool Selection
+        Bitcoin Bridge
+        Security Coordination
+    Treasury Management
+      Fee Distribution
+      Protocol Reserves
+      Development Funding
+      Security Audits
+```
+
+### 📈 Voting Power Calculation
+
+```mermaid
+graph LR
+    subgraph "💎 BASKET Staking Tiers"
+        Bronze[Bronze Tier<br/>100 BASKET<br/>1.0x Voting Power]
+        Silver[Silver Tier<br/>1,000 BASKET<br/>1.1x Voting Power]
+        Gold[Gold Tier<br/>10,000 BASKET<br/>1.25x Voting Power]
+        Platinum[Platinum Tier<br/>100,000 BASKET<br/>1.5x Voting Power]
+    end
+    
+    subgraph "🗳️ Final Voting Power"
+        Formula[Base BASKET × Tier Multiplier × Time Weight]
+        
+        Bronze --> Formula
+        Silver --> Formula
+        Gold --> Formula
+        Platinum --> Formula
+    end
+    
+    subgraph "🎯 Governance Benefits"
+        VotingPower[Enhanced Voting Power]
+        FeeReduction[Protocol Fee Discounts]
+        ProposalThreshold[Lower Proposal Thresholds]
+        
+        Formula --> VotingPower
+        Formula --> FeeReduction
+        Formula --> ProposalThreshold
+    end
+    
+    style Bronze fill:#cd7f32
+    style Silver fill:#c0c0c0
+    style Gold fill:#ffd700
+    style Platinum fill:#e5e4e2
+    style Formula fill:#e1f5fe
+```
+
 ### Core Governance & Management Layer
 
 #### **BasketGovernance.sol**

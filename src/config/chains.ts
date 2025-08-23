@@ -65,24 +65,3 @@ export const coreTestnet2 = defineChain({
   testnet: true,
 })
 
-export const coreTestnet = defineChain({
-  id: 1115,
-  name: 'Core Testnet',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'tCORE',
-    symbol: 'tCORE',
-  },
-  rpcUrls: {
-    default: {
-      http: ['https://rpc.test.btcs.network'],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Core Testnet Explorer',
-      url: 'https://scan.test2.btcs.network',
-    },
-  },
-  testnet: true,
-})

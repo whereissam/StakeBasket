@@ -5,11 +5,15 @@ import { MobileNav } from '@/components/mobile-nav'
 import { ConnectWallet } from '@/components/ConnectWallet'
 import { NetworkSwitcher } from '@/components/NetworkSwitcher'
 import { NavDropdown } from '@/components/NavDropdown'
+import { NetworkSwitchModal } from '@/components/NetworkSwitchModal'
 import { LogoIcon, LogoCompact } from '@/components/ui/logo'
-import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard, Droplets } from 'lucide-react'
+import { BarChart3, Coins, Zap, Vote, Info, FileCode, LayoutDashboard } from 'lucide-react'
+import { useNetworkDetection } from '@/hooks/useNetworkDetection'
 
-export const Route = createRootRoute({
-  component: () => (
+function RootComponent() {
+  const networkDetection = useNetworkDetection()
+
+  return (
     <>
       <nav className="sticky top-0 bg-background border-b border-border z-40">
         <div className="container mx-auto px-4">
@@ -115,7 +119,20 @@ export const Route = createRootRoute({
         </div>
       </nav>
       <Outlet />
+      
+      {/* Global Network Switch Modal */}
+      <NetworkSwitchModal
+        isOpen={networkDetection.showNetworkModal}
+        onClose={networkDetection.dismissModal}
+        validation={networkDetection.validation}
+        currentChainId={networkDetection.chainId}
+      />
+      
       <TanStackRouterDevtools />
     </>
-  ),
+  )
+}
+
+export const Route = createRootRoute({
+  component: RootComponent,
 })

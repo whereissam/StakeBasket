@@ -1,11 +1,16 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
+import { Card, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { useState, useEffect } from 'react'
-import { Coins, TrendingUp, Award, Gift, Lock, Unlock, DollarSign } from 'lucide-react'
+import { Coins } from 'lucide-react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { useContracts } from '../hooks/useContracts'
 import { parseEther, formatEther } from 'viem'
+import { StakingOverview } from './staking/StakingOverview'
+import { StakeBasketForm } from './staking/StakeBasketForm'
+import { UnstakeBasketForm } from './staking/UnstakeBasketForm'
+import { TierProgress } from './staking/TierProgress'
+import { TierBenefits } from './staking/TierBenefits'
+import { TierSystem } from './staking/TierSystem'
+import { ClaimRewards } from './staking/ClaimRewards'
 
 interface StakeInfo {
   amount: string
@@ -389,290 +394,60 @@ export function StakingInterface() {
 
   return (
     <div className="space-y-6 p-6 min-h-screen bg-background text-foreground">
-      {/* Staking Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-card border-border shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
-              <Coins className="h-4 w-4 text-primary" />
-              Staked Amount
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{Number(stakeInfo.amount).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">BASKET tokens</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-border shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
-              <DollarSign className="h-4 w-4 text-primary" />
-              Pending Rewards
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{Number(stakeInfo.pendingRewards).toFixed(4)}</div>
-            <p className="text-xs text-muted-foreground">ETH</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-border shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
-              <Award className="h-4 w-4 text-primary" />
-              Current Tier
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${currentTierInfo.color}`}>
-              {currentTierInfo.name}
-            </div>
-            <p className="text-xs text-muted-foreground">{currentTierInfo.multiplier} rewards</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-border shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2 text-card-foreground">
-              <Gift className="h-4 w-4 text-primary" />
-              Available Balance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-card-foreground">{Number(basketBalanceFormatted).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">BASKET tokens</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StakingOverview
+        stakedAmount={stakeInfo.amount}
+        pendingRewards={stakeInfo.pendingRewards}
+        currentTier={currentTierInfo.name}
+        availableBalance={basketBalanceFormatted}
+        tierColor={currentTierInfo.color}
+        tierMultiplier={currentTierInfo.multiplier}
+      />
 
-      {/* Tier Progress */}
       {nextTierInfo && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Tier Progress</CardTitle>
-            <CardDescription>
-              Progress towards {nextTierInfo.name} tier
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between text-sm">
-              <span>{currentTierInfo.name}</span>
-              <span>{nextTierInfo.name}</span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{ width: `${tierProgress.progress}%` }}
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {tierProgress.nextThreshold - Number(stakeInfo.amount)} more BASKET tokens needed
-            </div>
-          </CardContent>
-        </Card>
+        <TierProgress
+          currentTierName={currentTierInfo.name}
+          nextTierName={nextTierInfo.name}
+          progress={tierProgress.progress}
+          tokensNeeded={tierProgress.nextThreshold - Number(stakeInfo.amount)}
+          nextThreshold={tierProgress.nextThreshold}
+        />
       )}
 
-      {/* Current Tier Benefits */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Award className="h-5 w-5" />
-            Your Benefits ({currentTierInfo.name})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {currentTierInfo.benefits.map((benefit: string, index: number) => (
-              <div key={index} className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${currentTierInfo.bgColor}`} />
-                <span className="text-sm">{benefit}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <TierBenefits currentTierInfo={currentTierInfo} />
 
-      {/* Staking Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Stake */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              Stake BASKET
-            </CardTitle>
-            <CardDescription>
-              Stake your BASKET tokens to earn protocol fees and tier benefits
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Amount to Stake</label>
-              <Input
-                type="number"
-                value={stakeAmount}
-                onChange={(e) => setStakeAmount(e.target.value)}
-                placeholder="0.00"
-                max={basketBalanceFormatted}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Available: {Number(basketBalanceFormatted).toLocaleString()} BASKET</span>
-                <button 
-                  onClick={() => setStakeAmount(basketBalanceFormatted)}
-                  className="text-primary hover:underline"
-                >
-                  Max
-                </button>
-              </div>
-            </div>
-            {needsApproval ? (
-              <Button 
-                onClick={handleApprove}
-                disabled={isContractPending || isConfirming || !stakeAmount || Number(stakeAmount) <= 0}
-                className="w-full"
-              >
-                {isContractPending && isApproving ? 'Approving...' : 
-                 isConfirming && isApproving ? 'Confirming Approval...' : 
-                 'Approve BASKET'}
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleStake}
-                disabled={isContractPending || isConfirming || !stakeAmount || Number(stakeAmount) <= 0}
-                className="w-full"
-              >
-                {isContractPending && !isApproving ? 'Staking...' : 
-                 isConfirming && !isApproving ? 'Confirming Stake...' : 
-                 'Stake BASKET'}
-              </Button>
-            )}
-            
-            {/* Debug info */}
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div>Debug: needsApproval={needsApproval.toString()}, isApproving={isApproving.toString()}</div>
-              <div>Allowance: {currentAllowance ? formatEther(currentAllowance) : 'Loading...'} BASKET</div>
-              <div>Pending: {isContractPending.toString()}, Confirming: {isConfirming.toString()}</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Unstake */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Unlock className="h-5 w-5" />
-              Unstake BASKET
-            </CardTitle>
-            <CardDescription>
-              Unstake your BASKET tokens (may lose tier benefits)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Amount to Unstake</label>
-              <Input
-                type="number"
-                value={unstakeAmount}
-                onChange={(e) => setUnstakeAmount(e.target.value)}
-                placeholder="0.00"
-                max={stakeInfo.amount}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Staked: {Number(stakeInfo.amount).toLocaleString()} BASKET</span>
-                <button 
-                  onClick={() => setUnstakeAmount(stakeInfo.amount)}
-                  className="text-primary hover:underline"
-                >
-                  Max
-                </button>
-              </div>
-            </div>
-            <Button 
-              onClick={handleUnstake}
-              disabled={isContractPending || isConfirming || !unstakeAmount || Number(unstakeAmount) <= 0}
-              variant="outline"
-              className="w-full"
-            >
-              {isContractPending ? 'Submitting...' : 
-               isConfirming ? 'Confirming...' : 
-               'Unstake BASKET'}
-            </Button>
-          </CardContent>
-        </Card>
+        <StakeBasketForm
+          stakeAmount={stakeAmount}
+          setStakeAmount={setStakeAmount}
+          handleStake={handleStake}
+          handleApprove={handleApprove}
+          needsApproval={needsApproval}
+          isContractPending={isContractPending}
+          isConfirming={isConfirming}
+          isApproving={isApproving}
+          basketBalance={basketBalanceFormatted}
+          currentAllowance={currentAllowance}
+        />
+        
+        <UnstakeBasketForm
+          unstakeAmount={unstakeAmount}
+          setUnstakeAmount={setUnstakeAmount}
+          handleUnstake={handleUnstake}
+          isContractPending={isContractPending}
+          isConfirming={isConfirming}
+          stakedAmount={stakeInfo.amount}
+        />
       </div>
 
-      {/* Claim Rewards */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Claim Rewards
-          </CardTitle>
-          <CardDescription>
-            Claim your accumulated protocol fee rewards
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold">{Number(stakeInfo.pendingRewards).toFixed(6)} ETH</div>
-              <p className="text-sm text-muted-foreground">
-                Last claimed: {stakeInfo.lastClaimTime ? 
-                  new Date(stakeInfo.lastClaimTime).toLocaleDateString() : 'Never'}
-              </p>
-            </div>
-            <Button 
-              onClick={handleClaimRewards}
-              disabled={isContractPending || isConfirming || Number(stakeInfo.pendingRewards) <= 0}
-            >
-              {isContractPending ? 'Submitting...' : 
-               isConfirming ? 'Confirming...' : 
-               'Claim Rewards'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ClaimRewards
+        pendingRewards={stakeInfo.pendingRewards}
+        lastClaimTime={stakeInfo.lastClaimTime}
+        handleClaimRewards={handleClaimRewards}
+        isContractPending={isContractPending}
+        isConfirming={isConfirming}
+      />
 
-      {/* All Tier Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tier System</CardTitle>
-          <CardDescription>
-            Stake more BASKET tokens to unlock higher tiers and better benefits
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.entries(tierInfo).slice(1).map(([tierKey, info]: [string, TierInfo]) => (
-              <div 
-                key={tierKey}
-                className={`p-4 rounded-lg border-2 bg-card ${
-                  Number(tierKey) === stakeInfo.tier ? 'border-primary bg-primary/10' : 'border-border'
-                }`}
-              >
-                <div className={`font-semibold ${info.color} mb-2`}>
-                  {info.name}
-                </div>
-                <div className="text-sm text-muted-foreground mb-2">
-                  Threshold: {info.threshold} BASKET
-                </div>
-                <div className="text-sm text-muted-foreground mb-3">
-                  Multiplier: {info.multiplier}
-                </div>
-                <div className="space-y-1">
-                  {info.benefits.map((benefit: string, index: number) => (
-                    <div key={index} className="text-xs flex items-center gap-1">
-                      <div className={`w-1 h-1 rounded-full ${info.bgColor}`} />
-                      {benefit}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <TierSystem tierInfo={tierInfo} currentTier={stakeInfo.tier} />
     </div>
   )
 }

@@ -28,8 +28,90 @@ export function useTransactionHistory() {
       setError(null)
       
       try {
+        // For local Hardhat network, fetch from local RPC
+        if (chainId === 31337) {
+          console.log('Fetching local transaction history for address:', address)
+          
+          try {
+            // Get latest block number
+            const latestBlockResponse = await fetch('http://localhost:8545', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'eth_blockNumber',
+                params: [],
+                id: 1
+              })
+            })
+            
+            if (!latestBlockResponse.ok) {
+              throw new Error('Failed to get latest block')
+            }
+            
+            const latestBlockData = await latestBlockResponse.json()
+            const latestBlock = parseInt(latestBlockData.result, 16)
+            
+            console.log('Latest block:', latestBlock)
+            
+            // Fetch last 20 blocks of transactions
+            const blockPromises = []
+            const startBlock = Math.max(0, latestBlock - 20)
+            
+            for (let i = latestBlock; i >= startBlock; i--) {
+              blockPromises.push(
+                fetch('http://localhost:8545', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'eth_getBlockByNumber',
+                    params: [`0x${i.toString(16)}`, true],
+                    id: i
+                  })
+                }).then(res => res.json())
+              )
+            }
+            
+            const blockResults = await Promise.all(blockPromises)
+            const localTxs: Transaction[] = []
+            
+            blockResults.forEach((blockData) => {
+              if (blockData.result && blockData.result.transactions) {
+                blockData.result.transactions.forEach((tx: any) => {
+                  const isFromUser = tx.from?.toLowerCase() === address?.toLowerCase()
+                  const isToStakeBasket = tx.to?.toLowerCase() === contracts.StakeBasket.toLowerCase()
+                  const isToBasketToken = tx.to?.toLowerCase() === contracts.StakeBasketToken.toLowerCase()
+                  
+                  if (isFromUser && (isToStakeBasket || isToBasketToken) && tx.hash) {
+                    localTxs.push({
+                      hash: tx.hash,
+                      method: getMethodName(tx.input || '0x'),
+                      type: getTransactionType(tx.input || '0x'),
+                      timestamp: parseInt(blockData.result.timestamp, 16) * 1000,
+                      value: tx.value || '0',
+                      status: 'success', // Local transactions are typically successful if they appear in blocks
+                      blockNumber: parseInt(blockData.result.number, 16)
+                    })
+                  }
+                })
+              }
+            })
+            
+            // Sort by timestamp (newest first) and limit to 10
+            localTxs.sort((a, b) => b.timestamp - a.timestamp)
+            setTransactions(localTxs.slice(0, 10))
+            console.log('Found local transactions:', localTxs)
+            
+          } catch (localError) {
+            console.error('Failed to fetch local transaction history:', localError)
+            setError('Failed to load local transaction history')
+          }
+        }
         // For Core Testnet2, fetch real transaction history
-        if (chainId === 1114) {
+        else if (chainId === 1114) {
           const apiKey = import.meta.env.VITE_CORE_TEST2_BTCS_KEY || '6f207a377c3b41d3aa74bd6832684cc7'
           
           // Try multiple Core API endpoints for transaction history
@@ -116,16 +198,20 @@ function getMethodName(input: string): string {
   
   const methodId = input.slice(0, 10)
   
-  // Common method signatures
+  // Common method signatures (updated for StakeBasket contract)
   const methods: { [key: string]: string } = {
-    '0xb6b55f25': 'Deposit',
-    '0xdb006a75': 'Redeem',
-    '0xa9059cbb': 'Transfer',
-    '0x095ea7b3': 'Approve',
-    '0x4a432a46': 'Get Price'
+    '0xb6b55f25': 'Deposit',           // deposit()
+    '0x2e1a7d4d': 'Withdraw',         // withdraw(uint256)
+    '0xdb006a75': 'Redeem',           // redeem()
+    '0xa9059cbb': 'Transfer',         // transfer(address,uint256)
+    '0x095ea7b3': 'Approve',          // approve(address,uint256)
+    '0x4a432a46': 'Get Price',        // getPrice()
+    '0x6a627842': 'Mint',             // mint(address,uint256)
+    '0x40c10f19': 'Mint',             // mint(address,uint256) - alternative
+    '0x23b872dd': 'Transfer From',    // transferFrom(address,address,uint256)
   }
   
-  return methods[methodId] || 'Transfer'
+  return methods[methodId] || `Unknown (${methodId})`
 }
 
 function getTransactionType(input: string): 'deposit' | 'redeem' | 'other' {
@@ -133,8 +219,9 @@ function getTransactionType(input: string): 'deposit' | 'redeem' | 'other' {
   
   const methodId = input.slice(0, 10)
   
-  if (methodId === '0xb6b55f25') return 'deposit'
-  if (methodId === '0xdb006a75') return 'redeem'
+  if (methodId === '0xb6b55f25') return 'deposit'      // deposit()
+  if (methodId === '0x2e1a7d4d') return 'redeem'       // withdraw(uint256)
+  if (methodId === '0xdb006a75') return 'redeem'       // redeem()
   
   return 'other'
 }

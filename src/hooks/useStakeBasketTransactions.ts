@@ -2,8 +2,9 @@ import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadCont
 import { parseEther } from 'viem'
 import { getNetworkByChainId } from '../config/contracts'
 import { useChainId } from 'wagmi'
-import { toast } from 'sonner'
 import { useEffect, useRef } from 'react'
+import { handleTransactionError, createTransactionStateManager, TransactionErrorType } from '../utils/transactionErrorHandler'
+import { validateNetworkForTransaction, NetworkValidationError } from '../utils/networkValidation'
 
 
 // ERC-20 token ABI for approvals
@@ -120,18 +121,20 @@ export function useStakeBasketTransactions() {
   const { address } = useAccount()
   const { contracts } = getNetworkByChainId(chainId)
   
-  // Refs to track toast states and prevent duplicates
-  const toastRefs = useRef({
-    depositWallet: false,
-    depositTx: false,
-    redeemWallet: false,
-    redeemTx: false,
-    approveWallet: false,
-    approveTx: false
-  })
-
+  // Create transaction state managers for each operation
+  const depositStateManager = createTransactionStateManager('Stake')
+  const redeemStateManager = createTransactionStateManager('Withdraw')
+  const approveStateManager = createTransactionStateManager('Approve')
+  
   // Refs to track handled errors and prevent loops
-  const handledErrors = useRef({
+  const handledErrors = useRef<{
+    depositWrite: any
+    redeemWrite: any
+    approveWrite: any
+    depositReceipt: any
+    redeemReceipt: any
+    approveReceipt: any
+  }>({
     depositWrite: null,
     redeemWrite: null,
     approveWrite: null,
@@ -141,7 +144,7 @@ export function useStakeBasketTransactions() {
   })
   
   // Get StakeBasketToken address from contracts
-  const basketTokenAddress = contracts.StakeBasketToken || contracts.stakeBasketToken
+  const basketTokenAddress = contracts.StakeBasketToken
   
   // BASKET token approval check
   const { data: basketAllowance = 0n } = useReadContract({
@@ -172,16 +175,6 @@ export function useStakeBasketTransactions() {
     hash: approveHash,
   })
   
-  // Helper function to reset all toast states (prevents loops)
-  const resetAllToastStates = () => {
-    toastRefs.current.depositWallet = false
-    toastRefs.current.depositTx = false
-    toastRefs.current.redeemWallet = false
-    toastRefs.current.redeemTx = false
-    toastRefs.current.approveWallet = false
-    toastRefs.current.approveTx = false
-    toast.dismiss()
-  }
 
   // Check if BASKET tokens need approval
   const needsBasketApproval = (sharesAmount: string) => {
@@ -190,39 +183,23 @@ export function useStakeBasketTransactions() {
     return basketAllowance < sharesWei
   }
 
-  // Toast notifications for transaction states
+  // Enhanced error handling for deposit transactions
   useEffect(() => {
-    if (depositHash && isDepositing && !toastRefs.current.depositTx) {
-      // Clear wallet confirmation and show blockchain confirmation
-      toastRefs.current.depositWallet = false
-      toast.dismiss('deposit-wallet')
-      
-      toastRefs.current.depositTx = true
-      toast.loading('Confirming staking transaction...', { id: 'deposit-tx' })
+    if (depositHash && isDepositing) {
+      depositStateManager.showLoadingToast('Confirming staking transaction on blockchain...')
     }
   }, [depositHash, isDepositing])
 
   useEffect(() => {
     if (depositSuccess) {
-      toastRefs.current.depositTx = false
-      toastRefs.current.depositWallet = false
-      toast.dismiss('deposit-tx')
-      toast.success('Staking successful! BASKET tokens received.', { id: 'deposit-success' })
+      depositStateManager.showSuccessToast('Staking successful! BASKET tokens received.')
     }
   }, [depositSuccess])
 
   useEffect(() => {
     if (depositError && handledErrors.current.depositReceipt !== depositError) {
       handledErrors.current.depositReceipt = depositError
-      console.error('Deposit transaction failed:', depositError)
-      
-      // Reset all deposit toast states
-      toastRefs.current.depositTx = false
-      toastRefs.current.depositWallet = false
-      toast.dismiss('deposit-tx')
-      toast.dismiss('deposit-wallet')
-      
-      toast.error('Staking transaction failed. Please check your balance and try again.', { id: 'deposit-error' })
+      depositStateManager.handleError(depositError)
     }
   }, [depositError])
 
@@ -230,119 +207,62 @@ export function useStakeBasketTransactions() {
   useEffect(() => {
     if (depositWriteError && handledErrors.current.depositWrite !== depositWriteError) {
       handledErrors.current.depositWrite = depositWriteError
-      console.error('Deposit write error:', depositWriteError)
-      
-      // Reset all deposit toast states
-      toastRefs.current.depositWallet = false
-      toastRefs.current.depositTx = false
-      toast.dismiss('deposit-wallet')
-      toast.dismiss('deposit-tx')
-      
-      if (depositWriteError.message.includes('insufficient funds') || depositWriteError.message.includes('Insufficient funds')) {
-        toast.error('Insufficient ETH balance. You need more ETH to cover the staking amount plus gas fees.', { id: 'deposit-write-error', duration: 5000 })
-      } else {
-        toast.error(`Transaction failed: ${depositWriteError.message}`, { id: 'deposit-write-error', duration: 5000 })
-      }
+      depositStateManager.handleError(depositWriteError)
     }
   }, [depositWriteError])
 
+  // Enhanced error handling for redeem transactions
   useEffect(() => {
     if (redeemWriteError && handledErrors.current.redeemWrite !== redeemWriteError) {
       handledErrors.current.redeemWrite = redeemWriteError
-      console.error('Redeem write error:', redeemWriteError)
-      
-      // Reset redeem toast states
-      toastRefs.current.redeemWallet = false
-      toastRefs.current.redeemTx = false
-      toast.dismiss('redeem-wallet')
-      toast.dismiss('redeem-tx')
-      
-      toast.error(`Failed to submit transaction: ${redeemWriteError.message}`, { id: 'redeem-write-error', duration: 5000 })
+      redeemStateManager.handleError(redeemWriteError)
     }
   }, [redeemWriteError])
 
   useEffect(() => {
-    if (redeemHash && isRedeeming && !toastRefs.current.redeemTx) {
-      toastRefs.current.redeemWallet = false
-      toast.dismiss('redeem-wallet')
-      
-      toastRefs.current.redeemTx = true
-      toast.loading('Confirming withdrawal...', { id: 'redeem-tx' })
+    if (redeemHash && isRedeeming) {
+      redeemStateManager.showLoadingToast('Confirming withdrawal on blockchain...')
     }
   }, [redeemHash, isRedeeming])
 
   useEffect(() => {
     if (redeemSuccess) {
-      toastRefs.current.redeemTx = false
-      toastRefs.current.redeemWallet = false
-      toast.dismiss('redeem-tx')
-      toast.success('Withdrawal successful! CORE tokens received immediately.', { id: 'redeem-success' })
+      redeemStateManager.showSuccessToast('Withdrawal successful! CORE tokens received immediately.')
     }
   }, [redeemSuccess])
 
   useEffect(() => {
     if (redeemError && handledErrors.current.redeemReceipt !== redeemError) {
       handledErrors.current.redeemReceipt = redeemError
-      console.error('Redeem transaction failed:', redeemError)
-      
-      // Reset all redeem toast states
-      toastRefs.current.redeemTx = false
-      toastRefs.current.redeemWallet = false
-      toast.dismiss('redeem-tx')
-      toast.dismiss('redeem-wallet')
-      
-      toast.error('Withdrawal request failed. Please try again.', { id: 'redeem-error' })
+      redeemStateManager.handleError(redeemError)
     }
   }, [redeemError])
   
   
-  // Toast notifications for BASKET approval
+  // Enhanced error handling for approval transactions
   useEffect(() => {
     if (approveError && handledErrors.current.approveWrite !== approveError) {
       handledErrors.current.approveWrite = approveError
-      console.error('BASKET approve write error:', approveError)
-      
-      // Reset approve toast states
-      toastRefs.current.approveWallet = false
-      toastRefs.current.approveTx = false
-      toast.dismiss('approve-wallet')
-      toast.dismiss('approve-tx')
-      
-      toast.error(`Failed to submit BASKET approval: ${approveError.message}`, { id: 'approve-write-error', duration: 5000 })
+      approveStateManager.handleError(approveError)
     }
   }, [approveError])
 
   useEffect(() => {
-    if (approveHash && isApprovingBasket && !toastRefs.current.approveTx) {
-      toastRefs.current.approveWallet = false
-      toast.dismiss('approve-wallet')
-      
-      toastRefs.current.approveTx = true
-      toast.loading('Confirming BASKET token approval...', { id: 'approve-tx' })
+    if (approveHash && isApprovingBasket) {
+      approveStateManager.showLoadingToast('Confirming BASKET token approval on blockchain...')
     }
   }, [approveHash, isApprovingBasket])
 
   useEffect(() => {
     if (approveSuccess) {
-      toastRefs.current.approveTx = false
-      toastRefs.current.approveWallet = false
-      toast.dismiss('approve-tx')
-      toast.success('BASKET tokens approved! You can now redeem.', { id: 'approve-success' })
+      approveStateManager.showSuccessToast('BASKET tokens approved! You can now redeem.')
     }
   }, [approveSuccess])
 
   useEffect(() => {
     if (approveReceiptError && handledErrors.current.approveReceipt !== approveReceiptError) {
       handledErrors.current.approveReceipt = approveReceiptError
-      console.error('BASKET approval transaction failed:', approveReceiptError)
-      
-      // Reset all approve toast states
-      toastRefs.current.approveTx = false
-      toastRefs.current.approveWallet = false
-      toast.dismiss('approve-tx')
-      toast.dismiss('approve-wallet')
-      
-      toast.error('BASKET approval failed. Please try again.', { id: 'approve-error' })
+      approveStateManager.handleError(approveReceiptError)
     }
   }, [approveReceiptError])
 
@@ -355,23 +275,29 @@ export function useStakeBasketTransactions() {
       const amountWei = parseEther(amount)
       
       if (!address) {
-        throw new Error('Wallet not connected')
+        throw new Error('Wallet not connected. Please connect your wallet first.')
       }
       
-      if (!contracts.StakeBasket || contracts.StakeBasket === '0x0000000000000000000000000000000000000000') {
+      if (!contracts.StakeBasket) {
         throw new Error(`StakeBasket contract not deployed on chain ${chainId}`)
       }
       
-      if (chainId !== 1114 && chainId !== 31337) {
-        throw new Error(`Please switch to Core Testnet2 (Chain ID: 1114) or Local Hardhat (Chain ID: 31337). Current: ${chainId}`)
+      // Validate network before transaction
+      const networkValidation = validateNetworkForTransaction(chainId)
+      if (!networkValidation.isValid) {
+        throw new NetworkValidationError(networkValidation.error || 'Invalid network', chainId)
       }
       
-      // Clear any existing toasts first, then show wallet confirmation
-      if (!toastRefs.current.depositWallet) {
-        toast.dismiss() // Clear any existing toasts
-        toastRefs.current.depositWallet = true
-        toast.loading('Please confirm staking transaction in your wallet...', { id: 'deposit-wallet' })
-      }
+      console.log('📋 Transaction details:', {
+        contractAddress: contracts.StakeBasket,
+        amount,
+        amountWei: amountWei.toString(),
+        chainId,
+        address
+      })
+
+      // Show wallet confirmation toast
+      depositStateManager.showLoadingToast('Please confirm staking transaction in your wallet...')
       
       // Explicitly specify the account in the transaction
       depositToBasket({
@@ -380,18 +306,22 @@ export function useStakeBasketTransactions() {
         functionName: 'deposit',
         args: [amountWei],
         value: amountWei, // Send native tokens (ETH in local, CORE in testnet)
-        // Let the network estimate gas automatically
+        gas: BigInt(300000), // Reasonable gas limit for deposit function
         account: address as `0x${string}`, // Explicitly set the account
       })
+      
+      console.log('✅ Transaction submitted to wallet')
     } catch (error) {
       console.error('Deposit error:', error)
-      // Reset all deposit toast states to prevent loops
-      toastRefs.current.depositWallet = false
-      toastRefs.current.depositTx = false
-      toast.dismiss('deposit-wallet')
-      toast.dismiss('deposit-tx')
-      toast.error(`Staking failed: ${error instanceof Error ? error.message : 'Please try again'}`, { id: 'deposit-catch-error', duration: 5000 })
-      throw error
+      const analyzedError = handleTransactionError(error, 'Staking', {
+        showToast: true,
+        onRetry: () => depositCore(amount)
+      })
+      
+      // Only re-throw if not user rejection
+      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+        throw error
+      }
     }
   }
 
@@ -403,25 +333,36 @@ export function useStakeBasketTransactions() {
       
       const sharesWei = parseEther(shares)
       
-      // Clear any existing toasts first, then show wallet confirmation
-      if (!toastRefs.current.redeemWallet) {
-        toast.dismiss() // Clear any existing toasts
-        toastRefs.current.redeemWallet = true
-        toast.loading('Please confirm withdrawal in your wallet...', { id: 'redeem-wallet' })
+      if (!address) {
+        throw new Error('Wallet not connected. Please connect your wallet first.')
       }
+      
+      if (!contracts.StakeBasket) {
+        throw new Error(`StakeBasket contract not deployed on chain ${chainId}`)
+      }
+      
+      // Show wallet confirmation toast
+      redeemStateManager.showLoadingToast('Please confirm withdrawal in your wallet...')
       
       redeemFromBasket({
         address: contracts.StakeBasket as `0x${string}`,
         abi: STAKE_BASKET_ABI,
         functionName: 'redeem',
         args: [sharesWei],
+        gas: BigInt(250000), // Reasonable gas limit for redeem function
+        account: address as `0x${string}`, // Explicitly set the account
       })
     } catch (error) {
       console.error('Redeem error:', error)
-      toastRefs.current.redeemWallet = false
-      toast.dismiss('redeem-wallet')
-      toast.error('Withdrawal request failed. Please try again.', { id: 'redeem-catch-error', duration: 5000 })
-      throw error
+      const analyzedError = handleTransactionError(error, 'Withdrawal', {
+        showToast: true,
+        onRetry: () => redeemBasket(shares)
+      })
+      
+      // Only re-throw if not user rejection
+      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+        throw error
+      }
     }
   }
   
@@ -434,28 +375,40 @@ export function useStakeBasketTransactions() {
       
       const sharesWei = parseEther(sharesAmount)
       
-      // Clear any existing toasts first, then show approval request
-      if (!toastRefs.current.approveWallet) {
-        toast.dismiss()
-        toastRefs.current.approveWallet = true
-        toast.loading('Please approve BASKET tokens in your wallet...', { id: 'approve-wallet' })
+      if (!address) {
+        throw new Error('Wallet not connected. Please connect your wallet first.')
       }
+      
+      if (!basketTokenAddress) {
+        throw new Error('BASKET token contract not found')
+      }
+      
+      if (!contracts.StakeBasket) {
+        throw new Error(`StakeBasket contract not deployed on chain ${chainId}`)
+      }
+      
+      // Show wallet confirmation toast
+      approveStateManager.showLoadingToast('Please approve BASKET tokens in your wallet...')
       
       approveBasket({
         address: basketTokenAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [contracts.StakeBasket as `0x${string}`, sharesWei],
+        gas: BigInt(100000), // Reasonable gas limit for approve function
+        account: address as `0x${string}`, // Explicitly set the account
       })
     } catch (error) {
       console.error('BASKET approval error:', error)
-      // Reset all approval toast states to prevent loops
-      toastRefs.current.approveWallet = false
-      toastRefs.current.approveTx = false
-      toast.dismiss('approve-wallet')
-      toast.dismiss('approve-tx')
-      toast.error('BASKET approval failed. Please try again.', { id: 'approve-catch-error', duration: 5000 })
-      throw error
+      const analyzedError = handleTransactionError(error, 'Token Approval', {
+        showToast: true,
+        onRetry: () => approveBasketTokens(sharesAmount)
+      })
+      
+      // Only re-throw if not user rejection
+      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+        throw error
+      }
     }
   }
 

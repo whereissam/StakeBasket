@@ -16,11 +16,6 @@ const CORE_NETWORKS: NetworkConfig[] = [
     chainId: 1114,
     apiBaseUrl: 'https://openapi.coredao.org/api', // Testnet2 uses mainnet API for stats
     name: 'Core Testnet2'
-  },
-  {
-    chainId: 1115,
-    apiBaseUrl: 'https://openapi.coredao.org/api', // Legacy testnet uses mainnet API
-    name: 'Core Testnet (Legacy)'
   }
 ]
 
