@@ -36,7 +36,7 @@ export function DualStakingForm({
   setBtcAmount,
   coreBalanceFormatted,
   btcBalanceFormatted,
-  chainId,
+  chainId: _chainId,
   isNativeCORE,
   tierInfo,
   handleAutoCalculate,

@@ -19,9 +19,12 @@
     "test:integration": "npx hardhat run tests/organized/integration/automated-test-suite.cjs --network localhost",
     "test:demo": "npx hardhat run tests/organized/integration/demo-etf-functionality.cjs --network localhost",
     "test:interactive": "npx hardhat run tests/organized/integration/test-deployed-contracts.cjs --network localhost",
-    "test:all": "npm run contracts:compile && npm run deploy:mocks && npm run test:verify"
+    "test:all": "npm run contracts:compile && npm run deploy:mocks && npm run test:verify",
+    "fix:pricefeed": "npx hardhat run scripts/setup-price-feed.cjs --network localhost",
+    "fix:pricefeed:testnet2": "npx hardhat run scripts/setup-price-feed.cjs --network coreTestnet2"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",

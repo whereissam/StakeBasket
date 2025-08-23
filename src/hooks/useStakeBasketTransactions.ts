@@ -38,37 +38,128 @@ const ERC20_ABI = [
   }
 ] as const
 
-// StakeBasket contract ABI - uses native CORE tokens (payable)
+// StakeBasket contract ABI - extracted from compiled contract
 const STAKE_BASKET_ABI = [
   {
-    "inputs": [{"name": "amount", "type": "uint256"}],
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
     "name": "deposit",
     "outputs": [],
-    "stateMutability": "payable", 
+    "stateMutability": "payable",
     "type": "function"
   },
   {
-    "inputs": [{"name": "shares", "type": "uint256"}],
-    "name": "redeem", 
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "requestId", "type": "uint256"}],
-    "name": "processWithdrawal", 
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "user", "type": "address"}],
-    "name": "getUserWithdrawalRequests", 
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "redeem",
     "outputs": [
-      {"name": "requestIds", "type": "uint256[]"},
-      {"name": "amounts", "type": "uint256[]"},
-      {"name": "timestamps", "type": "uint256[]"},
-      {"name": "canProcess", "type": "bool[]"}
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "requestWithdrawal",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      }
+    ],
+    "name": "processWithdrawal",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "getUserWithdrawalRequests",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "requestIds",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "amounts",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "timestamps",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "canProcess",
+        "type": "bool[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalAUM",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getNAVPerShare",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -76,9 +167,24 @@ const STAKE_BASKET_ABI = [
   {
     "anonymous": false,
     "inputs": [
-      {"indexed": true, "name": "user", "type": "address"},
-      {"indexed": false, "name": "coreAmount", "type": "uint256"},
-      {"indexed": false, "name": "sharesIssued", "type": "uint256"}
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "coreAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sharesIssued",
+        "type": "uint256"
+      }
     ],
     "name": "Deposited",
     "type": "event"
@@ -86,9 +192,24 @@ const STAKE_BASKET_ABI = [
   {
     "anonymous": false,
     "inputs": [
-      {"indexed": true, "name": "user", "type": "address"},
-      {"indexed": false, "name": "sharesBurned", "type": "uint256"},
-      {"indexed": false, "name": "coreAmount", "type": "uint256"}
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "sharesBurned",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "coreAmount",
+        "type": "uint256"
+      }
     ],
     "name": "Redeemed",
     "type": "event"
@@ -96,10 +217,30 @@ const STAKE_BASKET_ABI = [
   {
     "anonymous": false,
     "inputs": [
-      {"indexed": true, "name": "user", "type": "address"},
-      {"indexed": false, "name": "shares", "type": "uint256"},
-      {"indexed": false, "name": "requestId", "type": "uint256"},
-      {"indexed": false, "name": "requestTime", "type": "uint256"}
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "requestTime",
+        "type": "uint256"
+      }
     ],
     "name": "WithdrawalRequested",
     "type": "event"
@@ -107,9 +248,24 @@ const STAKE_BASKET_ABI = [
   {
     "anonymous": false,
     "inputs": [
-      {"indexed": true, "name": "user", "type": "address"},
-      {"indexed": false, "name": "shares", "type": "uint256"},
-      {"indexed": false, "name": "coreAmount", "type": "uint256"}
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "coreAmount",
+        "type": "uint256"
+      }
     ],
     "name": "InstantRedeemExecuted",
     "type": "event"
@@ -120,6 +276,15 @@ export function useStakeBasketTransactions() {
   const chainId = useChainId()
   const { address } = useAccount()
   const { contracts } = getNetworkByChainId(chainId)
+  
+  // Debug contract addresses
+  console.log('🔍 useStakeBasketTransactions addresses:', {
+    chainId,
+    StakeBasket: contracts.StakeBasket,
+    StakeBasketToken: contracts.StakeBasketToken,
+    expectedStakeBasket: '0x976C214741b4657bd99DFD38a5c0E3ac5C99D903',
+    expectedStakeBasketToken: '0x114e375B6FCC6d6fCb68c7A1d407E652C54F25FB'
+  })
   
   // Create transaction state managers for each operation
   const depositStateManager = createTransactionStateManager('Stake')
@@ -141,6 +306,17 @@ export function useStakeBasketTransactions() {
     depositReceipt: null,
     redeemReceipt: null,
     approveReceipt: null
+  })
+  
+  // Track retry attempts to prevent infinite loops
+  const retryAttempts = useRef<{
+    depositCore: number
+    redeemBasket: number
+    approveBasketTokens: number
+  }>({
+    depositCore: 0,
+    redeemBasket: 0,
+    approveBasketTokens: 0
   })
   
   // Get StakeBasketToken address from contracts
@@ -268,9 +444,11 @@ export function useStakeBasketTransactions() {
 
   const depositCore = async (amount: string) => {
     try {
-      // Reset error tracking for new transaction
-      handledErrors.current.depositWrite = null
-      handledErrors.current.depositReceipt = null
+      // Reset error tracking for new transaction (but only if not retrying)
+      if (retryAttempts.current.depositCore === 0) {
+        handledErrors.current.depositWrite = null
+        handledErrors.current.depositReceipt = null
+      }
       
       const amountWei = parseEther(amount)
       
@@ -293,7 +471,13 @@ export function useStakeBasketTransactions() {
         amount,
         amountWei: amountWei.toString(),
         chainId,
-        address
+        address,
+        amountInEth: amountWei.toString() + ' wei = ' + (Number(amountWei) / 1e18) + ' ETH',
+        contractExists: !!contracts.StakeBasket,
+        addressValid: /^0x[a-fA-F0-9]{40}$/.test(contracts.StakeBasket || ''),
+        args: [amountWei.toString()],
+        value: amountWei.toString(),
+        argsAndValueMatch: amountWei.toString() === amountWei.toString()
       })
 
       // Show wallet confirmation toast
@@ -306,30 +490,67 @@ export function useStakeBasketTransactions() {
         functionName: 'deposit',
         args: [amountWei],
         value: amountWei, // Send native tokens (ETH in local, CORE in testnet)
-        gas: BigInt(300000), // Reasonable gas limit for deposit function
+        // Remove explicit gas limit to let wallet estimate properly
         account: address as `0x${string}`, // Explicitly set the account
       })
       
+      // Reset retry attempts on successful submission
+      retryAttempts.current.depositCore = 0
       console.log('✅ Transaction submitted to wallet')
     } catch (error) {
       console.error('Deposit error:', error)
-      const analyzedError = handleTransactionError(error, 'Staking', {
-        showToast: true,
-        onRetry: () => depositCore(amount)
-      })
       
-      // Only re-throw if not user rejection
-      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-        throw error
+      // Determine if error is retryable and check retry limit
+      const analyzedError = handleTransactionError(error, 'Staking', { showToast: false })
+      const isRetryableError = [
+        TransactionErrorType.NETWORK_ERROR,
+        TransactionErrorType.NONCE_ERROR,
+        TransactionErrorType.INSUFFICIENT_GAS
+      ].includes(analyzedError.type)
+      
+      // Don't retry permanent failures, contract errors, or user rejections
+      const isNonRetryableError = [
+        TransactionErrorType.USER_REJECTED,
+        TransactionErrorType.PERMANENT_FAILURE,
+        TransactionErrorType.CONTRACT_ERROR,
+        TransactionErrorType.INSUFFICIENT_FUNDS,
+        TransactionErrorType.ALLOWANCE_ERROR
+      ].includes(analyzedError.type)
+      
+      const maxRetries = 2
+      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.depositCore < maxRetries
+      
+      if (shouldRetry) {
+        retryAttempts.current.depositCore += 1
+        console.log(`🔄 Retrying deposit (attempt ${retryAttempts.current.depositCore}/${maxRetries})`)
+        
+        handleTransactionError(error, 'Staking', {
+          showToast: true,
+          onRetry: () => depositCore(amount)
+        })
+      } else {
+        // Final failure - reset retry attempts and show error without retry option
+        retryAttempts.current.depositCore = 0
+        handleTransactionError(error, 'Staking', {
+          showToast: true,
+          onRetry: undefined // No retry option
+        })
+        
+        // Only re-throw if not user rejection
+        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+          throw error
+        }
       }
     }
   }
 
   const redeemBasket = async (shares: string) => {
     try {
-      // Reset error tracking for new transaction
-      handledErrors.current.redeemWrite = null
-      handledErrors.current.redeemReceipt = null
+      // Reset error tracking for new transaction (but only if not retrying)
+      if (retryAttempts.current.redeemBasket === 0) {
+        handledErrors.current.redeemWrite = null
+        handledErrors.current.redeemReceipt = null
+      }
       
       const sharesWei = parseEther(shares)
       
@@ -349,19 +570,55 @@ export function useStakeBasketTransactions() {
         abi: STAKE_BASKET_ABI,
         functionName: 'redeem',
         args: [sharesWei],
-        gas: BigInt(250000), // Reasonable gas limit for redeem function
+        // Remove explicit gas limit to let wallet estimate properly
         account: address as `0x${string}`, // Explicitly set the account
       })
+      
+      // Reset retry attempts on successful submission
+      retryAttempts.current.redeemBasket = 0
     } catch (error) {
       console.error('Redeem error:', error)
-      const analyzedError = handleTransactionError(error, 'Withdrawal', {
-        showToast: true,
-        onRetry: () => redeemBasket(shares)
-      })
       
-      // Only re-throw if not user rejection
-      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-        throw error
+      // Determine if error is retryable and check retry limit
+      const analyzedError = handleTransactionError(error, 'Withdrawal', { showToast: false })
+      const isRetryableError = [
+        TransactionErrorType.NETWORK_ERROR,
+        TransactionErrorType.NONCE_ERROR,
+        TransactionErrorType.INSUFFICIENT_GAS
+      ].includes(analyzedError.type)
+      
+      // Don't retry permanent failures, contract errors, or user rejections
+      const isNonRetryableError = [
+        TransactionErrorType.USER_REJECTED,
+        TransactionErrorType.PERMANENT_FAILURE,
+        TransactionErrorType.CONTRACT_ERROR,
+        TransactionErrorType.INSUFFICIENT_FUNDS,
+        TransactionErrorType.ALLOWANCE_ERROR
+      ].includes(analyzedError.type)
+      
+      const maxRetries = 2
+      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.redeemBasket < maxRetries
+      
+      if (shouldRetry) {
+        retryAttempts.current.redeemBasket += 1
+        console.log(`🔄 Retrying redeem (attempt ${retryAttempts.current.redeemBasket}/${maxRetries})`)
+        
+        handleTransactionError(error, 'Withdrawal', {
+          showToast: true,
+          onRetry: () => redeemBasket(shares)
+        })
+      } else {
+        // Final failure - reset retry attempts and show error without retry option
+        retryAttempts.current.redeemBasket = 0
+        handleTransactionError(error, 'Withdrawal', {
+          showToast: true,
+          onRetry: undefined // No retry option
+        })
+        
+        // Only re-throw if not user rejection
+        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+          throw error
+        }
       }
     }
   }
@@ -369,9 +626,11 @@ export function useStakeBasketTransactions() {
   
   const approveBasketTokens = async (sharesAmount: string) => {
     try {
-      // Reset error tracking for new transaction
-      handledErrors.current.approveWrite = null
-      handledErrors.current.approveReceipt = null
+      // Reset error tracking for new transaction (but only if not retrying)
+      if (retryAttempts.current.approveBasketTokens === 0) {
+        handledErrors.current.approveWrite = null
+        handledErrors.current.approveReceipt = null
+      }
       
       const sharesWei = parseEther(sharesAmount)
       
@@ -395,19 +654,55 @@ export function useStakeBasketTransactions() {
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [contracts.StakeBasket as `0x${string}`, sharesWei],
-        gas: BigInt(100000), // Reasonable gas limit for approve function
+        // Remove explicit gas limit to let wallet estimate properly
         account: address as `0x${string}`, // Explicitly set the account
       })
+      
+      // Reset retry attempts on successful submission
+      retryAttempts.current.approveBasketTokens = 0
     } catch (error) {
       console.error('BASKET approval error:', error)
-      const analyzedError = handleTransactionError(error, 'Token Approval', {
-        showToast: true,
-        onRetry: () => approveBasketTokens(sharesAmount)
-      })
       
-      // Only re-throw if not user rejection
-      if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-        throw error
+      // Determine if error is retryable and check retry limit
+      const analyzedError = handleTransactionError(error, 'Token Approval', { showToast: false })
+      const isRetryableError = [
+        TransactionErrorType.NETWORK_ERROR,
+        TransactionErrorType.NONCE_ERROR,
+        TransactionErrorType.INSUFFICIENT_GAS
+      ].includes(analyzedError.type)
+      
+      // Don't retry permanent failures, contract errors, or user rejections
+      const isNonRetryableError = [
+        TransactionErrorType.USER_REJECTED,
+        TransactionErrorType.PERMANENT_FAILURE,
+        TransactionErrorType.CONTRACT_ERROR,
+        TransactionErrorType.INSUFFICIENT_FUNDS,
+        TransactionErrorType.ALLOWANCE_ERROR
+      ].includes(analyzedError.type)
+      
+      const maxRetries = 2
+      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.approveBasketTokens < maxRetries
+      
+      if (shouldRetry) {
+        retryAttempts.current.approveBasketTokens += 1
+        console.log(`🔄 Retrying approval (attempt ${retryAttempts.current.approveBasketTokens}/${maxRetries})`)
+        
+        handleTransactionError(error, 'Token Approval', {
+          showToast: true,
+          onRetry: () => approveBasketTokens(sharesAmount)
+        })
+      } else {
+        // Final failure - reset retry attempts and show error without retry option
+        retryAttempts.current.approveBasketTokens = 0
+        handleTransactionError(error, 'Token Approval', {
+          showToast: true,
+          onRetry: undefined // No retry option
+        })
+        
+        // Only re-throw if not user rejection
+        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
+          throw error
+        }
       }
     }
   }

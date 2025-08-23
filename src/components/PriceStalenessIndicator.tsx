@@ -40,7 +40,7 @@ export function PriceStalenessIndicator({ onUpdatePrice, isUpdating }: Props) {
 
   if (!coreData) return null
 
-  const [price, lastUpdated] = coreData as [bigint, bigint, number, boolean]
+  const [_price, lastUpdated] = coreData as [bigint, bigint, number, boolean]
   const now = Math.floor(Date.now() / 1000)
   const ageSeconds = now - Number(lastUpdated)
   const ageHours = ageSeconds / 3600

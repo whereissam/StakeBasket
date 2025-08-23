@@ -7,6 +7,7 @@ import { useAccount, useReadContract } from 'wagmi'
 import { formatEther } from 'viem'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { NetworkIndicator } from './NetworkIndicator'
+import { useGovernanceTransactions } from '../hooks/useGovernanceTransactions'
 
 interface Proposal {
   id: number
@@ -50,9 +51,16 @@ export function GovernanceInterface() {
   const { address } = useAccount()
   const { networkStatus, getCurrentContracts } = useNetworkStore()
   
+  // Use unified governance transaction system
+  const {
+    createGovernanceProposal,
+    castGovernanceVote,
+    isCreatingProposal,
+    isVoting
+  } = useGovernanceTransactions()
+  
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [votingPower, setVotingPower] = useState('0')
-  const [isVoting, setIsVoting] = useState(false)
   const [showCreateProposal, setShowCreateProposal] = useState(false)
   
   // Create proposal form state
@@ -97,20 +105,14 @@ export function GovernanceInterface() {
   const handleVote = async (proposalId: number, support: number) => {
     if (!address) return
     
-    setIsVoting(true)
     try {
-      // TODO: Integrate with wagmi/viem to call governance contract
-      console.log(`Voting ${support} on proposal ${proposalId}`)
+      await castGovernanceVote(proposalId, support)
       
-      // Simulate vote transaction
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Refresh proposals after voting
-      // await loadProposals()
+      // Refresh proposals after voting if successful
+      // Note: Success handling is done in the hook with toast notifications
     } catch (error) {
       console.error('Voting failed:', error)
-    } finally {
-      setIsVoting(false)
+      // Error handling is done in the hook
     }
   }
 
@@ -118,13 +120,21 @@ export function GovernanceInterface() {
     if (!address) return
     
     try {
-      // TODO: Integrate with wagmi/viem to call governance contract
-      console.log('Creating proposal:', newProposal)
+      // Create arrays for the proposal parameters
+      const targets = newProposal.target ? [newProposal.target] : []
+      const values = newProposal.value ? [newProposal.value] : ['0']
+      const calldatas = newProposal.callData ? [newProposal.callData] : ['0x']
       
-      // Simulate proposal creation
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await createGovernanceProposal(
+        newProposal.title,
+        newProposal.description,
+        targets,
+        values,
+        calldatas
+      )
       
-      // Reset form and hide modal
+      // Reset form and hide modal on success
+      // Note: Success handling is done in the hook
       setNewProposal({
         title: '',
         description: '',
@@ -135,10 +145,9 @@ export function GovernanceInterface() {
       })
       setShowCreateProposal(false)
       
-      // Refresh proposals
-      // await loadProposals()
     } catch (error) {
       console.error('Proposal creation failed:', error)
+      // Error handling is done in the hook
     }
   }
 
@@ -439,8 +448,18 @@ export function GovernanceInterface() {
             </div>
             
             <div className="flex gap-2">
-              <Button onClick={handleCreateProposal}>
-                Create Proposal
+              <Button 
+                onClick={handleCreateProposal}
+                disabled={isCreatingProposal || !newProposal.title || !newProposal.description}
+              >
+                {isCreatingProposal ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                    Creating...
+                  </div>
+                ) : (
+                  'Create Proposal'
+                )}
               </Button>
               <Button variant="outline" onClick={() => setShowCreateProposal(false)}>
                 Cancel

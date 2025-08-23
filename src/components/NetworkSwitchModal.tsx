@@ -12,12 +12,12 @@ import {
   getAvailableNetworks,
   SupportedChainId 
 } from '../utils/networkHandler'
-import type { NetworkValidation } from '../utils/networkHandler'
+import type { NetworkValidationResult } from '../utils/networkHandler'
 
 interface NetworkSwitchModalProps {
   isOpen: boolean
   onClose: () => void
-  validation: NetworkValidation
+  validation: NetworkValidationResult
   currentChainId?: number
 }
 

@@ -2,11 +2,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { useState, useEffect } from 'react'
-import { Vote, Clock, CheckCircle, XCircle, Timer, Users, TrendingUp, AlertTriangle, Shield, Zap } from 'lucide-react'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { formatEther, parseEther } from 'viem'
+import { Vote, AlertTriangle, Shield, Zap } from 'lucide-react'
+import { useAccount, useReadContract } from 'wagmi'
+import { formatEther } from 'viem'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { NetworkIndicator } from './NetworkIndicator'
+import { useGovernanceTransactions } from '../hooks/useGovernanceTransactions'
 
 interface CoreDAOProposal {
   id: number
@@ -48,10 +49,18 @@ export function CoreDAOGovernanceInterface() {
   const { address } = useAccount()
   const { networkStatus, getCurrentContracts } = useNetworkStore()
   
+  // Use unified governance transaction system
+  const {
+    createCoreDAOGovernanceProposal,
+    createValidatorDelegationProposal,
+    isCreatingCoreDAOProposal,
+    isCreatingValidatorDelegation
+  } = useGovernanceTransactions()
+  
   const [activeTab, setActiveTab] = useState<GovernanceType>(GovernanceType.CoreDAOProposal)
   const [coreDAOProposals, setCoreDAOProposals] = useState<CoreDAOProposal[]>([])
   const [validatorDelegations, setValidatorDelegations] = useState<ValidatorDelegation[]>([])
-  const [hashPowerDelegations, setHashPowerDelegations] = useState<HashPowerDelegation[]>([])
+  const [hashPowerDelegations] = useState<HashPowerDelegation[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [currentValidator, setCurrentValidator] = useState<string>('')
   const [totalDelegated, setTotalDelegated] = useState<string>('0')
@@ -76,7 +85,7 @@ export function CoreDAOGovernanceInterface() {
 
   // Get current network contracts
   const contracts = getCurrentContracts()
-  const GOVERNANCE_PROXY_ADDRESS = contracts.governanceProxy
+  const GOVERNANCE_PROXY_ADDRESS = contracts.governance
   
   // CoreDAO Governance Proxy ABI
   const governanceProxyABI = [
@@ -206,7 +215,7 @@ export function CoreDAOGovernanceInterface() {
     query: { enabled: !!GOVERNANCE_PROXY_ADDRESS && networkStatus !== 'unknown' }
   })
 
-  const { data: validatorDelegationCount } = useReadContract({
+  useReadContract({
     address: GOVERNANCE_PROXY_ADDRESS as `0x${string}`,
     abi: governanceProxyABI,
     functionName: 'validatorDelegationCount',
@@ -234,15 +243,7 @@ export function CoreDAOGovernanceInterface() {
     query: { enabled: !!GOVERNANCE_PROXY_ADDRESS && networkStatus !== 'unknown' }
   })
 
-  // Contract writes
-  const { writeContract: writeCreateCoreDAOProposal, data: createCoreDAOHash } = useWriteContract()
-  const { writeContract: writeCreateValidatorDelegation, data: createValidatorHash } = useWriteContract()
-  const { writeContract: writeCreateHashPowerDelegation, data: createHashPowerHash } = useWriteContract()
-
-  // Wait for transactions
-  const { isLoading: isCreatingCoreDAO } = useWaitForTransactionReceipt({ hash: createCoreDAOHash })
-  const { isLoading: isCreatingValidator } = useWaitForTransactionReceipt({ hash: createValidatorHash })
-  const { isLoading: isCreatingHashPower } = useWaitForTransactionReceipt({ hash: createHashPowerHash })
+  // Old transaction hooks removed - now using unified useGovernanceTransactions hook
 
   // Load data from contracts
   useEffect(() => {
@@ -301,21 +302,18 @@ export function CoreDAOGovernanceInterface() {
     if (!newCoreDAOProposal.title || !newCoreDAOProposal.description || !newCoreDAOProposal.snapshotId) return
 
     try {
-      writeCreateCoreDAOProposal({
-        address: GOVERNANCE_PROXY_ADDRESS as `0x${string}`,
-        abi: governanceProxyABI,
-        functionName: 'createCoreDAOProposal',
-        args: [
-          newCoreDAOProposal.title,
-          newCoreDAOProposal.description,
-          newCoreDAOProposal.snapshotId
-        ]
-      })
+      await createCoreDAOGovernanceProposal(
+        newCoreDAOProposal.title,
+        newCoreDAOProposal.description,
+        newCoreDAOProposal.snapshotId
+      )
       
+      // Reset form on success - success handling is done in the hook
       setNewCoreDAOProposal({ title: '', description: '', snapshotId: '' })
       setShowCreateForm(false)
     } catch (error) {
       console.error('Failed to create CoreDAO proposal:', error)
+      // Error handling is done in the hook
     }
   }
 
@@ -323,20 +321,17 @@ export function CoreDAOGovernanceInterface() {
     if (!newValidatorDelegation.validator || !newValidatorDelegation.amount) return
 
     try {
-      writeCreateValidatorDelegation({
-        address: GOVERNANCE_PROXY_ADDRESS as `0x${string}`,
-        abi: governanceProxyABI,
-        functionName: 'createValidatorDelegation',
-        args: [
-          newValidatorDelegation.validator as `0x${string}`,
-          parseEther(newValidatorDelegation.amount)
-        ]
-      })
+      await createValidatorDelegationProposal(
+        newValidatorDelegation.validator,
+        newValidatorDelegation.amount
+      )
       
+      // Reset form on success - success handling is done in the hook
       setNewValidatorDelegation({ validator: '', amount: '' })
       setShowCreateForm(false)
     } catch (error) {
       console.error('Failed to create validator delegation:', error)
+      // Error handling is done in the hook
     }
   }
 
@@ -344,15 +339,8 @@ export function CoreDAOGovernanceInterface() {
     if (!newHashPowerDelegation.validator || !newHashPowerDelegation.hashPower) return
 
     try {
-      writeCreateHashPowerDelegation({
-        address: GOVERNANCE_PROXY_ADDRESS as `0x${string}`,
-        abi: governanceProxyABI,
-        functionName: 'createHashPowerDelegation',
-        args: [
-          newHashPowerDelegation.validator as `0x${string}`,
-          BigInt(newHashPowerDelegation.hashPower)
-        ]
-      })
+      // Note: Hash Power delegation function needs to be added to useGovernanceTransactions
+      console.log('Hash power delegation not yet implemented in unified hook')
       
       setNewHashPowerDelegation({ validator: '', hashPower: '' })
       setShowCreateForm(false)
@@ -405,7 +393,7 @@ export function CoreDAOGovernanceInterface() {
             Participate in CoreDAO network governance through BASKET token voting
           </p>
         </div>
-        <NetworkIndicator contractType="governanceProxy" showContractStatus={true} />
+        <NetworkIndicator contractType="governance" showContractStatus={true} />
       </div>
 
       {/* Emergency Pause Warning */}
@@ -548,9 +536,16 @@ export function CoreDAOGovernanceInterface() {
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleCreateCoreDAOProposal}
-                    disabled={isCreatingCoreDAO}
+                    disabled={isCreatingCoreDAOProposal || !newCoreDAOProposal.title || !newCoreDAOProposal.description || !newCoreDAOProposal.snapshotId}
                   >
-                    {isCreatingCoreDAO ? 'Creating...' : 'Create Proposal'}
+                    {isCreatingCoreDAOProposal ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                        Creating...
+                      </div>
+                    ) : (
+                      'Create Proposal'
+                    )}
                   </Button>
                   <Button variant="outline" onClick={() => setShowCreateForm(false)}>
                     Cancel
@@ -581,9 +576,16 @@ export function CoreDAOGovernanceInterface() {
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleCreateValidatorDelegation}
-                    disabled={isCreatingValidator}
+                    disabled={isCreatingValidatorDelegation || !newValidatorDelegation.validator || !newValidatorDelegation.amount}
                   >
-                    {isCreatingValidator ? 'Creating...' : 'Create Delegation'}
+                    {isCreatingValidatorDelegation ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                        Creating...
+                      </div>
+                    ) : (
+                      'Create Delegation'
+                    )}
                   </Button>
                   <Button variant="outline" onClick={() => setShowCreateForm(false)}>
                     Cancel
@@ -614,9 +616,9 @@ export function CoreDAOGovernanceInterface() {
                 <div className="flex gap-2">
                   <Button 
                     onClick={handleCreateHashPowerDelegation}
-                    disabled={isCreatingHashPower}
+                    disabled={false}
                   >
-                    {isCreatingHashPower ? 'Creating...' : 'Create Delegation'}
+                    Create Delegation
                   </Button>
                   <Button variant="outline" onClick={() => setShowCreateForm(false)}>
                     Cancel

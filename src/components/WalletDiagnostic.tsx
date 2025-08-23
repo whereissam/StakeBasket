@@ -13,7 +13,7 @@ export function WalletDiagnostic() {
     address: address,
     query: { 
       enabled: !!address,
-      cacheTime: 0,
+      gcTime: 0,
       staleTime: 0
     }
   })

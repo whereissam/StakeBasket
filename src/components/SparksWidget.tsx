@@ -6,6 +6,9 @@ import { Zap, Star, TrendingUp, Gift, Crown, Award } from 'lucide-react'
 import { useAccount, useReadContract } from 'wagmi'
 import { formatEther } from 'viem'
 import { useContracts } from '../hooks/useContracts'
+import { useSparksTransactions } from '../hooks/useSparksTransactions'
+import { useState } from 'react'
+import { Input } from './ui/input'
 
 interface SparksInfo {
   balance: string
@@ -80,6 +83,19 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
   const { address } = useAccount()
   const { contracts, network } = useContracts()
   
+  // Use unified Sparks transaction system
+  const {
+    redeemSparksPoints,
+    claimSparksRewards,
+    isRedeeming,
+    isClaiming
+  } = useSparksTransactions()
+  
+  // Local state for transaction forms
+  const [showRedeemForm, setShowRedeemForm] = useState(false)
+  const [redeemAmount, setRedeemAmount] = useState('')
+  const [redeemReason, setRedeemReason] = useState('')
+  
   // Sparks Manager ABI
   const sparksManagerABI = [
     {
@@ -129,6 +145,28 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
   const progress = nextTier && Number(sparksInfo.nextTierThreshold) > 0
     ? Math.min(100, (Number(sparksInfo.balance) / Number(sparksInfo.nextTierThreshold)) * 100)
     : 100
+  
+  // Transaction handlers
+  const handleRedeemSparks = async () => {
+    if (!redeemAmount || !redeemReason) return
+    
+    try {
+      await redeemSparksPoints(redeemAmount, redeemReason)
+      setRedeemAmount('')
+      setRedeemReason('')
+      setShowRedeemForm(false)
+    } catch (error) {
+      console.error('Redeem Sparks failed:', error)
+    }
+  }
+  
+  const handleClaimRewards = async () => {
+    try {
+      await claimSparksRewards()
+    } catch (error) {
+      console.error('Claim rewards failed:', error)
+    }
+  }
 
   if (!address) {
     return (
@@ -278,11 +316,105 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
             </div>
           </div>
 
+          {/* Sparks Actions */}
           {contracts?.SparksManager && contracts.SparksManager !== '0x0000000000000000000000000000000000000000' ? (
-            <Button onClick={() => refetch()} variant="outline" className="w-full">
-              <Zap className="h-4 w-4 mr-2" />
-              Refresh Sparks
-            </Button>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleClaimRewards} 
+                  disabled={isClaiming || Number(sparksInfo.balance) === 0}
+                  className="flex-1"
+                >
+                  {isClaiming ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                      Claiming...
+                    </div>
+                  ) : (
+                    <>
+                      <Gift className="h-4 w-4 mr-2" />
+                      Claim Rewards
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => setShowRedeemForm(!showRedeemForm)}
+                  variant="outline"
+                  disabled={Number(sparksInfo.balance) === 0}
+                  className="flex-1"
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Redeem Sparks
+                </Button>
+              </div>
+              
+              {/* Redeem Form */}
+              {showRedeemForm && (
+                <Card className="border-primary/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Redeem Sparks Points</CardTitle>
+                    <CardDescription className="text-xs">
+                      Use your Sparks to get benefits or rewards
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium">Amount</label>
+                      <Input
+                        type="number"
+                        value={redeemAmount}
+                        onChange={(e) => setRedeemAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium">Reason</label>
+                      <select
+                        value={redeemReason}
+                        onChange={(e) => setRedeemReason(e.target.value)}
+                        className="w-full p-2 text-sm border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Select reason</option>
+                        <option value="FEE_REDUCTION">Fee Reduction</option>
+                        <option value="EXCLUSIVE_ACCESS">Exclusive Access</option>
+                        <option value="PRIORITY_SUPPORT">Priority Support</option>
+                        <option value="CUSTOM_REWARD">Custom Reward</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={handleRedeemSparks}
+                        disabled={isRedeeming || !redeemAmount || !redeemReason}
+                        size="sm"
+                        className="flex-1"
+                      >
+                        {isRedeeming ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                            Redeeming...
+                          </div>
+                        ) : (
+                          'Redeem'
+                        )}
+                      </Button>
+                      <Button 
+                        onClick={() => setShowRedeemForm(false)}
+                        variant="outline" 
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <Button onClick={() => refetch()} variant="outline" className="w-full">
+                <Zap className="h-4 w-4 mr-2" />
+                Refresh Sparks
+              </Button>
+            </div>
           ) : (
             <div className="text-center p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">

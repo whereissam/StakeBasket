@@ -12,6 +12,7 @@ export enum TransactionErrorType {
   SLIPPAGE_ERROR = 'SLIPPAGE_ERROR',
   NONCE_ERROR = 'NONCE_ERROR',
   CONNECTION_ERROR = 'CONNECTION_ERROR',
+  PERMANENT_FAILURE = 'PERMANENT_FAILURE',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR'
 }
 
@@ -140,6 +141,26 @@ export function analyzeTransactionError(error: unknown): TransactionError {
     }
   }
 
+  // Permanent failures that should not be retried
+  if (
+    errorMessage.includes('transaction failed') ||
+    errorMessage.includes('call exception') ||
+    errorMessage.includes('call reverted') ||
+    errorMessage.includes('invalid opcode') ||
+    errorMessage.includes('contract not deployed') ||
+    errorMessage.includes('method does not exist') ||
+    (error as any)?.code === 'CALL_EXCEPTION'
+  ) {
+    return {
+      type: TransactionErrorType.PERMANENT_FAILURE,
+      message: errorMessage,
+      originalError: error,
+      userFriendlyMessage: 'Transaction cannot be completed due to a permanent issue.',
+      actionable: false,
+      suggestedAction: 'This transaction cannot be retried. Please check contract deployment and method availability.'
+    }
+  }
+
   // Allowance/approval errors
   if (
     errorMessage.includes('allowance') ||
@@ -256,6 +277,9 @@ export function handleTransactionError(
       case TransactionErrorType.NETWORK_ERROR:
       case TransactionErrorType.CONNECTION_ERROR:
         toast.error(`${analyzedError.userFriendlyMessage} ${analyzedError.suggestedAction || ''}`, toastOptions)
+        break
+      case TransactionErrorType.PERMANENT_FAILURE:
+        toast.error(`${context} failed permanently: ${analyzedError.userFriendlyMessage}`, toastOptions)
         break
       default:
         toast.error(`${context} failed: ${analyzedError.userFriendlyMessage}`, toastOptions)

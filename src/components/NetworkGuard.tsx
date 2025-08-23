@@ -16,7 +16,7 @@ interface NetworkGuardProps {
   showNetworkInfo?: boolean
 }
 
-export function NetworkGuard({ children, showNetworkInfo = true }: NetworkGuardProps) {
+export function NetworkGuard({ children, showNetworkInfo: _showNetworkInfo = true }: NetworkGuardProps) {
   const chainId = useChainId()
   const { isConnected } = useAccount()
   

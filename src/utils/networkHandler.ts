@@ -173,7 +173,7 @@ export async function addNetworkToWallet(chainId: SupportedChainId): Promise<boo
   }
 
   const network = getNetworkInfo(chainId)
-  if (!network?.addToWalletData) {
+  if (!network || !('addToWalletData' in network) || !network.addToWalletData) {
     return false
   }
 

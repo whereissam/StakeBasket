@@ -22,7 +22,7 @@ interface WithdrawFormProps {
 }
 
 export function WithdrawForm({
-  chainId,
+  chainId: _chainId,
   withdrawAmount,
   setWithdrawAmount,
   handleWithdraw,

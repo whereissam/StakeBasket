@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react'
 import { useWriteContract, useWaitForTransactionReceipt, useAccount, useReadContract } from 'wagmi'
-import { parseEther, formatEther } from 'viem'
+import { parseEther } from 'viem'
 import { getNetworkByChainId } from '../config/contracts'
 import { useChainId } from 'wagmi'
 import { useRealPriceData } from './useRealPriceData'
-import { calculateRedemptionAmount, canFulfillRedemption } from '../utils/redemptionCalculator'
+import { calculateRedemptionAmount } from '../utils/redemptionCalculator'
 import { toast } from 'sonner'
+import { createTransactionStateManager } from '../utils/transactionErrorHandler'
 
 // Simple StakeBasket ABI - we only need the redeem function that bypasses internal pricing
 const REDEEM_ABI = [
@@ -63,6 +64,9 @@ export function useApiBasedRedemption() {
   const [redemptionAmount, setRedemptionAmount] = useState<string>('')
   const [calculatedReturn, setCalculatedReturn] = useState<string>('')
   const [usdValue, setUsdValue] = useState<number>(0)
+  
+  // Create transaction state manager for consistent error handling
+  const transactionState = createTransactionStateManager('API Redemption')
 
   // Read contract data
   const { data: userBalance } = useReadContract({
@@ -134,24 +138,36 @@ export function useApiBasedRedemption() {
     }
   }, [totalSupply, totalPooledCore, totalPooledLstBTC, priceData, chainId])
 
-  // Execute redemption
+  // Execute redemption with enhanced error handling
   const executeRedemption = useCallback(async (shares: string) => {
     if (!address || !contracts.StakeBasket || !shares) {
-      toast.error('Missing required data for redemption')
+      transactionState.handleError(new Error('Missing required data for redemption'))
+      return
+    }
+
+    // Additional validation
+    if (!userBalance || parseFloat(shares) <= 0) {
+      transactionState.handleError(new Error('Invalid redemption amount'))
+      return
+    }
+
+    if (parseEther(shares) > BigInt(userBalance)) {
+      transactionState.handleError(new Error('Insufficient BASKET token balance'))
       return
     }
 
     try {
       const sharesWei = parseEther(shares)
 
-      // Show loading toast
-      const toastId = toast.loading('🔄 Processing redemption with real-time prices...')
+      // Show loading toast with better icon
+      transactionState.showLoadingToast('⚡ Processing redemption with real-time prices...')
 
       console.log('🚀 Executing API-based redemption:', {
         shares,
         sharesWei: sharesWei.toString(),
         contractAddress: contracts.StakeBasket,
         userAddress: address,
+        userBalance: userBalance,
         priceSource: priceData.source
       })
 
@@ -160,21 +176,18 @@ export function useApiBasedRedemption() {
         abi: REDEEM_ABI,
         functionName: 'redeem',
         args: [sharesWei],
-        gas: BigInt(300000), // Sufficient gas for redemption
+        // Remove explicit gas limit to let wallet estimate properly
       })
-
-      // Dismiss loading toast
-      toast.dismiss(toastId)
 
     } catch (error) {
       console.error('❌ Redemption execution failed:', error)
-      toast.error('Failed to execute redemption')
+      transactionState.handleError(error, () => executeRedemption(shares))
     }
-  }, [address, contracts.StakeBasket, writeContract, priceData])
+  }, [address, contracts.StakeBasket, writeContract, priceData, transactionState, userBalance])
 
   // Handle transaction success
   if (isSuccess && receipt) {
-    toast.success('🎉 Redemption successful! Tokens received.')
+    transactionState.showSuccessToast('🎉 Redemption successful! Tokens received.')
     console.log('✅ Redemption completed:', {
       hash: receipt.transactionHash,
       blockNumber: receipt.blockNumber,
@@ -182,10 +195,9 @@ export function useApiBasedRedemption() {
     })
   }
 
-  // Handle transaction error
+  // Handle transaction error with improved error handling
   if (error) {
-    toast.error('❌ Redemption transaction failed')
-    console.error('❌ Transaction error:', error)
+    transactionState.handleError(error)
   }
 
   return {

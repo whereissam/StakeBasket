@@ -15,7 +15,7 @@ export function PortfolioOverview({
   basketBalance,
   coreBalance,
   corePrice,
-  chainId
+  chainId: _chainId
 }: PortfolioOverviewProps) {
   const networkInfo = useNetworkInfo()
   

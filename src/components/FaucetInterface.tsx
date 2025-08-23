@@ -6,6 +6,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { toast } from 'sonner';
 import { parseEther } from 'viem';
+import { getNetworkByChainId } from '../config/contracts';
 
 interface TokenBalance {
   CORE: string;
@@ -34,6 +35,7 @@ interface CooldownInfo {
 const FaucetInterface: React.FC = () => {
   const { address } = useAccount();
   const chainId = useChainId();
+  const { contracts } = getNetworkByChainId(chainId);
   
   const [balances, setBalances] = useState<TokenBalance>({ CORE: '0', coreBTC: '0', BASKET: '0' });
   const [faucetStatus, setFaucetStatus] = useState<FaucetStatus | null>(null);
@@ -78,28 +80,14 @@ const FaucetInterface: React.FC = () => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 
   (import.meta.env.PROD ? 'https://api.yourdomain.com' : 'http://localhost:3001');
 
-  // Load contract addresses from deployment file (or fallback)
-  const [deploymentData, setDeploymentData] = useState(null);
-  
-  useEffect(() => {
-    // Try to load deployment data
-    fetch('/deployment-data/local-deployment.json')
-      .then(res => res.json())
-      .then(data => setDeploymentData(data))
-      .catch(() => console.log('Could not load deployment data, using fallback'));
-  }, []);
-
-  const LOCAL_CONTRACTS = deploymentData ? {
-    MockCORE: deploymentData.contracts.mockCORE,
-    MockCoreBTC: deploymentData.contracts.mockCoreBTC, 
-    StakeBasketToken: deploymentData.contracts.stakeBasketToken,
-  } : {
-    MockCORE: '0x04C89607413713Ec9775E14b954286519d836FEf',
-    MockCoreBTC: '0x4C4a2f8c81640e47606d3fd77B353E87Ba015584',
-    StakeBasketToken: '0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2',
+  // Use proper contract addresses from config
+  const LOCAL_CONTRACTS = {
+    MockCORE: contracts.MockCORE,
+    MockCoreBTC: contracts.MockCoreBTC, 
+    StakeBasketToken: contracts.StakeBasketToken,
   };
   
-  const DEPLOYER_ADDRESS = deploymentData?.deployer || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  const DEPLOYER_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 
   // Load ABIs dynamically (in a real app, these would be imported)
   const FAUCET_ABI = [
@@ -112,34 +100,6 @@ const FaucetInterface: React.FC = () => {
     },
   ] as const;
 
-  const BASKET_TOKEN_ABI = [
-    {
-      inputs: [
-        { internalType: 'address', name: 'to', type: 'address' },
-        { internalType: 'uint256', name: 'amount', type: 'uint256' }
-      ],
-      name: 'mint',
-      outputs: [],
-      stateMutability: 'nonpayable',
-      type: 'function',
-    },
-    {
-      inputs: [
-        { internalType: 'address', name: '_stakeBasketContract', type: 'address' }
-      ],
-      name: 'emergencySetStakeBasketContract',
-      outputs: [],
-      stateMutability: 'nonpayable',
-      type: 'function',
-    },
-    {
-      inputs: [],
-      name: 'stakeBasketContract',
-      outputs: [{ internalType: 'address', name: '', type: 'address' }],
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ] as const;
 
   // Check if we're on a supported network (Hardhat local or Core Testnet2)
   const isCorrectNetwork = chainId === 31337 || chainId === 1114;
@@ -236,7 +196,7 @@ const FaucetInterface: React.FC = () => {
       return;
     }
 
-    setLoadingToken(token);
+    setLoadingToken(tokenName);
     
     try {
       const response = await fetch(`${BACKEND_URL}/api/faucet/request`, {
@@ -246,7 +206,7 @@ const FaucetInterface: React.FC = () => {
         },
         body: JSON.stringify({
           address: targetAddress,
-          token,
+          token: tokenName,
         }),
       });
 
@@ -292,7 +252,7 @@ const FaucetInterface: React.FC = () => {
         return;
       }
     } catch (error) {
-      toast.error('Failed to request tokens: ' + error.message);
+      toast.error('Failed to request tokens: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setLoadingToken(null);
     }
   };
@@ -497,30 +457,30 @@ const FaucetInterface: React.FC = () => {
           </ul>
           
           {address === DEPLOYER_ADDRESS && (
-            <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
-              <p className="text-sm text-orange-800">
+            <div className="mt-4 p-3 bg-muted border border-border rounded">
+              <p className="text-sm text-muted-foreground">
                 <strong>Note:</strong> Deployer account already has 1000 testBTC (max is 100). 
                 <br />Switch to a different account to use the testBTC faucets, or transfer some tokens manually.
               </p>
             </div>
           )}
           
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-            <p className="text-sm text-blue-800 font-medium mb-2">🧺 To get BASKET tokens:</p>
-            <ol className="text-sm text-blue-700 space-y-1">
+          <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded">
+            <p className="text-sm text-primary font-medium mb-2">🧺 To get BASKET tokens:</p>
+            <ol className="text-sm text-foreground space-y-1">
               <li>1. Open terminal in the project root</li>
-              <li>2. Run: <code className="bg-blue-100 px-1 rounded">npx hardhat run mint-basket-tokens.cjs --network localhost</code></li>
+              <li>2. Run: <code className="bg-secondary px-1 rounded font-mono text-xs">npx hardhat run mint-basket-tokens.cjs --network localhost</code></li>
               <li>3. BASKET tokens will be minted to the deployer account</li>
               <li>4. You can then transfer some to other accounts for testing</li>
             </ol>
           </div>
           
           {address !== DEPLOYER_ADDRESS && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-              <p className="text-sm text-yellow-800">
+            <div className="mt-4 p-3 bg-accent/20 border border-accent/40 rounded">
+              <p className="text-sm text-foreground">
                 <strong>Note:</strong> To mint BASKET tokens, please import the deployer account:
                 <br />
-                <code className="text-xs bg-yellow-100 px-1 rounded">0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80</code>
+                <code className="text-xs bg-secondary px-1 rounded font-mono">0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80</code>
               </p>
             </div>
           )}
@@ -578,7 +538,7 @@ const FaucetInterface: React.FC = () => {
                     return;
                   }
                   writeContract({
-                    address: '0xFb9c7Fb19351316B48eaD2c96E19880Cabc1BbC1', // MockCORE contract
+                    address: contracts.MockCORE as `0x${string}`, // MockCORE contract
                     abi: [{
                       inputs: [],
                       name: 'faucet',
@@ -596,14 +556,14 @@ const FaucetInterface: React.FC = () => {
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => addTokenToMetaMask('0xFb9c7Fb19351316B48eaD2c96E19880Cabc1BbC1', 'MockCORE', 18)}
+                onClick={() => addTokenToMetaMask(contracts.MockCORE || '', 'MockCORE', 18)}
                 className="whitespace-nowrap"
               >
                 Add to MetaMask
               </Button>
             </div>
             <div className="text-xs text-muted-foreground">
-              <p>MockCORE: 0xFb9c7Fb19351316B48eaD2c96E19880Cabc1BbC1</p>
+              <p>MockCORE: {contracts.MockCORE}</p>
               <p>ERC-20 CORE tokens for dual staking contracts</p>
             </div>
           </div>
@@ -624,7 +584,7 @@ const FaucetInterface: React.FC = () => {
                     return;
                   }
                   writeContract({
-                    address: '0x213db03D2D75979360FcE41CDbeEcbc903D1BD30', // SimpleBTCFaucet contract
+                    address: contracts.MockCoreBTC as `0x${string}`, // SimpleBTCFaucet contract
                     abi: [{
                       inputs: [],
                       name: 'faucet',
@@ -642,14 +602,14 @@ const FaucetInterface: React.FC = () => {
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => addTokenToMetaMask('0x213db03D2D75979360FcE41CDbeEcbc903D1BD30', 'sBTC', 8)}
+                onClick={() => addTokenToMetaMask(contracts.MockCoreBTC || '', 'sBTC', 8)}
                 className="whitespace-nowrap"
               >
                 Add to MetaMask
               </Button>
             </div>
             <div className="text-xs text-muted-foreground">
-              <p>SimpleBTC: 0x213db03D2D75979360FcE41CDbeEcbc903D1BD30</p>
+              <p>MockCoreBTC: {contracts.MockCoreBTC}</p>
               <p>Unlimited claims, no cooldown - perfect for testing!</p>
             </div>
           </div>
@@ -671,7 +631,7 @@ const FaucetInterface: React.FC = () => {
                   }
                   // Call deposit function with 1 CORE token (using correct address)
                   writeContract({
-                    address: '0x13F8b7693445c180Ec11f211d9Af425920B795Af', // StakeBasket contract (now matches)
+                    address: contracts.StakeBasket as `0x${string}`, // StakeBasket contract
                     abi: [{
                       inputs: [{ name: 'amount', type: 'uint256' }],
                       name: 'deposit',
@@ -690,14 +650,14 @@ const FaucetInterface: React.FC = () => {
               </Button>
               <Button 
                 variant="outline"
-                onClick={() => addTokenToMetaMask('0x78B9B8e98d3df0F05cB0f7790524fB1432d430fD', 'BASKET', 18)} // Correct BASKET token address
+                onClick={() => addTokenToMetaMask(contracts.StakeBasketToken || '', 'BASKET', 18)} // Correct BASKET token address
                 className="whitespace-nowrap"
               >
                 Add to MetaMask
               </Button>
             </div>
             <div className="text-xs text-muted-foreground">
-              <p>StakeBasket: 0x13F8b7693445c180Ec11f211d9Af425920B795Af</p>
+              <p>StakeBasket: {contracts.StakeBasket}</p>
               <p>Note: You need CORE tokens first!</p>
             </div>
           </div>
@@ -812,10 +772,10 @@ const FaucetInterface: React.FC = () => {
 
       {/* Cooldown Status */}
       {cooldown.active && (
-        <Card className="p-4 border-yellow-200 bg-yellow-50">
+        <Card className="p-4 border-destructive bg-destructive/10">
           <div className="flex items-center space-x-2">
-            <Badge variant="secondary">Cooldown Active</Badge>
-            <span className="text-sm">
+            <Badge variant="destructive">Cooldown Active</Badge>
+            <span className="text-sm text-foreground">
               Try again in {cooldown.remainingMinutes} minutes
             </span>
           </div>
@@ -848,12 +808,12 @@ const FaucetInterface: React.FC = () => {
                     <div>Max: {token.maxBalance} {token.symbol}</div>
                   </div>
                   <Button
-                    onClick={() => requestTokens(token.symbol)}
-                    disabled={loadingToken === token.symbol || cooldown.active || (!address && !customAddress)}
+                    onClick={() => requestTokens(token.name, token.address)}
+                    disabled={loadingToken === token.name || cooldown.active || (!address && !customAddress)}
                     size="sm"
                     className="w-full"
                   >
-                    {loadingToken === token.symbol ? 'Requesting...' : `Get ${token.symbol}`}
+                    {loadingToken === token.name ? 'Requesting...' : `Get ${token.symbol}`}
                   </Button>
                 </div>
               </div>

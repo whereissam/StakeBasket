@@ -13,7 +13,7 @@ export function TierProgress({
   nextTierName,
   progress,
   tokensNeeded,
-  nextThreshold
+  nextThreshold: _nextThreshold
 }: TierProgressProps) {
   if (!nextTierName) return null
 

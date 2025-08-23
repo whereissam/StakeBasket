@@ -48,13 +48,13 @@ export const CONTRACT_ADDRESSES = {
     MockCoreStaking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
     MockLstBTC: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
     
-    // StakeBasket Core (from local deployment - LATEST DEPLOYMENT)
-    PriceFeed: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
-    StakingManager: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
-    StakeBasketToken: '0x851356ae760d987E095750cCeb3bC6014560891C',
-    StakeBasket: '0xf5059a5D33d5853360D16C683c16e67980206f36',
+    // StakeBasket Core (REDEPLOYED - 2025-08-23 after node restart)
+    PriceFeed: '0x1343248Cbd4e291C6979e70a138f4c774e902561',
+    StakingManager: '0x547382C0D1b23f707918D3c83A77317B71Aa8470',
+    StakeBasketToken: '0x22a9B82A6c3D2BFB68F324B2e8367f346Dd6f32a',
+    StakeBasket: '0x7C8BaafA542c57fF9B2B90612bf8aB9E86e22C09',
     BasketStaking: '0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9',
-    CoreOracle: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e', // Using PriceFeed as oracle
+    CoreOracle: '0x1343248Cbd4e291C6979e70a138f4c774e902561', // Using PriceFeed as oracle
     
     // Governance (newly deployed)
     BasketGovernance: '0xe70f935c32dA4dB13e7876795f1e175465e6458e',
@@ -65,10 +65,10 @@ export const CONTRACT_ADDRESSES = {
     CoreLiquidStakingManager: '0x0000000000000000000000000000000000000000',
     StCoreToken: '0x0000000000000000000000000000000000000000',
     
-    // Dual Staking Contracts (from local deployment)
-    MockDualStaking: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
-    DualStakingBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849',
-    SatoshiTierBasket: '0x40918Ba7f132E0aCba2CE4de4c4baF9BD2D7D849', // Using DualStakingBasket
+    // Dual Staking Contracts (FRESH DEPLOYMENT - 2025-08-23)
+    MockDualStaking: '0x871ACbEabBaf8Bed65c22ba7132beCFaBf8c27B5',
+    DualStakingBasket: '0x6A59CC73e334b018C9922793d96Df84B538E6fD5',
+    SatoshiTierBasket: '0x6A59CC73e334b018C9922793d96Df84B538E6fD5', // Using DualStakingBasket
     
     // Unbonding
     UnbondingQueue: '0x0000000000000000000000000000000000000000',
@@ -93,6 +93,7 @@ export const CONTRACT_ADDRESSES = {
     // Governance
     BasketGovernance: '0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e', // Keep existing
     BasketToken: '0xBF609d32481229F68313073738836Fe39BFc2b9f', // Updated to new StakeBasketToken
+    CoreDAOGovernanceProxy: '0x0000000000000000000000000000000000000000', // To be deployed
     
     // Liquid Staking
     CoreLiquidStakingManager: '0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E', // Keep existing
@@ -130,6 +131,7 @@ export const CONTRACT_ADDRESSES = {
     // Governance
     BasketGovernance: '',
     BasketToken: '',
+    CoreDAOGovernanceProxy: '',
     
     // Liquid Staking
     CoreLiquidStakingManager: '',

@@ -2,8 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { useState, useEffect, useMemo } from 'react'
 import { ArrowLeftRight, AlertTriangle, Award, Target } from 'lucide-react'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi'
-import { parseEther, formatEther, erc20Abi } from 'viem'
+import { useAccount, useReadContract, useBalance } from 'wagmi'
+import { formatEther, erc20Abi } from 'viem'
+import { useDualStakingTransactions } from '../hooks/useDualStakingTransactions'
 import { BalanceCard } from './shared/BalanceCard'
 import { TierDisplay } from './shared/TierDisplay'
 import { DualStakingHero } from './staking/DualStakingHero'
@@ -15,18 +16,8 @@ import { useContracts } from '../hooks/useContracts'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { toast } from 'sonner'
 import { getNetworkByChainId } from '../config/contracts'
-import { validateNetwork, getTokenSymbol, SupportedChainId } from '../utils/networkHandler'
+import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 
-// DualStaking Basket ABI - depositNativeCORE function takes native CORE + BTC
-const DUAL_STAKING_BASKET_ABI = [
-  {
-    inputs: [{ name: 'btcAmount', type: 'uint256' }],
-    name: 'depositNativeCORE',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  }
-] as const
 
 interface DualStakeInfo {
   coreStaked: string
@@ -138,6 +129,17 @@ export function DualStakingInterface() {
   // Get token symbol first (needed for all cases)
   const tokenSymbol = getTokenSymbol(currentChainId)
   
+  // Use unified dual staking transaction system
+  const {
+    depositDualStake,
+    approveBtcTokens,
+    isDualStaking,
+    isApprovingCore,
+    isApprovingBtc,
+    approveCoreSuccess,
+    approveBtcSuccess
+  } = useDualStakingTransactions()
+  
   // Validate network support
   const networkValidation = validateNetwork(currentChainId)
   
@@ -151,7 +153,7 @@ export function DualStakingInterface() {
   // CORE is native token like ETH - no token contract needed
   const isNativeCORE = true
   
-  const [stakeInfo, setStakeInfo] = useState<DualStakeInfo>({
+  const [stakeInfo] = useState<DualStakeInfo>({
     coreStaked: '0',
     btcStaked: '0',
     shares: '0',
@@ -167,7 +169,7 @@ export function DualStakingInterface() {
   const [isAwaitingBtcApproval, setIsAwaitingBtcApproval] = useState(false);
   
   // Native ETH balance (for local hardhat)
-  const { data: nativeCoreBalance, refetch: refetchNativeCoreBalance } = useBalance({
+  const { data: nativeCoreBalance } = useBalance({
     address: address,
     query: {
       enabled: !!address && isNativeCORE,
@@ -176,9 +178,8 @@ export function DualStakingInterface() {
 
   // CORE is native token - use native balance only
   const coreBalanceData = nativeCoreBalance?.value
-  const refetchCoreBalance = refetchNativeCoreBalance
   
-  const { data: btcBalanceData, refetch: refetchBtcBalance } = useReadContract({
+  const { data: btcBalanceData } = useReadContract({
     address: btcTokenAddress as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
@@ -187,11 +188,6 @@ export function DualStakingInterface() {
       enabled: !!address && !!btcTokenAddress,
     },
   })
-
-  const refetchStakeInfo = () => {
-    // Refetch stake info from contract when available
-    // Currently using mock data as basic StakeBasket has limited read functions
-  }
   
   // CORE is native token - no allowance needed (like ETH)
   // Remove unnecessary allowance check since CORE is native
@@ -206,19 +202,6 @@ export function DualStakingInterface() {
     }
   })
 
-  const parsedCoreAmount = useMemo(() => {
-    try {
-      if (!coreAmount) return 0n
-      // For local hardhat, MockCORE uses 8 decimals like BTC
-      if (currentChainId === 31337) {
-        return BigInt(Math.floor(parseFloat(coreAmount) * 10**8))
-      }
-      // For testnet, use 18 decimals
-      return parseEther(coreAmount)
-    } catch {
-      return 0n
-    }
-  }, [coreAmount, currentChainId])
 
   const parsedBtcAmount = useMemo(() => {
     try {
@@ -230,101 +213,30 @@ export function DualStakingInterface() {
     }
   }, [btcAmount])
 
-  const { writeContract: writeDualStake, data: stakeHash, isPending: isStaking } = useWriteContract()
-  const { writeContract: writeUnstake, data: unstakeHash, isPending: isUnstaking } = useWriteContract()
-  const { writeContract: writeClaimRewards, data: claimHash, isPending: isClaiming } = useWriteContract()
-  // CORE approval not needed for native token
-  const { writeContract: writeApproveBTC, data: approveBTCHash } = useWriteContract()
+  // Old transaction hooks removed - now using unified useDualStakingTransactions hook
+  
 
-  const { isSuccess: isStakeSuccess, error: stakeError } = useWaitForTransactionReceipt({
-    hash: stakeHash,
-  })
-  
-  const { isSuccess: isUnstakeSuccess, error: unstakeError } = useWaitForTransactionReceipt({
-    hash: unstakeHash,
-  })
-
-  const { isSuccess: isClaimSuccess, error: claimError } = useWaitForTransactionReceipt({
-    hash: claimHash,
-  })
-  
-  // CORE approval not needed for native token
-  
-  const { isSuccess: isApproveBTCSuccess, isLoading: isApprovingBtcTx, error: approveBTCError } = useWaitForTransactionReceipt({
-    hash: approveBTCHash,
-  })
-  
-  const needsCoreApproval = useMemo(() => {
-    // CORE is native token - never needs approval
-    return false
-  }, [])
-
-  const needsBtcApproval = useMemo(() => {
+  const needsBtcApprovalCheck = useMemo(() => {
     if (isAwaitingBtcApproval) return false;
     if (!parsedBtcAmount || parsedBtcAmount === 0n) return false
     if (btcAllowance === undefined) return true
     return (btcAllowance as bigint) < parsedBtcAmount
-  }, [btcAllowance, parsedBtcAmount, isAwaitingBtcApproval, btcAmount])
+  }, [btcAllowance, parsedBtcAmount, isAwaitingBtcApproval])
 
-  // Consolidated transaction effects
-  useEffect(() => {
-    // Handle staking transaction
-    if (isStakeSuccess && stakeHash) {
-      toast.success('Dual staking confirmed!', { description: `Hash: ${stakeHash}` })
-      refetchStakeInfo()
-      refetchCoreBalance()
-      refetchBtcBalance()
-    }
-    if (stakeError) {
-      toast.error('Dual staking failed', { description: stakeError.message })
-    }
-    
-    // Handle unstaking transaction
-    if (isUnstakeSuccess && unstakeHash) {
-      toast.success('Unstaking confirmed!', { description: `Hash: ${unstakeHash}` })
-      refetchStakeInfo()
-      refetchCoreBalance()
-      refetchBtcBalance()
-    }
-    if (unstakeError) {
-      toast.error('Unstaking failed', { description: unstakeError.message })
-    }
-    
-    // Handle rewards claiming
-    if (isClaimSuccess && claimHash) {
-      toast.success('Rewards claimed!', { description: `Hash: ${claimHash}` })
-      refetchStakeInfo()
-    }
-    if (claimError) {
-      toast.error('Claiming rewards failed', { description: claimError.message })
-    }
-  }, [
-    isStakeSuccess, stakeError, stakeHash,
-    isUnstakeSuccess, unstakeError, unstakeHash,
-    isClaimSuccess, claimError, claimHash,
-    refetchStakeInfo, refetchCoreBalance, refetchBtcBalance
-  ])
+  // Consolidated transaction effects - simplified since these variables are not defined
+  // Transaction success/error handling is managed by the useDualStakingTransactions hook
   
   // CORE approval effects not needed for native token
 
-  useEffect(() => {
-    if (approveBTCHash) {
-      setIsAwaitingBtcApproval(true);
-      toast.info('BTC approval transaction sent...', { description: `Hash: ${approveBTCHash}` });
-    }
-  }, [approveBTCHash]);
+  // BTC approval transaction handling is managed by the hook
 
   useEffect(() => {
-    if (isApproveBTCSuccess) {
-      toast.success('BTC tokens approved!', { description: `Hash: ${approveBTCHash}` })
+    if (approveBtcSuccess) {
+      toast.success('BTC tokens approved!')
       setIsAwaitingBtcApproval(false);
       refetchBtcAllowance();
     }
-    if (approveBTCError) {
-      toast.error('BTC approval failed', { description: approveBTCError.message })
-      setIsAwaitingBtcApproval(false);
-    }
-  }, [isApproveBTCSuccess, approveBTCError, approveBTCHash, refetchBtcAllowance])
+  }, [approveBtcSuccess, refetchBtcAllowance])
 
   const calculateTier = (core: string, btc: string): DualTier => {
     const coreNum = Number(core) || 0
@@ -387,20 +299,19 @@ export function DualStakingInterface() {
 
   const handleApproveCORE = () => {
     // CORE is native token - no approval needed
-    return
+    console.log('CORE is native token - no approval required')
   }
 
-  const handleApproveBTC = () => {
-    if (!address || !btcTokenAddress || !parsedBtcAmount) return
-    writeApproveBTC({
-      address: btcTokenAddress as `0x${string}`,
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [stakingContractAddress as `0x${string}`, parsedBtcAmount],
-    })
+  const handleApproveBTC = async () => {
+    if (!btcAmount) return
+    try {
+      await approveBtcTokens(btcAmount)  
+    } catch (error) {
+      console.error('BTC approval failed:', error)
+    }
   }
 
-  const handleDualStake = () => {
+  const handleDualStake = async () => {
     // Check minimum deposit requirements - allow depositing just CORE or just BTC
     const coreNum = Number(coreAmount) || 0
     const btcNum = Number(btcAmount) || 0
@@ -427,38 +338,23 @@ export function DualStakingInterface() {
       return
     }
     
-    // Check parsed amounts are not zero
-    if (parsedCoreAmount === 0n && parsedBtcAmount === 0n) {
-      toast.error('Invalid amounts - both parsed amounts are zero')
-      return
-    }
+    // CORE is native token - no approval needed for CORE
+    // Only check BTC approval if depositing BTC
     
-    // Check approvals only for tokens being deposited (not needed for native tokens)
-    if (coreNum > 0 && needsCoreApproval) {
-      toast.error(`Please approve ${tokenSymbol} tokens first`)
-      return
-    }
-    
-    if (btcNum > 0 && needsBtcApproval) {
+    if (btcNum > 0 && needsBtcApprovalCheck) {
       toast.error('Please approve BTC tokens first')
       return
     }
     
     try {
-      // Use DualStakingBasket depositNativeCORE function with native CORE + BTC
-      const stakeCall = {
-        address: stakingContractAddress as `0x${string}`,
-        abi: DUAL_STAKING_BASKET_ABI,
-        functionName: 'depositNativeCORE',
-        args: [parsedBtcAmount], // Only BTC amount as parameter
-        value: parsedCoreAmount, // Send native CORE as msg.value
-      };
-      
-      writeDualStake(stakeCall as any)
+      // Use unified dual staking transaction system
+      // Determine if using native CORE (chainId 1114 for Core testnet) or ERC20 CORE (local hardhat)
+      const useNativeCORE = currentChainId === 1114 || currentChainId === 1116
+      await depositDualStake(coreAmount, btcAmount, useNativeCORE)
       
     } catch (error) {
       console.error('❌ Dual stake setup error:', error)
-      toast.error('Transaction failed. Please try again.')
+      // Error handling is done in the hook, no need for additional toast here
     }
   }
 
@@ -601,16 +497,16 @@ export function DualStakingInterface() {
           tierInfo={TIER_INFO}
           handleAutoCalculate={handleAutoCalculate}
           calculateTier={calculateTier}
-          needsCoreApproval={needsCoreApproval}
-          needsBtcApproval={needsBtcApproval}
+          needsCoreApproval={false} // CORE is native token - never needs approval
+          needsBtcApproval={needsBtcApprovalCheck}
           handleApproveCORE={handleApproveCORE}
           handleApproveBTC={handleApproveBTC}
-          isApprovingCoreTx={false}
-          isApprovingBtcTx={isApprovingBtcTx}
-          isAwaitingCoreApproval={false}
-          isAwaitingBtcApproval={isAwaitingBtcApproval}
+          isApprovingCoreTx={isApprovingCore}
+          isApprovingBtcTx={isApprovingBtc}
+          isAwaitingCoreApproval={approveCoreSuccess}
+          isAwaitingBtcApproval={approveBtcSuccess}
           handleDualStake={handleDualStake}
-          isStaking={isStaking}
+          isStaking={isDualStaking}
         />
 
         {/* Your Basket Position (if user has shares) */}
@@ -637,18 +533,18 @@ export function DualStakingInterface() {
               <div className="space-y-2">
                 <Button 
                   onClick={handleUnstake}
-                  disabled={isUnstaking || Number(stakeInfo.shares) <= 0}
+                  disabled={Number(stakeInfo.shares) <= 0}
                   variant="outline"
                   className="w-full"
                 >
-                  {isUnstaking ? 'Withdrawing...' : 'Withdraw from Basket'}
+                  Withdraw from Basket
                 </Button>
                 <Button 
                   onClick={handleClaimRewards}
-                  disabled={isClaiming || Number(stakeInfo.rewards) <= 0}
+                  disabled={Number(stakeInfo.rewards) <= 0}
                   className="w-full"
                 >
-                  {isClaiming ? 'Claiming...' : 'Claim Rewards'}
+                  Claim Rewards
                 </Button>
               </div>
             </CardContent>

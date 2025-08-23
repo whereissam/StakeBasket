@@ -21,9 +21,13 @@ import { TransactionHistory } from '../components/dashboard/TransactionHistory'
 import { WalletConnectionPrompt } from '../components/dashboard/WalletConnectionPrompt'
 import { ApiWithdrawForm } from '../components/dashboard/ApiWithdrawForm'
 import { useWithdrawFlow } from '../hooks/useWithdrawFlow'
-import { validateNetwork, getTokenSymbol, isCoreDAONetwork, isLocalNetwork } from '../utils/networkHandler'
+import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 import { toast } from 'sonner'
 import { DashboardDebug } from '../components/debug/DashboardDebug'
+import { ContractAddressDiagnostic } from '../components/debug/ContractAddressDiagnostic'
+import { StorageReset } from '../components/debug/StorageReset'
+import { SystemDiagnostic } from '../components/debug/SystemDiagnostic'
+import { DebugWrapper } from '../components/debug/DebugWrapper'
 function Dashboard() {
   const { address, isConnected: walletConnected } = useAccount()
   const chainId = useChainId()
@@ -142,7 +146,7 @@ function Dashboard() {
     
     // Validate sufficient balance
     const depositAmountNum = parseFloat(depositAmount)
-    const gasEstimate = 0.01 // More realistic gas estimate for deposit function
+    const gasEstimate = 0.001 // Very conservative gas estimate (300k gas * 1 gwei = 0.0003 ETH)
     const totalNeeded = depositAmountNum + gasEstimate
     
     if (coreBalance < totalNeeded) {
@@ -161,6 +165,14 @@ function Dashboard() {
         address,
         walletConnected,
         networkValidation
+      })
+      
+      // Additional wallet balance debugging
+      console.log('💰 Balance Debug:', {
+        displayedBalance: coreBalance,
+        depositAmountWei: parseFloat(depositAmount) * 1e18,
+        hasEnoughForDeposit: coreBalance >= depositAmountNum,
+        hasEnoughTotal: coreBalance >= totalNeeded
       })
       
       await depositCore(depositAmount)
@@ -216,8 +228,13 @@ function Dashboard() {
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Debug Info */}
-      <DashboardDebug />
+      {/* Debug Info - Only shown in development/local */}
+      <DebugWrapper>
+        <SystemDiagnostic />
+        <StorageReset />
+        <ContractAddressDiagnostic />
+        <DashboardDebug />
+      </DebugWrapper>
       
       {/* Wallet Diagnostic */}
       {/* <WalletDiagnostic /> */}

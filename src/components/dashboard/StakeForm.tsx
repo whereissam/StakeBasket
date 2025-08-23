@@ -18,7 +18,7 @@ interface StakeFormProps {
 }
 
 export function StakeForm({
-  chainId,
+  chainId: _chainId,
   depositAmount,
   setDepositAmount,
   handleDeposit,
