@@ -24,7 +24,6 @@ import { useWithdrawFlow } from '../hooks/useWithdrawFlow'
 import { validateNetwork, getTokenSymbol, isCoreDAONetwork, isLocalNetwork } from '../utils/networkHandler'
 import { toast } from 'sonner'
 import { DashboardDebug } from '../components/debug/DashboardDebug'
-
 function Dashboard() {
   const { address, isConnected: walletConnected } = useAccount()
   const chainId = useChainId()
@@ -34,22 +33,6 @@ function Dashboard() {
   const networkValidation = validateNetwork(chainId)
   const tokenSymbol = getTokenSymbol(chainId)
   
-  // Check if network is supported and available
-  if (!networkValidation.isSupported || !networkValidation.isAvailable) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6">
-        <div className="max-w-md mx-auto bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
-          <h2 className="text-xl font-semibold text-destructive mb-2">Unsupported Network</h2>
-          <p className="text-muted-foreground mb-4">
-            {networkValidation.error || 'This network is not supported. Please switch to a supported CoreDAO network.'}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Supported networks: Hardhat Local (dev), Core Testnet2, Core Mainnet
-          </p>
-        </div>
-      </div>
-    )
-  }
   
   // Initialize environment contract overrides
   useEnvironmentContracts()
@@ -135,8 +118,23 @@ function Dashboard() {
     
     // Clear any existing toasts first
     toast.dismiss()
+
+    console.log('🔍 Environment Debug:', {
+      chainId,
+      walletConnectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
+      allEnvVars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+    })
     
-    // Check wallet connection first
+    // CRITICAL SECURITY CHECK: Verify user is on correct network
+    const currentValidation = validateNetwork(chainId)
+    if (!currentValidation.isSupported || !currentValidation.isAvailable) {
+      toast.error(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network (Hardhat Local, Core Testnet2, or Core Mainnet) before making transactions.`, {
+        duration: 8000
+      })
+      return
+    }
+    
+    // Check wallet connection
     if (!address || !walletConnected) {
       toast.error('Wallet not connected. Please connect your wallet first.')
       return
@@ -161,7 +159,8 @@ function Dashboard() {
         totalNeeded,
         chainId,
         address,
-        walletConnected
+        walletConnected,
+        networkValidation
       })
       
       await depositCore(depositAmount)
@@ -173,6 +172,16 @@ function Dashboard() {
 
   const handleWithdraw = async () => {
     if (!withdrawAmount) return
+    
+    // CRITICAL SECURITY CHECK: Verify user is on correct network
+    const currentValidation = validateNetwork(chainId)
+    if (!currentValidation.isSupported || !currentValidation.isAvailable) {
+      toast.error(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network before withdrawing.`, {
+        duration: 8000
+      })
+      return
+    }
+    
     await withdrawFlow.startWithdrawal(withdrawAmount)
   }
 
@@ -326,8 +335,8 @@ function Dashboard() {
         address={address ?? undefined}
       />
       </div>
-  )
-}
+    )
+  }
 
 export const Route = createFileRoute('/dashboard')({
   component: Dashboard,

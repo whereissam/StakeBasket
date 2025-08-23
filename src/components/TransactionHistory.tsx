@@ -1,6 +1,6 @@
 // import { useStakeBasketStore } from '../store/useStakeBasketStore' // TODO: Use for real data
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react'
+import { History, ArrowUpRight, ArrowDownLeft, CheckCircle, Clock, XCircle } from 'lucide-react'
 
 interface Transaction {
   id: string
@@ -53,10 +53,19 @@ export function TransactionHistory() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'text-green-600'
-      case 'pending': return 'text-yellow-600'
-      case 'failed': return 'text-red-600'
+      case 'completed': return 'text-primary'
+      case 'pending': return 'text-muted-foreground'
+      case 'failed': return 'text-destructive'
       default: return 'text-muted-foreground'
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-3 w-3" />
+      case 'pending': return <Clock className="h-3 w-3" />
+      case 'failed': return <XCircle className="h-3 w-3" />
+      default: return null
     }
   }
 
@@ -64,7 +73,7 @@ export function TransactionHistory() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ArrowUpDown className="h-5 w-5" />
+          <History className="h-5 w-5" />
           Transaction History
         </CardTitle>
         <CardDescription>Your recent deposits and withdrawals</CardDescription>
@@ -72,17 +81,17 @@ export function TransactionHistory() {
       <CardContent>
         <div className="space-y-4">
           {mockTransactions.map((tx) => (
-            <div key={tx.id} className="flex items-center justify-between p-3 border rounded-lg">
+            <div key={tx.id} className="flex items-center justify-between p-3 border-border rounded-lg bg-card">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-full ${
                   tx.type === 'deposit' 
-                    ? 'bg-green-100 dark:bg-green-900/30' 
-                    : 'bg-red-100 dark:bg-red-900/30'
+                    ? 'bg-primary/10' 
+                    : 'bg-muted'
                 }`}>
                   {tx.type === 'deposit' ? (
-                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <ArrowUpRight className="h-4 w-4 text-primary" />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
                 <div>
@@ -97,7 +106,8 @@ export function TransactionHistory() {
                 <div className="font-medium">
                   {tx.type === 'deposit' ? '+' : '-'}{tx.amount} {tx.type === 'deposit' ? 'CORE' : 'BASKET'}
                 </div>
-                <div className={`text-sm capitalize ${getStatusColor(tx.status)}`}>
+                <div className={`text-sm capitalize flex items-center gap-1 ${getStatusColor(tx.status)}`}>
+                  {getStatusIcon(tx.status)}
                   {tx.status}
                 </div>
               </div>

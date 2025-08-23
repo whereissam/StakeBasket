@@ -159,6 +159,7 @@ export function getNetworkByChainId(chainId: number) {
     case 1116: // Core Mainnet
       return { network: 'coreMainnet', config: NETWORKS.coreMainnet, contracts: CONTRACT_ADDRESSES.coreMainnet };
     default:
+      // Return hardhat config as fallback, but transactions will be blocked by network validation
       return { network: 'hardhat', config: NETWORKS.hardhat, contracts: CONTRACT_ADDRESSES.hardhat };
   }
 }

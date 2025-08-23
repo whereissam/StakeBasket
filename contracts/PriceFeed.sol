@@ -184,32 +184,44 @@ contract PriceFeed is Ownable {
     }
     
     /**
-     * @dev Update price from Chainlink oracle
+     * @dev Update price from Chainlink oracle with enhanced error handling
      * @param asset Asset symbol
      */
     function updatePriceFromOracle(string memory asset) external {
         address feedAddress = priceFeeds[asset];
         require(feedAddress != address(0), "PriceFeed: oracle not set");
         
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(feedAddress);
+        // Store current price as last known good before attempting update
+        if (priceData[asset].isActive && priceData[asset].price > 0) {
+            lastKnownGoodPrice[asset] = priceData[asset].price;
+        }
         
-        (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = priceFeed.latestRoundData();
+        uint256 newPrice;
+        bool updateSuccessful = false;
         
-        require(answer > 0, "PriceFeed: invalid price from oracle");
-        require(updatedAt > 0, "PriceFeed: price not updated");
-        require(
-            block.timestamp - updatedAt <= MAX_PRICE_AGE,
-            "PriceFeed: oracle data stale"
-        );
+        // Try primary oracle
+        try this._tryOracleUpdate(feedAddress) returns (uint256 price) {
+            newPrice = price;
+            updateSuccessful = true;
+        } catch Error(string memory reason) {
+            emit OracleFailure(asset, reason);
+            // Try backup oracle
+            address backupFeed = backupPriceFeeds[asset];
+            if (backupFeed != address(0)) {
+                try this._tryOracleUpdate(backupFeed) returns (uint256 backupPrice) {
+                    newPrice = backupPrice;
+                    updateSuccessful = true;
+                    emit BackupOracleUsed(asset, backupPrice);
+                } catch Error(string memory backupReason) {
+                    emit OracleFailure(asset, string(abi.encodePacked("Both oracles failed: ", reason, " | ", backupReason)));
+                }
+            }
+        }
         
-        uint8 feedDecimals = priceFeed.decimals();
-        uint256 newPrice = _normalizePrice(uint256(answer), feedDecimals);
+        // If both oracles failed, revert
+        require(updateSuccessful, "PriceFeed: all oracles failed");
+        
+        priceUpdateCount[asset]++;
         
         // Enhanced circuit breaker check
         if (circuitBreakerEnabled && priceData[asset].isActive && !emergencyMode) {
@@ -225,24 +237,72 @@ contract PriceFeed is Ownable {
                         newPrice = backupPrice;
                         emit BackupOracleUsed(asset, backupPrice);
                     } else {
-                        // Both oracles show extreme deviation - trigger circuit breaker
-                        _triggerCircuitBreaker(asset, oldPrice, newPrice, "Extreme deviation on both oracles");
+                        // Both oracles show extreme deviation - use weighted average and trigger gradual update
+                        uint256 weightedPrice = (newPrice + backupPrice) / 2;
+                        _startGradualPriceUpdate(asset, oldPrice, weightedPrice);
+                        emit CircuitBreakerTriggered(asset, oldPrice, newPrice, "Both oracles show extreme deviation - using gradual update");
                         return;
                     }
                 } else {
                     // No backup oracle - start gradual update
                     _startGradualPriceUpdate(asset, oldPrice, newPrice);
+                    emit CircuitBreakerTriggered(asset, oldPrice, newPrice, "No backup oracle - using gradual update");
                     return;
                 }
             } else if (deviation > PRICE_DEVIATION_THRESHOLD) {
-                // Moderate deviation - trigger circuit breaker
-                _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold");
-                return;
+                // Moderate deviation - try backup oracle before triggering circuit breaker
+                uint256 backupPrice = _tryBackupOracle(asset);
+                if (backupPrice > 0) {
+                    uint256 backupDeviation = _calculateDeviation(oldPrice, backupPrice);
+                    if (backupDeviation <= PRICE_DEVIATION_THRESHOLD) {
+                        newPrice = backupPrice;
+                        emit BackupOracleUsed(asset, backupPrice);
+                    } else {
+                        // Both show deviation - trigger circuit breaker
+                        _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold on both oracles");
+                        return;
+                    }
+                } else {
+                    // No backup - trigger circuit breaker
+                    _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold");
+                    return;
+                }
             }
         }
         
         _setPriceData(asset, newPrice, 18);
         emit PriceUpdated(asset, newPrice, block.timestamp);
+    }
+    
+    /**
+     * @dev Helper function to try oracle update (external for try/catch)
+     * @param feedAddress Oracle address to try
+     * @return price Normalized price from oracle
+     */
+    function _tryOracleUpdate(address feedAddress) external view returns (uint256 price) {
+        require(msg.sender == address(this), "PriceFeed: internal function");
+        
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(feedAddress);
+        
+        (
+            uint80 roundId,
+            int256 answer,
+            uint256 startedAt,
+            uint256 updatedAt,
+            uint80 answeredInRound
+        ) = priceFeed.latestRoundData();
+        
+        require(answer > 0, "Invalid price from oracle");
+        require(updatedAt > 0, "Price not updated");
+        require(
+            block.timestamp - updatedAt <= MAX_PRICE_AGE,
+            "Oracle data stale"
+        );
+        require(roundId > 0, "Invalid round");
+        require(answeredInRound >= roundId, "Stale round");
+        
+        uint8 feedDecimals = priceFeed.decimals();
+        return _normalizePrice(uint256(answer), feedDecimals);
     }
     
     /**
@@ -343,12 +403,75 @@ contract PriceFeed is Ownable {
     }
     
     /**
+     * @dev Emergency function to force reset circuit breaker and clear gradual updates
+     */
+    function emergencyResetAsset(string memory asset, string memory reason) external onlyOwner {
+        require(emergencyMode, "PriceFeed: not in emergency mode");
+        
+        // Reset circuit breaker
+        assetCircuitBreakerTriggered[asset] = false;
+        circuitBreakerTriggerTime[asset] = 0;
+        
+        // Clear gradual update
+        targetPrice[asset] = 0;
+        priceUpdateStep[asset] = 0;
+        
+        emit CircuitBreakerReset(asset);
+    }
+    
+    /**
+     * @dev Emergency function to use last known good price when oracles fail
+     */
+    function useLastKnownGoodPrice(string memory asset) external onlyOwner {
+        require(lastKnownGoodPrice[asset] > 0, "PriceFeed: no last known good price");
+        require(
+            !isPriceValid(asset) || assetCircuitBreakerTriggered[asset],
+            "PriceFeed: current price is valid"
+        );
+        
+        uint256 lastGoodPrice = lastKnownGoodPrice[asset];
+        _setPriceData(asset, lastGoodPrice, 18);
+        
+        emit PriceUpdated(asset, lastGoodPrice, block.timestamp);
+    }
+    
+    /**
+     * @dev Fallback price getter that returns last known good price if current is stale
+     */
+    function getPriceWithFallback(string memory asset) external view returns (uint256 price, bool isStale) {
+        PriceData memory data = priceData[asset];
+        
+        if (!data.isActive) {
+            revert("PriceFeed: asset not supported");
+        }
+        
+        bool priceIsStale = block.timestamp - data.lastUpdated > MAX_PRICE_AGE;
+        
+        if (!priceIsStale) {
+            return (data.price, false);
+        }
+        
+        // Price is stale - try to return last known good price
+        if (lastKnownGoodPrice[asset] > 0) {
+            return (lastKnownGoodPrice[asset], true);
+        }
+        
+        // No fallback available
+        revert("PriceFeed: no valid price available");
+    }
+    
+    /**
      * @dev Internal function to set price data
      * @param asset Asset symbol
      * @param price Price with specified decimals
      * @param decimals Price decimals
      */
     function _setPriceData(string memory asset, uint256 price, uint8 decimals) internal {
+        // Store previous price as last known good if it was valid
+        if (priceData[asset].isActive && priceData[asset].price > 0) {
+            lastKnownGoodPrice[asset] = priceData[asset].price;
+        }
+        
         priceData[asset] = PriceData({
             price: price,
             lastUpdated: block.timestamp,
@@ -364,12 +487,21 @@ contract PriceFeed is Ownable {
      * @return normalizedPrice Price with 18 decimals
      */
     function _normalizePrice(uint256 price, uint8 fromDecimals) internal pure returns (uint256 normalizedPrice) {
+        require(price > 0, "PriceFeed: price cannot be zero");
+        require(fromDecimals <= 77, "PriceFeed: decimal places too high"); // Prevent 10^x overflow
+        
         if (fromDecimals == 18) {
             return price;
         } else if (fromDecimals < 18) {
-            return price * (10 ** (18 - fromDecimals));
+            uint256 multiplier = 10 ** (18 - fromDecimals);
+            // Check for overflow before multiplication
+            require(price <= type(uint256).max / multiplier, "PriceFeed: price normalization overflow");
+            return price * multiplier;
         } else {
-            return price / (10 ** (fromDecimals - 18));
+            uint256 divisor = 10 ** (fromDecimals - 18);
+            // Ensure we don't lose too much precision
+            require(price >= divisor, "PriceFeed: price too small for normalization");
+            return price / divisor;
         }
     }
     
@@ -381,12 +513,18 @@ contract PriceFeed is Ownable {
      */
     function _calculateDeviation(uint256 oldPrice, uint256 newPrice) internal pure returns (uint256 deviation) {
         if (oldPrice == 0) {
-            // For new assets, require non-zero price and return maximum deviation to trigger checks
+            // For new assets with no previous price, return 0 to allow the first price
             require(newPrice > 0, "PriceFeed: invalid price for new asset");
-            return type(uint256).max; // Maximum deviation to trigger circuit breaker logic
+            return 0; // Allow first price without circuit breaker
         }
         
+        require(newPrice > 0, "PriceFeed: new price cannot be zero");
+        
         uint256 diff = newPrice > oldPrice ? newPrice - oldPrice : oldPrice - newPrice;
+        
+        // Prevent overflow in multiplication by checking limits
+        require(diff <= type(uint256).max / 10000, "PriceFeed: price difference too large");
+        
         return (diff * 10000) / oldPrice; // Return in basis points
     }
     
@@ -395,7 +533,7 @@ contract PriceFeed is Ownable {
      * @param asset Asset symbol
      * @return isValid Whether price data is valid
      */
-    function isPriceValid(string memory asset) external view returns (bool isValid) {
+    function isPriceValid(string memory asset) public view returns (bool isValid) {
         PriceData memory data = priceData[asset];
         return data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
     }
@@ -477,10 +615,26 @@ contract PriceFeed is Ownable {
         uint256 fromPrice,
         uint256 toPrice
     ) internal {
+        require(fromPrice > 0 && toPrice > 0, "PriceFeed: invalid prices for gradual update");
+        
         targetPrice[asset] = toPrice;
         
         uint256 priceDiff = toPrice > fromPrice ? toPrice - fromPrice : fromPrice - toPrice;
-        priceUpdateStep[asset] = priceDiff / MAX_PRICE_UPDATE_STEPS;
+        uint256 step = priceDiff / MAX_PRICE_UPDATE_STEPS;
+        
+        // Ensure minimum step size to guarantee progress
+        if (step == 0) {
+            step = priceDiff > 0 ? 1 : 0;
+        }
+        
+        // If step is still 0, price difference is negligible - just set target price
+        if (step == 0) {
+            _setPriceData(asset, toPrice, 18);
+            emit PriceUpdated(asset, toPrice, block.timestamp);
+            return;
+        }
+        
+        priceUpdateStep[asset] = step;
         
         emit GradualPriceUpdateStarted(asset, fromPrice, toPrice, MAX_PRICE_UPDATE_STEPS);
     }
@@ -491,26 +645,43 @@ contract PriceFeed is Ownable {
     function executeGradualPriceUpdate(string memory asset) external {
         require(targetPrice[asset] > 0, "PriceFeed: no gradual update in progress");
         require(priceUpdateStep[asset] > 0, "PriceFeed: invalid update step");
+        require(priceData[asset].isActive, "PriceFeed: asset not active");
         
         uint256 currentPrice = priceData[asset].price;
         uint256 target = targetPrice[asset];
         uint256 step = priceUpdateStep[asset];
         
+        require(currentPrice > 0, "PriceFeed: invalid current price");
+        
         uint256 newPrice;
+        bool updateComplete = false;
+        
         if (target > currentPrice) {
-            newPrice = currentPrice + step;
-            if (newPrice >= target) {
+            // Moving price up
+            if (currentPrice + step >= target || step >= target - currentPrice) {
                 newPrice = target;
-                targetPrice[asset] = 0; // Complete the update
-                priceUpdateStep[asset] = 0;
+                updateComplete = true;
+            } else {
+                newPrice = currentPrice + step;
+            }
+        } else if (target < currentPrice) {
+            // Moving price down
+            if (currentPrice <= step || currentPrice - step <= target) {
+                newPrice = target;
+                updateComplete = true;
+            } else {
+                newPrice = currentPrice - step;
             }
         } else {
-            newPrice = currentPrice - step;
-            if (newPrice <= target) {
-                newPrice = target;
-                targetPrice[asset] = 0; // Complete the update
-                priceUpdateStep[asset] = 0;
-            }
+            // Prices are equal - complete immediately
+            newPrice = target;
+            updateComplete = true;
+        }
+        
+        // Complete the gradual update
+        if (updateComplete) {
+            targetPrice[asset] = 0;
+            priceUpdateStep[asset] = 0;
         }
         
         _setPriceData(asset, newPrice, 18);

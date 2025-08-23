@@ -3,6 +3,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { RefreshCw } from 'lucide-react'
 import { PriceStalenessIndicator } from '../PriceStalenessIndicator'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface StakeFormProps {
   chainId: number
@@ -27,11 +28,26 @@ export function StakeForm({
   updateCorePrice,
   isPriceUpdating
 }: StakeFormProps) {
+  const networkInfo = useNetworkInfo()
+  console.log('networkInfo', networkInfo)
+  
+  // Conditional rendering instead of early return
+  if (!networkInfo.isSupported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Staking Unavailable</CardTitle>
+          <CardDescription>{networkInfo.error || 'This network is not supported'}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+  
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Stake {chainId === 31337 ? 'ETH' : 'CORE'} Tokens</CardTitle>
-        <CardDescription>Stake native {chainId === 31337 ? 'ETH (for local testing)' : 'CORE tokens'} to earn BASKET tokens and yield rewards</CardDescription>
+        <CardTitle>Stake {networkInfo.tokenSymbol} Tokens</CardTitle>
+        <CardDescription>Stake native {networkInfo.stakingDescription} to earn BASKET tokens and yield rewards</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -41,7 +57,7 @@ export function StakeForm({
               type="number"
               min="0"
               step="0.1"
-              placeholder={`Enter ${chainId === 31337 ? 'ETH' : 'CORE'} amount to stake`}
+              placeholder={`Enter ${networkInfo.tokenSymbol} amount to stake`}
               value={depositAmount}
               onChange={(e) => {
                 const value = e.target.value
@@ -56,7 +72,7 @@ export function StakeForm({
             />
             <Button 
               onClick={handleDeposit} 
-              disabled={isDepositing || !depositAmount}
+              disabled={isDepositing || !depositAmount || !networkInfo.isSupported}
               className="w-full sm:w-auto sm:whitespace-nowrap min-h-[44px]"
             >
               {isDepositing ? (
@@ -65,14 +81,14 @@ export function StakeForm({
                   Staking...
                 </>
               ) : (
-                `Stake Native ${chainId === 31337 ? 'ETH' : 'CORE'}`
+                `Stake Native ${networkInfo.tokenSymbol}`
               )}
             </Button>
           </div>
         </div>
         <div className="text-xs text-muted-foreground">
           <div className="flex justify-between items-center">
-            <span>Available: {coreBalance.toFixed(4)} native {chainId === 31337 ? 'ETH' : 'CORE'} (${(coreBalance * corePrice).toFixed(2)})</span>
+            <span>Available: {coreBalance.toFixed(4)} native {networkInfo.tokenSymbol} (${(coreBalance * corePrice).toFixed(2)})</span>
             <div className="flex gap-2">
               <button 
                 onClick={() => {
@@ -91,19 +107,19 @@ export function StakeForm({
               </button>
             </div>
           </div>
-          {coreBalance < 5.1 && coreBalance >= 1 && chainId !== 31337 && (
+          {coreBalance < 5.1 && coreBalance >= 1 && !networkInfo.isLocal && (
             <div className="text-yellow-600 mt-1">
-              ⚠️ For 5 tCORE2 deposit, you need 5.02 tCORE2 total (including gas). Try "Max Safe" button for your current balance.
+              ⚠️ For 5 {networkInfo.tokenSymbol} deposit, you need 5.02 {networkInfo.tokenSymbol} total (including gas). Try "Max Safe" button for your current balance.
             </div>
           )}
           {coreBalance < 1 && (
             <div className="text-red-600 mt-1">
-              ❌ Insufficient balance. {chainId === 31337 ? 'Get more ETH for local testing.' : 'Get more tCORE2 from faucet to make deposits.'}
+              ❌ Insufficient balance. {networkInfo.minimumDepositMessage}
             </div>
           )}
         </div>
         <div className="p-2 bg-muted border border-border rounded text-xs text-muted-foreground">
-          ℹ️ This ETF uses native {chainId === 31337 ? 'ETH tokens for local testing' : 'CORE tokens (not MockCORE ERC-20)'}. Your wallet balance shows your native tokens.
+          ℹ️ This ETF uses native {networkInfo.stakingDescription}. Your wallet balance shows your native tokens.
         </div>
         
         <PriceStalenessIndicator 

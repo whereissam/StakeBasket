@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { RefreshCw } from 'lucide-react'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface WithdrawFormProps {
   chainId: number
@@ -33,11 +34,25 @@ export function WithdrawForm({
   basketAllowance,
   contractAddresses
 }: WithdrawFormProps) {
+  const networkInfo = useNetworkInfo()
+  
+  // Conditional rendering instead of early return
+  if (!networkInfo.isSupported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Withdrawal Unavailable</CardTitle>
+          <CardDescription>{networkInfo.error || 'This network is not supported'}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+  
   return (
     <Card>
       <CardHeader>
         <CardTitle>Withdraw Assets</CardTitle>
-        <CardDescription>Redeem your BASKET tokens for {chainId === 31337 ? 'ETH' : 'CORE'} tokens immediately</CardDescription>
+        <CardDescription>Redeem your BASKET tokens for {networkInfo.tokenSymbol} tokens immediately</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -105,7 +120,7 @@ export function WithdrawForm({
         <div className="p-3 bg-accent/50 border border-border rounded-md">
           <h4 className="text-sm font-medium text-white mb-2">📋 How Withdrawal Works</h4>
           <div className="space-y-2 text-xs text-white/90">
-            <p>• BASKET tokens are redeemed immediately for {chainId === 31337 ? 'ETH' : 'CORE'} tokens</p>
+            <p>• BASKET tokens are redeemed immediately for {networkInfo.tokenSymbol} tokens</p>
             <p>• Withdrawal amount depends on current Net Asset Value (NAV)</p>
             <p>• Requires BASKET token approval before redemption</p>
           </div>
@@ -114,7 +129,7 @@ export function WithdrawForm({
         {parseFloat(withdrawAmount) > 0 && (
           <div className="p-3 bg-secondary/50 rounded-md">
             <p className="text-sm text-secondary-foreground">
-              You will receive approximately {(parseFloat(withdrawAmount) / 1.085).toFixed(4)} {chainId === 31337 ? 'ETH' : 'CORE'}
+              You will receive approximately {(parseFloat(withdrawAmount) / 1.085).toFixed(4)} {networkInfo.tokenSymbol}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Actual amount depends on current NAV per share

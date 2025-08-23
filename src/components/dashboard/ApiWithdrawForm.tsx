@@ -5,12 +5,14 @@ import { RefreshCw } from 'lucide-react'
 import { useApiBasedRedemption } from '../../hooks/useApiBasedRedemption'
 import { useEffect, useState } from 'react'
 import { formatEther } from 'viem'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface ApiWithdrawFormProps {
   chainId: number
 }
 
 export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
+  const networkInfo = useNetworkInfo()
   const [inputAmount, setInputAmount] = useState('')
   
   const {
@@ -35,6 +37,14 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
 
   const handleRedeem = async () => {
     if (!inputAmount || !canRedeem(inputAmount)) return
+    
+    // CRITICAL SECURITY CHECK: Verify user is on correct network
+    if (!networkInfo.isSupported) {
+      console.error('❌ Network not supported for redemption:', chainId)
+      alert(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network before making transactions.`)
+      return
+    }
+    
     await executeRedemption(inputAmount)
   }
 
@@ -50,7 +60,20 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
     parseFloat(inputAmount) > 0 && 
     parseFloat(inputAmount) <= parseFloat(userBalanceFormatted) &&
     !isPending && 
-    !isConfirming
+    !isConfirming &&
+    networkInfo.isSupported
+
+  // Conditional rendering instead of early return
+  if (!networkInfo.isSupported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>API Withdrawal Unavailable</CardTitle>
+          <CardDescription>{networkInfo.error || 'This network is not supported'}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -66,7 +89,7 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
           <h4 className="text-sm font-medium text-blue-800 mb-2">💰 Real-Time Prices</h4>
           <div className="text-xs text-blue-700 space-y-1">
-            <p>• {chainId === 31337 ? 'ETH' : 'CORE'}: ${priceData.corePrice.toFixed(4)}</p>
+            <p>• {networkInfo.tokenSymbol}: ${priceData.corePrice.toFixed(4)}</p>
             <p>• BTC: ${priceData.btcPrice.toLocaleString()}</p>
             <p>• Source: {priceData.source} • Updated: {priceData.lastUpdate ? new Date(priceData.lastUpdate).toLocaleTimeString() : 'Loading...'}</p>
             {priceData.error && <p>• ⚠️ {priceData.error}</p>}
@@ -126,7 +149,7 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
           <div className="p-3 bg-green-50 border border-green-200 rounded-md">
             <h4 className="text-sm font-medium text-green-800 mb-2">📊 Redemption Preview</h4>
             <div className="text-xs text-green-700 space-y-1">
-              <p>• You will receive: <strong>{parseFloat(calculatedReturn).toFixed(6)} {chainId === 31337 ? 'ETH' : 'CORE'}</strong></p>
+              <p>• You will receive: <strong>{parseFloat(calculatedReturn).toFixed(6)} {networkInfo.tokenSymbol}</strong></p>
               <p>• USD value: <strong>${usdValue.toFixed(2)}</strong></p>
               <p>• Rate: ${(usdValue / parseFloat(inputAmount)).toFixed(4)} per BASKET token</p>
             </div>

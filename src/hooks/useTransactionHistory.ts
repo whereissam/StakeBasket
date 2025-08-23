@@ -86,6 +86,12 @@ export function useTransactionHistory() {
                   const isToBasketToken = tx.to?.toLowerCase() === contracts.StakeBasketToken.toLowerCase()
                   
                   if (isFromUser && (isToStakeBasket || isToBasketToken) && tx.hash) {
+                    console.log('🔍 Processing transaction:', {
+                      hash: tx.hash,
+                      input: tx.input,
+                      methodName: getMethodName(tx.input || '0x'),
+                      type: getTransactionType(tx.input || '0x')
+                    })
                     localTxs.push({
                       hash: tx.hash,
                       method: getMethodName(tx.input || '0x'),
@@ -194,7 +200,7 @@ export function useTransactionHistory() {
 }
 
 function getMethodName(input: string): string {
-  if (!input || input === '0x' || input === 'null' || input === null) return 'Transfer'
+  if (!input || input === '0x' || input === 'null' || input === null) return 'Deposit'
   
   const methodId = input.slice(0, 10)
   
@@ -211,7 +217,7 @@ function getMethodName(input: string): string {
     '0x23b872dd': 'Transfer From',    // transferFrom(address,address,uint256)
   }
   
-  return methods[methodId] || `Unknown (${methodId})`
+  return methods[methodId] || 'Deposit'
 }
 
 function getTransactionType(input: string): 'deposit' | 'redeem' | 'other' {

@@ -3,6 +3,7 @@ import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Target, Info } from 'lucide-react'
 import { DualTier, TierInfo } from '../../types/staking'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface DualStakingFormProps {
   coreAmount: string
@@ -51,8 +52,21 @@ export function DualStakingForm({
   handleDualStake,
   isStaking
 }: DualStakingFormProps) {
+  const networkInfo = useNetworkInfo()
   const proposedTier = calculateTier(coreAmount, btcAmount)
   const proposedTierInfo = tierInfo[proposedTier]
+  
+  // Conditional rendering instead of early return
+  if (!networkInfo.isSupported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Dual Staking Unavailable</CardTitle>
+          <CardDescription>{networkInfo.error || 'This network is not supported'}</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
 
   return (
     <Card className="border-2 border-primary/20 shadow-lg">
@@ -70,7 +84,7 @@ export function DualStakingForm({
           <div className="text-center">
             <h3 className="font-semibold text-foreground mb-2">Choose Your Strategy</h3>
             <p className="text-sm text-muted-foreground">
-              Select a target yield to get optimal {chainId === 31337 ? 'ETH' : 'CORE'} and BTC amounts
+              Select a target yield to get optimal {networkInfo.tokenSymbol} and BTC amounts
             </p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -114,7 +128,7 @@ export function DualStakingForm({
             <div className="space-y-3">
               <label className="block">
                 <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  {chainId === 31337 ? 'ETH' : 'CORE'} Tokens
+                  {networkInfo.tokenSymbol} Tokens
                   {!isNativeCORE && (
                     <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
                       ERC-20 Token
@@ -130,7 +144,7 @@ export function DualStakingForm({
                     className="text-right font-mono text-lg pl-12"
                   />
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-chart-1 font-semibold text-sm">
-                    {chainId === 31337 ? 'ETH' : 'CORE'}
+                    {networkInfo.tokenSymbol}
                   </div>
                 </div>
               </label>
@@ -182,7 +196,7 @@ export function DualStakingForm({
           <div className="text-xs text-amber-700 space-y-2">
             <div>
               <p className="font-medium">Base Requirements:</p>
-              <p>• Minimum {chainId === 31337 ? '0.1 ETH' : '0.1 CORE'} + 0.0001 BTC for any tier</p>
+              <p>• Minimum 0.1 {networkInfo.tokenSymbol} + 0.0001 BTC for any tier</p>
             </div>
             <div>
               <p className="font-medium">Tier-Specific Requirements (Ratio + Total Value + BTC Minimum):</p>
@@ -273,7 +287,7 @@ export function DualStakingForm({
                     className="w-full"
                     variant="outline"
                   >
-                    {isApprovingCoreTx ? `Approving ${chainId === 31337 ? 'ETH' : 'CORE'}...` : `✓ Approve ${chainId === 31337 ? 'ETH' : 'CORE'} Tokens`}
+                    {isApprovingCoreTx ? `Approving ${networkInfo.tokenSymbol}...` : `✓ Approve ${networkInfo.tokenSymbol} Tokens`}
                   </Button>
                 )}
                 {needsBtcApproval && (

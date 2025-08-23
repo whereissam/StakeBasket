@@ -39,9 +39,9 @@ export function NetworkSwitchModal({
                 <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
-                <DialogTitle className="text-lg">Wrong Network</DialogTitle>
+                <DialogTitle className="text-lg">Network Not Supported</DialogTitle>
                 <DialogDescription className="text-sm">
-                  Switch to a supported CoreDAO network
+                  This app only works on CoreDAO blockchain networks
                 </DialogDescription>
               </div>
             </div>
@@ -59,14 +59,24 @@ export function NetworkSwitchModal({
         <div className="space-y-4">
           {/* Current Network */}
           {currentChainId && (
-            <div className="p-3 bg-muted rounded-lg">
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                 <WifiOff className="w-4 h-4" />
-                Current Network
+                Current Network (Unsupported)
               </div>
-              <div className="font-medium text-sm">
-                {validation.network?.name || `Unknown (Chain ID: ${currentChainId})`}
+              <div className="font-medium text-sm text-destructive">
+                {validation.network?.name || `Unsupported Network (Chain ID: ${currentChainId})`}
               </div>
+              {currentChainId === 1 && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  ⚠️ You're on Ethereum Mainnet. Please switch to CoreDAO.
+                </div>
+              )}
+              {currentChainId === 5 && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  ⚠️ You're on Ethereum Goerli. Please switch to CoreDAO.
+                </div>
+              )}
             </div>
           )}
 
@@ -74,7 +84,7 @@ export function NetworkSwitchModal({
           <div>
             <div className="flex items-center gap-2 text-sm font-medium mb-3">
               <Wifi className="w-4 h-4" />
-              Switch to Supported Network
+              Choose a CoreDAO Network
             </div>
             <div className="grid gap-2">
               {availableNetworks.map((network) => (
@@ -91,8 +101,14 @@ export function NetworkSwitchModal({
                   <div className="text-left">
                     <div className="font-medium text-sm">{network.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Chain ID: {network.chainId}
+                      Chain ID: {network.chainId} • {network.symbol}
                     </div>
+                    {network.chainId === 1114 && (
+                      <div className="text-xs text-primary font-medium">Recommended for testing</div>
+                    )}
+                    {network.chainId === 1116 && (
+                      <div className="text-xs text-green-600 font-medium">Production network</div>
+                    )}
                   </div>
                 </Button>
               ))}
@@ -107,7 +123,7 @@ export function NetworkSwitchModal({
               onClick={onClose}
               className="w-full text-muted-foreground"
             >
-              Continue Browsing (Contract interactions disabled)
+              Continue Browsing (Staking & contracts disabled)
             </Button>
           </div>
         </div>

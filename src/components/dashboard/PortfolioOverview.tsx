@@ -1,5 +1,6 @@
 import { TrendingUp, Wallet, DollarSign } from 'lucide-react'
 import { BalanceCard } from '../shared/BalanceCard'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface PortfolioOverviewProps {
   portfolioValueUSD: number
@@ -16,6 +17,8 @@ export function PortfolioOverview({
   corePrice,
   chainId
 }: PortfolioOverviewProps) {
+  const networkInfo = useNetworkInfo()
+  
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
       <BalanceCard
@@ -26,7 +29,7 @@ export function PortfolioOverview({
       />
 
       <BalanceCard
-        title={`${chainId === 31337 ? 'ETH' : 'CORE'} Balance`}
+        title={`${networkInfo.isSupported ? networkInfo.tokenSymbol : 'TOKEN'} Balance`}
         value={coreBalance.toFixed(2)}
         subtitle={`≈ $${(coreBalance * corePrice).toFixed(2)} USD`}
         icon={<Wallet className="h-4 w-4 text-muted-foreground" />}

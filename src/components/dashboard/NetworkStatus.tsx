@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { RefreshCw, DollarSign, Database } from 'lucide-react'
 import { BalanceCard } from '../shared/BalanceCard'
+import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface NetworkStatusProps {
   config: { name: string }
@@ -28,6 +29,8 @@ export function NetworkStatus({
   updateCorePrice,
   isPriceUpdating
 }: NetworkStatusProps) {
+  const networkInfo = useNetworkInfo()
+  
   return (
     <Card>
       <CardHeader>
@@ -42,7 +45,7 @@ export function NetworkStatus({
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <BalanceCard
-              title={`${chainId === 31337 ? 'ETH' : 'CORE'} Price`}
+              title={`${networkInfo.isSupported ? networkInfo.tokenSymbol : 'TOKEN'} Price`}
               value={priceLoading ? 'Loading...' : `$${corePrice.toFixed(4)}`}
               subtitle="Current market price"
               icon={priceLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
@@ -55,7 +58,7 @@ export function NetworkStatus({
             />
             <BalanceCard
               title="Total Pooled"
-              value={`${totalPooledCore.toFixed(2)} ${chainId === 31337 ? 'ETH' : 'CORE'}`}
+              value={`${totalPooledCore.toFixed(2)} ${networkInfo.isSupported ? networkInfo.tokenSymbol : 'TOKEN'}`}
               subtitle="In staking pool"
               icon={<Database className="w-4 h-4" />}
             />

@@ -163,22 +163,22 @@ export function useContractData(userAddress?: string) {
     ? (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0) // For local, only use wagmi balance
     : (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : coreApiBalance) // For live networks, prefer wagmi with API backup
     
-  console.log('Balance debug:', {
-    nativeCoreBalance: nativeCoreBalance?.value?.toString(),
-    nativeCoreBalanceFormatted: nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0,
-    coreApiBalance,
-    finalCoreBalance,
-    chainId,
-    isLocal: chainId === 31337
-  })
+  // console.log('Balance debug:', {
+  //   nativeCoreBalance: nativeCoreBalance?.value?.toString(),
+  //   nativeCoreBalanceFormatted: nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0,
+  //   coreApiBalance,
+  //   finalCoreBalance,
+  //   chainId,
+  //   isLocal: chainId === 31337
+  // })
 
-  console.log('Price debug:', {
-    chainId,
-    realPriceDataCorePrice: realPriceData.corePrice,
-    realPriceDataSource: realPriceData.source,
-    oracleCorePrice: oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0,
-    finalCorePrice: realPriceData.corePrice || (oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0)
-  })
+  // console.log('Price debug:', {
+  //   chainId,
+  //   realPriceDataCorePrice: realPriceData.corePrice,
+  //   realPriceDataSource: realPriceData.source,
+  //   oracleCorePrice: oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0,
+  //   finalCorePrice: realPriceData.corePrice || (oracleCorePrice ? Number(oracleCorePrice) / 1e8 : 0)
+  // })
 
   return {
     // User balances - local network uses only wagmi, live networks prefer wagmi with API backup

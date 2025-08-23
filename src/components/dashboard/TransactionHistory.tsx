@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { MobileTransactionCard } from '../ui/mobile-transaction-card'
-import { RefreshCw, ExternalLink } from 'lucide-react'
+import { RefreshCw, ExternalLink, Clock, CheckCircle, Coins, RotateCcw, AlertTriangle, BarChart3 } from 'lucide-react'
 
 interface TransactionHistoryProps {
   txLoading: boolean
@@ -32,7 +32,7 @@ export function TransactionHistory({
         <div className="p-3 bg-accent/50 border border-border rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-lg">🕐</span>
+              <Clock className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium text-sm">Deposit Pending</p>
                 <p className="text-xs text-muted-foreground">Transaction submitted</p>
@@ -59,7 +59,7 @@ export function TransactionHistory({
         <div className="p-3 bg-accent/50 border border-border rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-lg">🕐</span>
+              <Clock className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="font-medium text-sm">Withdrawal Pending</p>
                 <p className="text-xs text-muted-foreground">Processing transaction</p>
@@ -89,7 +89,7 @@ export function TransactionHistory({
     <div className="p-3 bg-muted border border-border rounded-lg">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <span className="text-lg">📊</span>
+          <BarChart3 className="h-5 w-5 text-muted-foreground" />
           <div>
             <p className="font-medium text-sm">{text}</p>
             <p className="text-xs text-muted-foreground">{subtext}</p>
@@ -128,8 +128,9 @@ export function TransactionHistory({
             <span className="text-sm text-muted-foreground">Loading transactions...</span>
           </div>
         ) : txError ? (
-          <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-            ⚠️ {txError}
+          <div className="p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {txError}
           </div>
         ) : transactions.length > 0 ? (
           <div className="space-y-3">
@@ -151,10 +152,18 @@ export function TransactionHistory({
               {transactions.map((tx) => (
                 <div key={tx.hash} className="p-3 bg-accent/10 border border-accent/20 rounded text-xs">
                   <div className="flex items-center justify-between mb-1">
-                    <div className="text-foreground">
-                      {tx.type === 'deposit' ? '✅' : tx.type === 'redeem' ? '💰' : '🔄'} 
-                      <strong> {tx.method}</strong> - {new Date(tx.timestamp).toLocaleDateString()}
-                      {tx.status === 'failed' && ' (Failed)'}
+                    <div className="text-foreground flex items-center gap-2">
+                      {tx.type === 'deposit' ? (
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      ) : tx.type === 'redeem' ? (
+                        <Coins className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span>
+                        <strong>{tx.method}</strong> - {new Date(tx.timestamp).toLocaleDateString()}
+                        {tx.status === 'failed' && ' (Failed)'}
+                      </span>
                     </div>
                     <a 
                       href={`${config.explorer}/tx/${tx.hash}`}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useContractStore } from '../store/useContractStore'
+import { useChainId } from 'wagmi'
+import { getNetworkByChainId } from '../config/contracts'
 
 interface ContractHealthStatus {
   isHealthy: boolean
@@ -16,6 +18,8 @@ interface ContractHealthReport {
 
 export function useContractHealth() {
   const { getAllAddresses } = useContractStore()
+  const chainId = useChainId()
+  const { config } = getNetworkByChainId(chainId)
   const [healthReport, setHealthReport] = useState<ContractHealthReport>({})
   const [isChecking, setIsChecking] = useState(false)
   const [lastFullCheck, setLastFullCheck] = useState<Date | null>(null)
@@ -45,7 +49,7 @@ export function useContractHealth() {
       }
 
       // Try to fetch bytecode to see if contract exists
-      const response = await fetch(`https://rpc.test2.btcs.network`, {
+      const response = await fetch(config.rpcUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +87,7 @@ export function useContractHealth() {
       // Try a basic call - this might fail for some contracts but that's ok
       let isResponding = true
       try {
-        const callResponse = await fetch(`https://rpc.test2.btcs.network`, {
+        const callResponse = await fetch(config.rpcUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -130,7 +134,22 @@ export function useContractHealth() {
     setIsChecking(true)
     const newHealthReport: ContractHealthReport = {}
 
-    const healthPromises = Object.entries(addresses).map(async ([contractName, address]) => {
+    // Filter out placeholder addresses and focus on core contracts
+    const coreContracts = Object.entries(addresses).filter(([contractName, address]) => {
+      // Skip placeholder addresses
+      if (!address || address === '0x0000000000000000000000000000000000000000') {
+        return false
+      }
+      // For local development, only check essential contracts
+      if (chainId === 31337) {
+        const essentialContracts = ['StakeBasket', 'StakeBasketToken', 'PriceFeed', 'StakingManager']
+        return essentialContracts.includes(contractName)
+      }
+      // For other networks, check all non-placeholder contracts
+      return true
+    })
+
+    const healthPromises = coreContracts.map(async ([contractName, address]) => {
       const health = await checkContractHealth(contractName, address)
       newHealthReport[contractName] = health
     })
@@ -149,9 +168,10 @@ export function useContractHealth() {
 
   // Get summary statistics
   const getHealthSummary = () => {
-    const contracts = Object.keys(addresses)
+    // Count only the contracts that were actually checked
+    const checkedContracts = Object.keys(healthReport)
     const healthyCount = Object.values(healthReport).filter(h => h.isHealthy).length
-    const totalCount = contracts.length
+    const totalCount = checkedContracts.length
     const respondingCount = Object.values(healthReport).filter(h => h.isResponding).length
     
     return {
