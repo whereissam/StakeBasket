@@ -98,7 +98,6 @@ temp/
 # Web3 and Blockchain specific
 # Hardhat files
 cache/
-artifacts/
 typechain/
 typechain-types/
 
