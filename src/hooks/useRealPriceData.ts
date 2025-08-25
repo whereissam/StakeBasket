@@ -90,31 +90,8 @@ export function useRealPriceData(): PriceData {
           return
         }
 
-        // For live networks, try to fetch from your backend first (real Core API data)
-        try {
-          const response = await fetch(`${BACKEND_URL}/api/oracle/price`, {
-            signal: AbortSignal.timeout(5000)
-          })
-          
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && mounted) {
-              // Calculate BTC price from CORE/BTC ratio
-              const btcPrice = coreApiClient.calculateBtcPrice(data.data.coreusd, data.data.corebtc)
-              
-              setPriceData({
-                corePrice: data.data.coreusd,
-                btcPrice: btcPrice,
-                lastUpdate: data.data.lastUpdate.usd,
-                isLoading: false,
-                source: 'backend'
-              })
-              return
-            }
-          }
-        } catch (backendError) {
-          console.log('Backend not available, trying Core API directly')
-        }
+        // Skip backend calls - disabled for now
+        console.log('Backend calls disabled, using Core API directly')
         
         // Fallback: Fetch directly from Core API (universal endpoint based on chainId)
         const coreApiData = await coreApiClient.getCorePrice()

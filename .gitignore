@@ -98,6 +98,7 @@ temp/
 # Web3 and Blockchain specific
 # Hardhat files
 cache/
+artifacts/
 typechain/
 typechain-types/
 
@@ -162,6 +163,7 @@ scripts/deploy-mainnet*.cjs
 .vscode/launch.json
 
 scripts/
-test/
+tests/
 tools/
 docs/
+deployment-data/

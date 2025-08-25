@@ -79,7 +79,10 @@
       "Bash(# Clean up additional scattered files\nrm -f *.md.bak* 2>/dev/null || echo \"No backup files to clean\"\n\n# Check what test files remain in the test/ directory and organize them\nls -la test/ | head -10)",
       "Bash(# Move formal test files from /test directory to organized structure\nmkdir -p tests/organized/integration/hardhat-tests\nmv test/*.test.cjs tests/organized/integration/hardhat-tests/ 2>/dev/null || echo \"No .test.cjs files\"\n\n# Move remaining test files to deprecated\nmv test/*.cjs tests/organized/deprecated/ 2>/dev/null || echo \"No .cjs files to move\"\n\n# Clean up any remaining test artifacts in root\nrm -rf temp/ 2>/dev/null || echo \"No temp directory\"\n\n# Show the final organized structure\necho \"📁 Final Organized Test Structure:\"\ntree tests/organized/ -I node_modules 2>/dev/null || find tests/organized/ -type f -name \"*.cjs\" | sort)",
       "Bash(# Test the organized structure works\necho \"🧪 Testing Organized Test Structure...\"\necho \"=======================================\"\n\n# Test the main verification script\necho \"✅ Running verification test:\"\nnpm run test:verify\n\necho \"\"\necho \"📁 Clean Project Structure:\"\necho \"- tests/organized/core/ - Essential verification (1 file)\"\necho \"- tests/organized/integration/ - Integration tests (15 files)\"  \necho \"- tests/organized/utilities/ - Helper scripts (5 files)\"\necho \"- tests/organized/deprecated/ - Legacy files (32 files)\"\necho \"\"\necho \"🎯 Use these npm commands:\"\necho \"- npm run test:verify      - Verify deployment\"\necho \"- npm run test:demo        - Run ETF demo\"\necho \"- npm run test:integration - Full test suite\"\necho \"- npm run test:interactive - Interactive testing\")",
-      "Bash(jq:*)"
+      "Bash(jq:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }

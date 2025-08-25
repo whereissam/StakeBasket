@@ -77,8 +77,6 @@ const FaucetInterface: React.FC = () => {
     }
   };
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 
-  (import.meta.env.PROD ? 'https://api.yourdomain.com' : 'http://localhost:3001');
 
   // Use proper contract addresses from config
   const LOCAL_CONTRACTS = {
@@ -133,47 +131,24 @@ const FaucetInterface: React.FC = () => {
   }, [address, isCorrectNetwork, isTestnet, isLocalNetwork]);
 
   const fetchFaucetStatus = async () => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/faucet/status`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setFaucetStatus(data.data);
-      } else {
-        // Set a default status if backend fails
-        setFaucetStatus({
-          tokens: [],
-          cooldownMinutes: 5,
-          network: 'Local Network (31337)'
-        });
-      }
-    } catch (error) {
-      console.error('Failed to fetch faucet status:', error);
-      // Set a default status for local development when backend is not running
-      setFaucetStatus({
-        tokens: [
-          { name: 'CORE Token', symbol: 'CORE', address: '', faucetAmount: '100', maxBalance: '1000', type: 'erc20' },
-          { name: 'coreBTC Token', symbol: 'coreBTC', address: '', faucetAmount: '1', maxBalance: '10', type: 'erc20' },
-          { name: 'BASKET Token', symbol: 'BASKET', address: '', faucetAmount: '50', maxBalance: '500', type: 'erc20' }
-        ],
-        cooldownMinutes: 5,
-        network: 'Local Network (31337)'
-      });
-    }
+    // Backend calls disabled - using fallback status directly
+    console.log('Backend calls disabled, using fallback faucet status');
+    setFaucetStatus({
+      tokens: [
+        { name: 'CORE Token', symbol: 'CORE', address: '', faucetAmount: '100', maxBalance: '1000', type: 'erc20' },
+        { name: 'coreBTC Token', symbol: 'coreBTC', address: '', faucetAmount: '1', maxBalance: '10', type: 'erc20' },
+        { name: 'BASKET Token', symbol: 'BASKET', address: '', faucetAmount: '50', maxBalance: '500', type: 'erc20' }
+      ],
+      cooldownMinutes: 5,
+      network: 'Local Network (31337)'
+    });
   };
 
   const fetchBalances = async (targetAddress: string) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/faucet/balances/${targetAddress}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setBalances(data.data.balances);
-        setCooldown(data.data.cooldown);
-      }
-    } catch (error) {
-      console.error('Failed to fetch balances:', error);
-    }
+    // Backend calls disabled - skip balance fetching
+    console.log('Backend calls disabled, skipping balance fetch for:', targetAddress);
+    setBalances({ CORE: '0', coreBTC: '0', BASKET: '0' });
+    setCooldown({ active: false, remainingMinutes: 0 });
   };
 
   const requestTokens = async (tokenName: string, tokenAddress: string) => {
@@ -183,48 +158,11 @@ const FaucetInterface: React.FC = () => {
       return;
     }
 
-    // Backend flow for non-local networks
-    const targetAddress = customAddress || address;
-    
-    if (!targetAddress) {
-      toast.error('Please connect wallet or enter an address');
-      return;
-    }
-
-    if (!isCorrectNetwork && !customAddress) {
-      toast.error('Please switch to Hardhat Local (31337) or Core Testnet2 (1114)');
-      return;
-    }
-
-    setLoadingToken(tokenName);
-    
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/faucet/request`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: targetAddress,
-          token: tokenName,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success(`Successfully sent ${data.data.amount} to ${data.data.recipient}`);
-        // Refresh balances
-        await fetchBalances(targetAddress);
-      } else {
-        toast.error(data.error || 'Failed to request tokens');
-      }
-    } catch (error) {
-      toast.error('Network error: Failed to request tokens');
-      console.error('Request error:', error);
-    } finally {
-      setLoadingToken(null);
-    }
+    // Backend calls disabled - skip backend flow for non-local networks
+    console.log('Backend calls disabled, cannot request tokens for non-local networks');
+    toast.error('Backend is disabled. Faucet only works on local network (31337) with direct contract calls.');
+    setLoadingToken(null);
+    return;
   };
 
 
@@ -278,58 +216,11 @@ const FaucetInterface: React.FC = () => {
       return;
     }
 
-    // Backend flow for non-local networks
-    const targetAddress = customAddress || address;
-    
-    if (!targetAddress) {
-      toast.error('Please connect wallet or enter an address');
-      return;
-    }
-
-    if (!isCorrectNetwork && !customAddress) {
-      toast.error('Please switch to Hardhat Local (31337) or Core Testnet2 (1114)');
-      return;
-    }
-
-    setLoading(true);
-    
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/faucet/request-all`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: targetAddress,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const { successful, failed } = data.data;
-        
-        if (successful.length > 0) {
-          toast.success(`Successfully received ${successful.length} token types`);
-        }
-        
-        if (failed.length > 0) {
-          failed.forEach((failure: any) => {
-            toast.warning(`${failure.token}: ${failure.error}`);
-          });
-        }
-        
-        // Refresh balances
-        await fetchBalances(targetAddress);
-      } else {
-        toast.error(data.error || 'Failed to request tokens');
-      }
-    } catch (error) {
-      toast.error('Network error: Failed to request tokens');
-      console.error('Request error:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Backend calls disabled - skip backend flow for non-local networks
+    console.log('Backend calls disabled, cannot request all tokens for non-local networks');
+    toast.error('Backend is disabled. Faucet only works on local network (31337) with direct contract calls.');
+    setLoading(false);
+    return;
   };
 
   const formatBalance = (balance: string, decimals: number = 18): string => {
