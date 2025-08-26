@@ -1188,7 +1188,7 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
             recommendedCoreAmount = (halfUSD * 1e18) / corePrice;
             recommendedBtcAmount = (halfUSD * 1e18) / btcPrice;
             
-            achievableTier = StakingTier.BASE;
+            achievableTier = StakingTier.BRONZE;
             rationale = "Equal allocation for base tier staking";
         }
     }

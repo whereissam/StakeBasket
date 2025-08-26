@@ -20,6 +20,20 @@ interface AggregatorV3Interface {
             );
 }
 
+// Pyth Network interface for Core blockchain
+interface IPyth {
+    struct Price {
+        int64 price;
+        uint64 conf;
+        int32 expo;
+        uint256 publishTime;
+    }
+    
+    function getPrice(bytes32 id) external view returns (Price memory price);
+    function getPriceUnsafe(bytes32 id) external view returns (Price memory price);
+    function updatePriceFeeds(bytes[] calldata priceUpdateData) external payable;
+}
+
 /**
  * @title PriceFeed
  * @dev Enhanced oracle integration with comprehensive circuit breaker mechanisms
@@ -47,6 +61,8 @@ contract PriceFeed is Ownable {
     // Price data storage
     mapping(string => PriceData) public priceData;
     mapping(string => address) public priceFeeds; // Chainlink aggregator addresses
+    mapping(string => bytes32) public pythPriceIds; // Pyth price feed IDs
+    IPyth public pythOracle; // Pyth contract address
     
     // Enhanced Configuration
     uint256 public constant MAX_PRICE_AGE = 3600; // 1 hour
@@ -74,6 +90,8 @@ contract PriceFeed is Ownable {
     event PriceUpdated(string indexed asset, uint256 price, uint256 timestamp);
     event PriceFeedSet(string indexed asset, address indexed feed);
     event BackupPriceFeedSet(string indexed asset, address indexed backupFeed);
+    event PythPriceIdSet(string indexed asset, bytes32 indexed priceId);
+    event PythOracleSet(address indexed pythOracle);
     event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice, string reason);
     event CircuitBreakerReset(string indexed asset);
     event EmergencyModeActivated(string reason);
@@ -82,15 +100,12 @@ contract PriceFeed is Ownable {
     event BackupOracleUsed(string indexed asset, uint256 price);
     event OracleFailure(string indexed asset, string reason);
     
-    constructor(address initialOwner) Ownable(initialOwner) {
-        // Initialize with mock prices for CoreDAO ecosystem
-        _setPriceData("CORE", 15e17, 18);        // $1.5 USD (native CORE)
-        _setPriceData("SolvBTC", 95000e18, 18);  // $95,000 USD (SolvBTC.CORE)
-        _setPriceData("cbBTC", 95000e18, 18);    // $95,000 USD (cbBTC Core)
-        _setPriceData("coreBTC", 95000e18, 18);  // $95,000 USD (coreBTC)
-        _setPriceData("USDT", 1e18, 18);         // $1.0 USD (bridged USDT)
-        _setPriceData("USDC", 1e18, 18);         // $1.0 USD (bridged USDC)
-        _setPriceData("stCORE", 15e17, 18);      // $1.5 USD (liquid staking CORE)
+    constructor(address initialOwner, address _pythOracle) Ownable(initialOwner) {
+        // Set Pyth oracle contract for Core blockchain
+        pythOracle = IPyth(_pythOracle);
+        
+        // Assets will be activated via setPythPriceId() function
+        // All prices come from Pyth Network in real-time - no manual initialization
     }
     
     /**
@@ -181,6 +196,59 @@ contract PriceFeed is Ownable {
         );
         
         return data.price;
+    }
+    
+    /**
+     * @dev Update price from Pyth Network oracle
+     * @param asset Asset symbol
+     */
+    function updatePriceFromPyth(string memory asset) external {
+        bytes32 priceId = pythPriceIds[asset];
+        require(priceId != bytes32(0), "PriceFeed: Pyth price ID not set");
+        require(address(pythOracle) != address(0), "PriceFeed: Pyth oracle not set");
+        
+        // Store current price as last known good before attempting update
+        if (priceData[asset].isActive && priceData[asset].price > 0) {
+            lastKnownGoodPrice[asset] = priceData[asset].price;
+        }
+        
+        IPyth.Price memory pythPrice = pythOracle.getPrice(priceId);
+        require(pythPrice.price > 0, "PriceFeed: invalid Pyth price");
+        require(
+            block.timestamp - pythPrice.publishTime <= MAX_PRICE_AGE,
+            "PriceFeed: Pyth price data stale"
+        );
+        
+        // Convert Pyth price to uint256 with 18 decimals
+        uint256 newPrice;
+        if (pythPrice.expo >= 0) {
+            // Positive exponent: multiply
+            newPrice = uint256(uint64(pythPrice.price)) * (10 ** uint256(uint32(pythPrice.expo))) * 1e18;
+        } else {
+            // Negative exponent: divide
+            uint256 divisor = 10 ** uint256(uint32(-pythPrice.expo));
+            newPrice = (uint256(uint64(pythPrice.price)) * 1e18) / divisor;
+        }
+        
+        priceUpdateCount[asset]++;
+        
+        // Enhanced circuit breaker check (same as before)
+        if (circuitBreakerEnabled && priceData[asset].isActive && !emergencyMode) {
+            uint256 oldPrice = priceData[asset].price;
+            uint256 deviation = _calculateDeviation(oldPrice, newPrice);
+            
+            if (deviation > EXTREME_DEVIATION_THRESHOLD) {
+                _startGradualPriceUpdate(asset, oldPrice, newPrice);
+                emit CircuitBreakerTriggered(asset, oldPrice, newPrice, "Extreme deviation from Pyth oracle");
+                return;
+            } else if (deviation > PRICE_DEVIATION_THRESHOLD) {
+                _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold on Pyth oracle");
+                return;
+            }
+        }
+        
+        _setPriceData(asset, newPrice, 18);
+        emit PriceUpdated(asset, newPrice, block.timestamp);
     }
     
     /**
@@ -340,6 +408,52 @@ contract PriceFeed is Ownable {
     function setPriceFeed(string memory asset, address feedAddress) external onlyOwner {
         priceFeeds[asset] = feedAddress;
         emit PriceFeedSet(asset, feedAddress);
+    }
+    
+    /**
+     * @dev Set Pyth oracle contract address
+     * @param _pythOracle Pyth contract address on Core blockchain
+     */
+    function setPythOracle(address _pythOracle) external onlyOwner {
+        pythOracle = IPyth(_pythOracle);
+        emit PythOracleSet(_pythOracle);
+    }
+    
+    /**
+     * @dev Set Pyth price ID for an asset
+     * @param asset Asset symbol
+     * @param priceId Pyth price feed ID
+     */
+    function setPythPriceId(string memory asset, bytes32 priceId) external onlyOwner {
+        pythPriceIds[asset] = priceId;
+        // Mark asset as active so it can be used
+        if (!priceData[asset].isActive) {
+            priceData[asset].isActive = true;
+            priceData[asset].decimals = 18;
+        }
+        emit PythPriceIdSet(asset, priceId);
+    }
+    
+    /**
+     * @dev Set multiple Pyth price IDs at once for initialization
+     * @param assets Array of asset symbols
+     * @param priceIds Array of Pyth price IDs
+     */
+    function setPythPriceIds(
+        string[] memory assets, 
+        bytes32[] memory priceIds
+    ) external onlyOwner {
+        require(assets.length == priceIds.length, "PriceFeed: arrays length mismatch");
+        
+        for (uint256 i = 0; i < assets.length; i++) {
+            pythPriceIds[assets[i]] = priceIds[i];
+            // Mark asset as active
+            if (!priceData[assets[i]].isActive) {
+                priceData[assets[i]].isActive = true;
+                priceData[assets[i]].decimals = 18;
+            }
+            emit PythPriceIdSet(assets[i], priceIds[i]);
+        }
     }
     
     /**

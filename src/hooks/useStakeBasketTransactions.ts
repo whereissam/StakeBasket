@@ -282,8 +282,8 @@ export function useStakeBasketTransactions() {
     chainId,
     StakeBasket: contracts.StakeBasket,
     StakeBasketToken: contracts.StakeBasketToken,
-    expectedStakeBasket: '0x976C214741b4657bd99DFD38a5c0E3ac5C99D903',
-    expectedStakeBasketToken: '0x114e375B6FCC6d6fCb68c7A1d407E652C54F25FB'
+    expectedStakeBasket: '0x88BC8a4398a6364290933a93DcE03AAad616dC01',
+    expectedStakeBasketToken: '0xE0E0b66E661068Fd4311F6fbC34c0c1eb869784F'
   })
   
   // Create transaction state managers for each operation

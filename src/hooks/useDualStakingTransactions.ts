@@ -158,10 +158,10 @@ export function useDualStakingTransactions() {
   
   // Enhanced error handling for dual staking transactions
   useEffect(() => {
-    if (dualStakeHash && isDualStaking) {
+    if (dualStakeHash && isDualStaking && !dualStakeError) {
       dualStakeStateManager.showLoadingToast('Confirming dual staking transaction on blockchain...')
     }
-  }, [dualStakeHash, isDualStaking])
+  }, [dualStakeHash, isDualStaking, dualStakeError])
 
   useEffect(() => {
     if (dualStakeSuccess) {
@@ -193,10 +193,10 @@ export function useDualStakingTransactions() {
   }, [approveCoreError])
 
   useEffect(() => {
-    if (approveCoreHash && isApprovingCore) {
+    if (approveCoreHash && isApprovingCore && !approveCoreReceiptError) {
       approveCoreStateManager.showLoadingToast('Confirming CORE token approval on blockchain...')
     }
-  }, [approveCoreHash, isApprovingCore])
+  }, [approveCoreHash, isApprovingCore, approveCoreReceiptError])
 
   useEffect(() => {
     if (approveCoreSuccess) {
@@ -220,10 +220,10 @@ export function useDualStakingTransactions() {
   }, [approveBtcError])
 
   useEffect(() => {
-    if (approveBtcHash && isApprovingBtc) {
+    if (approveBtcHash && isApprovingBtc && !approveBtcReceiptError) {
       approveBtcStateManager.showLoadingToast('Confirming BTC token approval on blockchain...')
     }
-  }, [approveBtcHash, isApprovingBtc])
+  }, [approveBtcHash, isApprovingBtc, approveBtcReceiptError])
 
   useEffect(() => {
     if (approveBtcSuccess) {
@@ -274,7 +274,7 @@ export function useDualStakingTransactions() {
         address
       })
 
-      // Show wallet confirmation toast
+      // Show wallet confirmation toast only once
       dualStakeStateManager.showLoadingToast('Please confirm dual staking transaction in your wallet...')
       
       if (useNativeCORE) {

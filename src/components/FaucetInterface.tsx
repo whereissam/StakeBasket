@@ -527,11 +527,12 @@ const FaucetInterface: React.FC = () => {
                       inputs: [{ name: 'amount', type: 'uint256' }],
                       name: 'deposit',
                       outputs: [],
-                      stateMutability: 'nonpayable',
+                      stateMutability: 'payable',
                       type: 'function',
                     }],
                     functionName: 'deposit',
                     args: [parseEther('1')], // Deposit 1 CORE token
+                    value: parseEther('1'), // Send 1 CORE as native ETH
                   });
                 }}
                 disabled={isPending || isConfirming || !address}
