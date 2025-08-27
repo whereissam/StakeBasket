@@ -12,8 +12,10 @@ export function ContractInformation({ chainId }: ContractInformationProps) {
   const { chainId: storeChainId } = useNetworkStore()
   const currentChainId = chainId || storeChainId || 31337
   
-  // Get contract addresses from centralized config
-  const { contracts, network } = getNetworkByChainId(currentChainId)
+  // Get contract addresses and network config from centralized config
+  // The 'config' property is the object containing 'name' and 'explorer'.
+  // We deconstruct 'config' and alias it as 'network' to fix the type errors.
+  const { contracts, config: network } = getNetworkByChainId(currentChainId)
   
   // Contract information to display
   const contractInfo = [
@@ -24,7 +26,7 @@ export function ContractInformation({ chainId }: ContractInformationProps) {
     },
     {
       name: 'BTC Token',
-      address: contracts.MockCoreBTC || contracts.TestBTC,
+      address: contracts.MockCoreBTC || contracts.MockCoreBTC,
       description: 'ERC-20 BTC token for dual staking'
     },
     {
@@ -64,7 +66,7 @@ export function ContractInformation({ chainId }: ContractInformationProps) {
   
   const formatAddress = (address: string | undefined): string => {
     if (!address) return 'Not deployed'
-    return address // Show full address like in the image
+    return address
   }
   
   const getAddressColor = (address: string | undefined): string => {
