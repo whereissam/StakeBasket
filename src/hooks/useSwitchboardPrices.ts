@@ -83,7 +83,7 @@ export function useSwitchboardPrices() {
       ] as const
       
       // Call smart update function (only updates stale prices)
-      const result = await writeContractAsync({
+      await writeContractAsync({
         address: priceFeedAddress as `0x${string}`,
         abi: smartUpdateABI,
         functionName: 'smartUpdatePrices',

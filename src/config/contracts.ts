@@ -98,7 +98,7 @@ export const CONTRACT_ADDRESSES = {
     
     // Liquid Staking
     CoreLiquidStakingManager: '0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E', // Keep existing
-    StCoreToken: '0x19640421A039E231312c2C0941D8b112e02876C5', // Keep existing
+    StCoreToken: '0x19640421A039E2312c2C0941D8b112e02876C5', // Keep existing
     
     // Dual Staking Contracts - DEPLOYED 2025-08-27 (SWITCHBOARD INTEGRATION)
     MockDualStaking: '0xd7c4D6f6f0aFCABaAa3B2c514Fb1C2f62cf8326A', // MockCoreStaking
@@ -174,7 +174,10 @@ export function getCurrentNetwork() {
     ? parseInt(window.ethereum.chainId, 16)
     : 31337;
   
-  return getNetworkByChainId(chainId);
+  // getNetworkByChainId returns the config object under the `config` key.
+  // We return just that config object here for simplicity in other files.
+  const { config } = getNetworkByChainId(chainId);
+  return { network: config, contracts: getNetworkByChainId(chainId).contracts };
 }
 
 // Helper functions
@@ -185,15 +188,15 @@ export function getContractAddress(contractName: keyof typeof CONTRACT_ADDRESSES
 
 export function isLocalNetwork() {
   const { network } = getCurrentNetwork();
-  return network === 'hardhat';
+  return network.name === 'Hardhat Local';
 }
 
 export function getExplorerUrl(address: string) {
-  const { config } = getCurrentNetwork();
-  return `${config.explorer}/address/${address}`;
+  const { network } = getCurrentNetwork();
+  return `${network.explorer}/address/${address}`;
 }
 
 export function getTxUrl(hash: string) {
-  const { config } = getCurrentNetwork();
-  return `${config.explorer}/tx/${hash}`;
+  const { network } = getCurrentNetwork();
+  return `${network.explorer}/tx/${hash}`;
 }
