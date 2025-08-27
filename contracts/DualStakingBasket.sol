@@ -61,10 +61,10 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
     // Maximum bonus caps per tier (basis points)
     mapping(StakingTier => uint256) public tierMaxBonus;
     
-    // Minimum deposit requirements (prevents dust gaming)
-    uint256 public minCoreDeposit = 100 * 1e18; // 100 CORE minimum
-    uint256 public minBtcDeposit = 1e6; // 0.01 BTC minimum (8 decimals)
-    uint256 public minUsdValue = 1000; // $1000 minimum USD value
+    // Minimum deposit requirements (prevents dust gaming) - Base tier accessible
+    uint256 public minCoreDeposit = 10 * 1e18; // 10 CORE minimum (reduced for base tier)
+    uint256 public minBtcDeposit = 1e5; // 0.001 BTC minimum (8 decimals)
+    uint256 public minUsdValue = 50; // $50 minimum USD value for base tier
     
     // Pool state
     uint256 public totalPooledCORE;
@@ -258,8 +258,9 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         // Validate tier requirements (will revert if insufficient)
         StakingTier depositTier = _calculateTier(coreAmount, btcAmount);
         
-        // Transfer assets from user
+        // Transfer assets from user (only for ERC-20 CORE token)
         if (coreAmount > 0) {
+            require(address(coreToken) != address(0), "DualStaking: use depositNativeCORE for native CORE");
             coreToken.transferFrom(msg.sender, address(this), coreAmount);
             totalPooledCORE += coreAmount;
         }

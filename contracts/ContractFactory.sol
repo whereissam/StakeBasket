@@ -98,8 +98,8 @@ contract ContractFactory {
         address treasury,
         address operator
     ) internal {
-        // Deploy PriceFeed with placeholder Pyth oracle for local testing
-        priceFeed = address(new PriceFeed(owner, address(0x1)));
+        // Deploy PriceFeed with placeholder oracles for local testing
+        priceFeed = address(new PriceFeed(owner, address(0x1), address(0x2)));
         emit ContractDeployed("PriceFeed", priceFeed);
         
         // Deploy UnbondingQueue

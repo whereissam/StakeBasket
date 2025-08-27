@@ -3,8 +3,10 @@ import { parseEther } from 'viem'
 import { getNetworkByChainId } from '../config/contracts'
 import { useChainId } from 'wagmi'
 import { useEffect, useRef } from 'react'
-import { handleTransactionError, createTransactionStateManager, TransactionErrorType } from '../utils/transactionErrorHandler'
+import { handleTransactionError, createTransactionStateManager } from '../utils/transactionErrorHandler'
 import { validateNetworkForTransaction, NetworkValidationError } from '../utils/networkValidation'
+// Import the compiled DualStaking Basket ABI
+import DualStakingBasketABI from '../abis/DualStakingBasketABI.json'
 
 // ERC-20 token ABI for approvals
 const ERC20_ABI = [
@@ -30,41 +32,6 @@ const ERC20_ABI = [
   }
 ] as const
 
-// DualStaking Basket ABI
-const DUAL_STAKING_BASKET_ABI = [
-  {
-    inputs: [{ name: 'btcAmount', type: 'uint256' }],
-    name: 'depositNativeCORE',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: 'coreAmount', type: 'uint256' },
-      { name: 'btcAmount', type: 'uint256' }
-    ],
-    name: 'depositTokens',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: 'shares', type: 'uint256' }],
-    name: 'withdraw',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'claimRewards',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  }
-] as const
-
 export function useDualStakingTransactions() {
   const chainId = useChainId()
   const { address } = useAccount()
@@ -74,17 +41,6 @@ export function useDualStakingTransactions() {
   const dualStakeStateManager = createTransactionStateManager('Dual Stake')
   const approveCoreStateManager = createTransactionStateManager('Approve CORE')
   const approveBtcStateManager = createTransactionStateManager('Approve BTC')
-  
-  // Track retry attempts to prevent infinite loops
-  const retryAttempts = useRef<{
-    dualStake: number
-    approveCore: number
-    approveBtc: number
-  }>({
-    dualStake: 0,
-    approveCore: 0,
-    approveBtc: 0
-  })
   
   // Refs to track handled errors and prevent loops
   const handledErrors = useRef<{
@@ -106,7 +62,9 @@ export function useDualStakingTransactions() {
   // Get contract addresses
   const dualStakingBasketAddress = contracts.DualStakingBasket || contracts.StakeBasket
   const coreTokenAddress = contracts.MockCORE
-  const btcTokenAddress = contracts.MockCoreBTC
+  const btcTokenAddress = chainId === 1114 
+    ? (contracts as any).SimpleBTCFaucet || contracts.MockCoreBTC 
+    : contracts.MockCoreBTC
   
   // Token allowance checks
   const { data: coreAllowance = 0n } = useReadContract({
@@ -240,11 +198,9 @@ export function useDualStakingTransactions() {
   
   const depositDualStake = async (coreAmount: string, btcAmount: string, useNativeCORE: boolean = true) => {
     try {
-      // Reset error tracking for new transaction (but only if not retrying)
-      if (retryAttempts.current.dualStake === 0) {
-        handledErrors.current.dualStakeWrite = null
-        handledErrors.current.dualStakeReceipt = null
-      }
+      // Reset error tracking for new transaction
+      handledErrors.current.dualStakeWrite = null
+      handledErrors.current.dualStakeReceipt = null
       
       const coreWei = parseEther(coreAmount)
       const btcWei = parseEther(btcAmount)
@@ -265,23 +221,25 @@ export function useDualStakingTransactions() {
       
       console.log('📋 Dual Staking Transaction details:', {
         contractAddress: dualStakingBasketAddress,
-        coreAmount,
-        btcAmount,
+        coreAmount: `${coreAmount} CORE`,
+        btcAmount: `${btcAmount} BTC`,
         coreWei: coreWei.toString(),
         btcWei: btcWei.toString(),
+        coreWeiHex: `0x${coreWei.toString(16)}`,
+        btcWeiHex: `0x${btcWei.toString(16)}`,
         useNativeCORE,
         chainId,
         address
       })
 
-      // Show wallet confirmation toast only once
+      // Show wallet confirmation toast
       dualStakeStateManager.showLoadingToast('Please confirm dual staking transaction in your wallet...')
       
       if (useNativeCORE) {
         // Use native CORE + BTC tokens
         dualStake({
           address: dualStakingBasketAddress as `0x${string}`,
-          abi: DUAL_STAKING_BASKET_ABI,
+          abi: DualStakingBasketABI,
           functionName: 'depositNativeCORE',
           args: [btcWei],
           value: coreWei, // Send native CORE
@@ -292,71 +250,34 @@ export function useDualStakingTransactions() {
         // Use ERC-20 CORE + BTC tokens  
         dualStake({
           address: dualStakingBasketAddress as `0x${string}`,
-          abi: DUAL_STAKING_BASKET_ABI,
-          functionName: 'depositTokens',
+          abi: DualStakingBasketABI,
+          functionName: 'deposit',
           args: [coreWei, btcWei],
           gas: BigInt(400000), // Higher gas limit for dual staking
           account: address as `0x${string}`,
         })
       }
       
-      // Reset retry attempts on successful submission
-      retryAttempts.current.dualStake = 0
       console.log('✅ Dual staking transaction submitted to wallet')
     } catch (error) {
       console.error('Dual staking error:', error)
       
-      // Determine if error is retryable and check retry limit
-      const analyzedError = handleTransactionError(error, 'Dual Staking', { showToast: false })
-      const isRetryableError = [
-        TransactionErrorType.NETWORK_ERROR,
-        TransactionErrorType.NONCE_ERROR,
-        TransactionErrorType.INSUFFICIENT_GAS
-      ].includes(analyzedError.type)
+      // Simple error handling without retry mechanism
+      handleTransactionError(error, 'Dual Staking', {
+        showToast: true,
+        onRetry: undefined // No retry option
+      })
       
-      // Don't retry permanent failures, contract errors, or user rejections
-      const isNonRetryableError = [
-        TransactionErrorType.USER_REJECTED,
-        TransactionErrorType.PERMANENT_FAILURE,
-        TransactionErrorType.CONTRACT_ERROR,
-        TransactionErrorType.INSUFFICIENT_FUNDS,
-        TransactionErrorType.ALLOWANCE_ERROR
-      ].includes(analyzedError.type)
-      
-      const maxRetries = 2
-      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.dualStake < maxRetries
-      
-      if (shouldRetry) {
-        retryAttempts.current.dualStake += 1
-        console.log(`🔄 Retrying dual staking (attempt ${retryAttempts.current.dualStake}/${maxRetries})`)
-        
-        handleTransactionError(error, 'Dual Staking', {
-          showToast: true,
-          onRetry: () => depositDualStake(coreAmount, btcAmount, useNativeCORE)
-        })
-      } else {
-        // Final failure - reset retry attempts and show error without retry option
-        retryAttempts.current.dualStake = 0
-        handleTransactionError(error, 'Dual Staking', {
-          showToast: true,
-          onRetry: undefined // No retry option
-        })
-        
-        // Only re-throw if not user rejection
-        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-          throw error
-        }
-      }
+      // Re-throw error for caller to handle
+      throw error
     }
   }
   
   const approveCoreTokens = async (coreAmount: string) => {
     try {
-      // Reset error tracking for new transaction (but only if not retrying)
-      if (retryAttempts.current.approveCore === 0) {
-        handledErrors.current.approveCoreWrite = null
-        handledErrors.current.approveCoreReceipt = null
-      }
+      // Reset error tracking for new transaction
+      handledErrors.current.approveCoreWrite = null
+      handledErrors.current.approveCoreReceipt = null
       
       const coreWei = parseEther(coreAmount)
       
@@ -384,59 +305,25 @@ export function useDualStakingTransactions() {
         account: address as `0x${string}`,
       })
       
-      // Reset retry attempts on successful submission
-      retryAttempts.current.approveCore = 0
     } catch (error) {
       console.error('CORE approval error:', error)
       
-      // Apply same retry logic as other functions
-      const analyzedError = handleTransactionError(error, 'CORE Token Approval', { showToast: false })
-      const isRetryableError = [
-        TransactionErrorType.NETWORK_ERROR,
-        TransactionErrorType.NONCE_ERROR,
-        TransactionErrorType.INSUFFICIENT_GAS
-      ].includes(analyzedError.type)
+      // Simple error handling without retry mechanism
+      handleTransactionError(error, 'CORE Token Approval', {
+        showToast: true,
+        onRetry: undefined
+      })
       
-      const isNonRetryableError = [
-        TransactionErrorType.USER_REJECTED,
-        TransactionErrorType.PERMANENT_FAILURE,
-        TransactionErrorType.CONTRACT_ERROR,
-        TransactionErrorType.INSUFFICIENT_FUNDS,
-        TransactionErrorType.ALLOWANCE_ERROR
-      ].includes(analyzedError.type)
-      
-      const maxRetries = 2
-      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.approveCore < maxRetries
-      
-      if (shouldRetry) {
-        retryAttempts.current.approveCore += 1
-        console.log(`🔄 Retrying CORE approval (attempt ${retryAttempts.current.approveCore}/${maxRetries})`)
-        
-        handleTransactionError(error, 'CORE Token Approval', {
-          showToast: true,
-          onRetry: () => approveCoreTokens(coreAmount)
-        })
-      } else {
-        retryAttempts.current.approveCore = 0
-        handleTransactionError(error, 'CORE Token Approval', {
-          showToast: true,
-          onRetry: undefined
-        })
-        
-        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-          throw error
-        }
-      }
+      // Re-throw error for caller to handle
+      throw error
     }
   }
   
   const approveBtcTokens = async (btcAmount: string) => {
     try {
-      // Reset error tracking for new transaction (but only if not retrying)
-      if (retryAttempts.current.approveBtc === 0) {
-        handledErrors.current.approveBtcWrite = null
-        handledErrors.current.approveBtcReceipt = null
-      }
+      // Reset error tracking for new transaction
+      handledErrors.current.approveBtcWrite = null
+      handledErrors.current.approveBtcReceipt = null
       
       const btcWei = parseEther(btcAmount)
       
@@ -464,49 +351,17 @@ export function useDualStakingTransactions() {
         account: address as `0x${string}`,
       })
       
-      // Reset retry attempts on successful submission
-      retryAttempts.current.approveBtc = 0
     } catch (error) {
       console.error('BTC approval error:', error)
       
-      // Apply same retry logic as other functions
-      const analyzedError = handleTransactionError(error, 'BTC Token Approval', { showToast: false })
-      const isRetryableError = [
-        TransactionErrorType.NETWORK_ERROR,
-        TransactionErrorType.NONCE_ERROR,
-        TransactionErrorType.INSUFFICIENT_GAS
-      ].includes(analyzedError.type)
+      // Simple error handling without retry mechanism
+      handleTransactionError(error, 'BTC Token Approval', {
+        showToast: true,
+        onRetry: undefined
+      })
       
-      const isNonRetryableError = [
-        TransactionErrorType.USER_REJECTED,
-        TransactionErrorType.PERMANENT_FAILURE,
-        TransactionErrorType.CONTRACT_ERROR,
-        TransactionErrorType.INSUFFICIENT_FUNDS,
-        TransactionErrorType.ALLOWANCE_ERROR
-      ].includes(analyzedError.type)
-      
-      const maxRetries = 2
-      const shouldRetry = isRetryableError && !isNonRetryableError && retryAttempts.current.approveBtc < maxRetries
-      
-      if (shouldRetry) {
-        retryAttempts.current.approveBtc += 1
-        console.log(`🔄 Retrying BTC approval (attempt ${retryAttempts.current.approveBtc}/${maxRetries})`)
-        
-        handleTransactionError(error, 'BTC Token Approval', {
-          showToast: true,
-          onRetry: () => approveBtcTokens(btcAmount)
-        })
-      } else {
-        retryAttempts.current.approveBtc = 0
-        handleTransactionError(error, 'BTC Token Approval', {
-          showToast: true,
-          onRetry: undefined
-        })
-        
-        if (analyzedError.type !== TransactionErrorType.USER_REJECTED) {
-          throw error
-        }
-      }
+      // Re-throw error for caller to handle
+      throw error
     }
   }
 

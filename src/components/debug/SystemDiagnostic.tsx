@@ -33,11 +33,18 @@ export function SystemDiagnostic() {
   
   const priceFeedStatus = usePriceFeedStatus()
 
-  // Check RPC connection
+  // Check RPC connection based on network
   useEffect(() => {
     const checkRPC = async () => {
       try {
-        const response = await fetch('http://localhost:8545', {
+        let rpcUrl = 'http://localhost:8545' // Default local
+        
+        // Use appropriate RPC based on chain ID
+        if (chainId === 1114 || chainId === 1115) {
+          rpcUrl = 'https://rpc.coredao.org' // Core network RPC
+        }
+        
+        const response = await fetch(rpcUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -48,7 +55,7 @@ export function SystemDiagnostic() {
           })
         })
         const result = await response.json()
-        console.log('result', result)
+        
         if (result.result) {
           setBlockNumber(parseInt(result.result, 16))
           setRpcStatus('connected')
@@ -63,7 +70,7 @@ export function SystemDiagnostic() {
     checkRPC()
     const interval = setInterval(checkRPC, 5000) // Check every 5 seconds
     return () => clearInterval(interval)
-  }, [])
+  }, [chainId])
 
   // Test contract reads
   const { data: totalPooled, error: poolError } = useReadContract({
@@ -74,11 +81,14 @@ export function SystemDiagnostic() {
   })
 
   const { data: corePrice, error: priceError } = useReadContract({
-    address: contracts.PriceFeed as `0x${string}`,
+    address: (contracts.CoreOracle || contracts.PriceFeed) as `0x${string}`,
     abi: DIAGNOSTIC_ABI,
     functionName: 'getPrice',
     args: ['CORE'],
-    query: { enabled: !!contracts.PriceFeed }
+    query: { 
+      enabled: !!(contracts.CoreOracle || contracts.PriceFeed),
+      retry: false
+    }
   })
 
   const getStatusIcon = (condition: boolean, error?: any) => {
@@ -88,11 +98,26 @@ export function SystemDiagnostic() {
       : <AlertTriangle className="h-3 w-3 text-chart-1 inline mr-1" />
   }
 
-  const expectedAddresses = {
-    StakeBasket: '0x7C8BaafA542c57fF9B2B90612bf8aB9E86e22C09',
-    StakeBasketToken: '0x22a9B82A6c3D2BFB68F324B2e8367f346Dd6f32a',
-    PriceFeed: '0x1343248Cbd4e291C6979e70a138f4c774e902561'
+  // Expected addresses based on network
+  const getExpectedAddresses = () => {
+    if (chainId === 31337) {
+      // Local network addresses
+      return {
+        StakeBasket: '0x7C8BaafA542c57fF9B2B90612bf8aB9E86e22C09',
+        StakeBasketToken: '0x22a9B82A6c3D2BFB68F324B2e8367f346Dd6f32a',
+        PriceFeed: '0x1343248Cbd4e291C6979e70a138f4c774e902561'
+      }
+    } else {
+      // Live network - use actual deployed addresses
+      return {
+        StakeBasket: contracts.StakeBasket || 'Not deployed',
+        StakeBasketToken: contracts.StakeBasketToken || 'Not deployed', 
+        PriceFeed: contracts.CoreOracle || contracts.PriceFeed || 'Not deployed'
+      }
+    }
   }
+  
+  const expectedAddresses = getExpectedAddresses()
 
   return (
     <div className="space-y-4">
@@ -128,7 +153,7 @@ export function SystemDiagnostic() {
           <h4 className="font-semibold text-foreground mb-2">Network Status</h4>
           <div className="space-y-1">
             <p>{getStatusIcon(rpcStatus === 'connected')} RPC Connection: {rpcStatus}</p>
-            <p>{getStatusIcon(chainId === 31337)} Chain ID: {chainId} (expected: 31337)</p>
+            <p>{getStatusIcon(chainId === 31337 || chainId === 1114 || chainId === 1115)} Chain ID: {chainId} (expected: 31337 for local, 1114/1115 for Core)</p>
             <p>{getStatusIcon(blockNumber > 0)} Block Number: {blockNumber}</p>
             <p>{getStatusIcon(!!address)} Wallet Connected: {isConnected ? 'Yes' : 'No'}</p>
             <p>Address: {address?.slice(0, 6)}...{address?.slice(-4)}</p>
@@ -145,8 +170,8 @@ export function SystemDiagnostic() {
             <p>{getStatusIcon(contracts.StakeBasketToken === expectedAddresses.StakeBasketToken)} StakeBasketToken Address</p>
             <p className="text-muted-foreground text-xs ml-4">{contracts.StakeBasketToken}</p>
             
-            <p>{getStatusIcon(contracts.PriceFeed === expectedAddresses.PriceFeed)} PriceFeed Address</p>
-            <p className="text-muted-foreground text-xs ml-4">{contracts.PriceFeed}</p>
+            <p>{getStatusIcon(!!(contracts.CoreOracle || contracts.PriceFeed))} PriceFeed/Oracle Address</p>
+            <p className="text-muted-foreground text-xs ml-4">{contracts.CoreOracle || contracts.PriceFeed || 'Not configured'}</p>
           </div>
         </div>
 
@@ -158,9 +183,10 @@ export function SystemDiagnostic() {
             {poolError && <p className="text-destructive text-xs ml-4">Error: {poolError.message}</p>}
             {totalPooled && <p className="text-muted-foreground text-xs ml-4">Value: {totalPooled.toString()}</p>}
             
-            <p>{getStatusIcon(!!corePrice && !priceError, priceError)} PriceFeed.getPrice("CORE")</p>
+            <p>{getStatusIcon(!!corePrice && !priceError, priceError)} Oracle.getPrice("CORE")</p>
             {priceError && <p className="text-destructive text-xs ml-4">Error: {priceError.message}</p>}
-            {corePrice && <p className="text-muted-foreground text-xs ml-4">Price: {(Number(corePrice) / 1e8).toFixed(2)} USD</p>}
+            {corePrice && <p className="text-muted-foreground text-xs ml-4">Price: ${(Number(corePrice) / 1e18).toFixed(6)} USD</p>}
+            {corePrice && <p className="text-muted-foreground text-xs ml-4">Raw value: {corePrice.toString()}</p>}
           </div>
         </div>
 
@@ -199,7 +225,7 @@ export function SystemDiagnostic() {
       </div>
 
       {/* Error Summary */}
-      {(rpcStatus === 'failed' || chainId !== 31337 || !isConnected || poolError || priceError) && (
+      {(rpcStatus === 'failed' || (chainId !== 31337 && chainId !== 1114 && chainId !== 1115) || !isConnected || poolError || priceError) && (
         <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
           <h4 className="font-semibold text-destructive mb-2 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
@@ -207,10 +233,10 @@ export function SystemDiagnostic() {
           </h4>
           <ul className="text-sm text-destructive/80 space-y-1">
             {rpcStatus === 'failed' && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />Hardhat node not responding - restart with: npx hardhat node</li>}
-            {chainId !== 31337 && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />Wrong network - switch to Hardhat Local (Chain ID: 31337)</li>}
+            {(chainId !== 31337 && chainId !== 1114 && chainId !== 1115) && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />Unsupported network - switch to Hardhat Local (31337) or Core Testnet (1114/1115)</li>}
             {!isConnected && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />Wallet not connected - connect your wallet first</li>}
             {poolError && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />StakeBasket contract not responding - contracts may need redeployment</li>}
-            {priceError && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />PriceFeed contract not responding - prices may need to be set</li>}
+            {priceError && <li className="flex items-start gap-2"><XCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />Price oracle not responding - check Switchboard integration or update prices</li>}
           </ul>
         </div>
       )}

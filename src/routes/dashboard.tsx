@@ -15,12 +15,10 @@ import { PriceStalenessIndicator } from '../components/PriceStalenessIndicator'
 import { NetworkStatus } from '../components/dashboard/NetworkStatus'
 import { PortfolioOverview } from '../components/dashboard/PortfolioOverview'
 import { StakeForm } from '../components/dashboard/StakeForm'
-import { WithdrawForm } from '../components/dashboard/WithdrawForm'
 import { ContractInfo } from '../components/dashboard/ContractInfo'
 import { TransactionHistory } from '../components/dashboard/TransactionHistory'
 import { WalletConnectionPrompt } from '../components/dashboard/WalletConnectionPrompt'
 import { ApiWithdrawForm } from '../components/dashboard/ApiWithdrawForm'
-import { useWithdrawFlow } from '../hooks/useWithdrawFlow'
 import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 import { toast } from 'sonner'
 import { DashboardDebug } from '../components/debug/DashboardDebug'
@@ -71,7 +69,6 @@ function Dashboard() {
 
 
   const [depositAmount, setDepositAmount] = useState('')
-  const [withdrawAmount, setWithdrawAmount] = useState('')
   
   // Use the transaction hooks
   const stakeBasketHooks = useStakeBasketTransactions()
@@ -79,30 +76,10 @@ function Dashboard() {
     depositCore,
     isDepositing,
     depositSuccess,
-    depositHash,
-    basketAllowance
+    depositHash
   } = stakeBasketHooks
 
   // Use the flexible withdraw flow hook
-  const withdrawFlow = useWithdrawFlow(
-    {
-      tokenName: 'BASKET',
-      actionName: 'Withdrawal',
-      approveText: 'Approving BASKET tokens...',
-      redeemText: 'Processing withdrawal...',
-      successText: 'Withdrawal successful! Tokens received.',
-      errorText: 'Withdrawal failed. Please try again.'
-    },
-    {
-      approveTokens: stakeBasketHooks.approveBasketTokens,
-      redeemTokens: stakeBasketHooks.redeemBasket,
-      needsApproval: stakeBasketHooks.needsBasketApproval,
-      isApproving: stakeBasketHooks.isApprovingBasket,
-      isRedeeming: stakeBasketHooks.isRedeeming,
-      approveSuccess: stakeBasketHooks.approveSuccess,
-      redeemSuccess: stakeBasketHooks.redeemSuccess
-    }
-  )
 
   // Price feed management
   const {
@@ -182,20 +159,6 @@ function Dashboard() {
     }
   }
 
-  const handleWithdraw = async () => {
-    if (!withdrawAmount) return
-    
-    // CRITICAL SECURITY CHECK: Verify user is on correct network
-    const currentValidation = validateNetwork(chainId)
-    if (!currentValidation.isSupported || !currentValidation.isAvailable) {
-      toast.error(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network before withdrawing.`, {
-        duration: 8000
-      })
-      return
-    }
-    
-    await withdrawFlow.startWithdrawal(withdrawAmount)
-  }
 
 
   // Clear inputs and refetch balances on successful transactions
@@ -206,12 +169,6 @@ function Dashboard() {
     }
   }, [depositSuccess, refetchBasketBalance])
 
-  useEffect(() => {
-    if (withdrawFlow.step === 'completed') {
-      refetchBasketBalance?.() // Refresh BASKET token balance after redeem
-      setWithdrawAmount('')
-    }
-  }, [withdrawFlow.step, refetchBasketBalance])
 
 
   // Handle price update success
@@ -318,22 +275,6 @@ function Dashboard() {
         />
       </div>
 
-      {/* Legacy withdrawal form for comparison/fallback */}
-      <div className="grid grid-cols-1 gap-6">
-        <WithdrawForm 
-          chainId={chainId}
-          withdrawAmount={withdrawAmount}
-          setWithdrawAmount={setWithdrawAmount}
-          handleWithdraw={handleWithdraw}
-          isRedeeming={withdrawFlow.isWithdrawing && withdrawFlow.step === 'redemption'}
-          isApprovingBasket={withdrawFlow.isWithdrawing && withdrawFlow.step === 'approval'}
-          basketBalance={basketBalance}
-          portfolioValueUSD={portfolioValueUSD}
-          needsBasketApproval={withdrawFlow.needsApproval}
-          basketAllowance={basketAllowance}
-          contractAddresses={contractAddresses}
-        />
-      </div>
 
       <ContractInfo 
         config={config}
@@ -345,7 +286,7 @@ function Dashboard() {
         txError={txError}
         transactions={transactions}
         depositSuccess={depositSuccess}
-        redeemSuccess={withdrawFlow.step === 'completed'}
+        redeemSuccess={false}
         depositHash={depositHash}
         redeemHash={stakeBasketHooks.redeemHash}
         config={config}

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { AlertTriangle, CheckCircle, Info, Zap } from 'lucide-react'
 import { Alert, AlertDescription } from './ui/alert'
+import { useRealPriceData } from '../hooks/useRealPriceData'
 
 interface PriceFeedFallbackProps {
   priceError: boolean
@@ -12,22 +13,52 @@ interface PriceFeedFallbackProps {
 
 export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: PriceFeedFallbackProps) {
   const [showDetails, setShowDetails] = useState(false)
+  const [livePrices, setLivePrices] = useState({ core: 0, btc: 0 })
+  
+  // Get real-time price data to show actual fallback prices
+  const realPriceData = useRealPriceData()
+  
+  useEffect(() => {
+    if (realPriceData.corePrice && realPriceData.btcPrice) {
+      setLivePrices({
+        core: realPriceData.corePrice,
+        btc: realPriceData.btcPrice
+      })
+    }
+  }, [realPriceData])
   
   if (!priceError) {
     return null // Don't show if no error
   }
 
   const isLocalNetwork = chainId === 31337
+  
+  // Format prices for display
+  const formatPrice = (price: number, isCore: boolean = false) => {
+    if (price === 0) return 'Loading...'
+    return isCore ? `$${price.toFixed(4)}` : `$${price.toLocaleString()}`
+  }
+  
+  // Get source info for display
+  const getSourceDisplay = () => {
+    switch (realPriceData.source) {
+      case 'coingecko': return 'CoinGecko API'
+      case 'core-api': return 'Core API' 
+      case 'oracle': return 'Oracle (working)'
+      case 'fallback': return 'Hardcoded fallback'
+      default: return 'API fallback'
+    }
+  }
 
   return (
     <Card className="border-destructive/50 bg-destructive/10">
       <CardHeader>
         <CardTitle className="text-destructive flex items-center gap-2">
           <AlertTriangle className="h-5 w-5" />
-          PriceFeed Contract Issue Detected
+          Price Oracle Temporary Issue
         </CardTitle>
         <CardDescription className="text-foreground">
-          The price oracle is not responding, but staking can still work with fallback prices
+          Switchboard oracle or API is temporarily unavailable, but staking continues with fallback prices
         </CardDescription>
       </CardHeader>
       
@@ -37,12 +68,16 @@ export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: Pric
         <Alert className="border-primary/50 bg-primary/10">
           <Info className="h-4 w-4" />
           <AlertDescription className="text-foreground">
-            <strong>Good News:</strong> The StakeBasket contract has built-in fallback prices:
+            <strong>Smart Fallback Active:</strong> Using real-time API prices when Switchboard is unavailable:
             <div className="mt-2 ml-4 space-y-1 text-sm">
-              <div>• CORE: $1.50 (fallback price)</div>
-              <div>• BTC: $95,000 (fallback price)</div>
+              <div>• CORE: {formatPrice(livePrices.core, true)} ({getSourceDisplay()})</div>
+              <div>• BTC: {formatPrice(livePrices.btc)} ({getSourceDisplay()})</div>
+              <div>• Updates automatically every 30 seconds</div>
+              {realPriceData.lastUpdate && (
+                <div className="text-xs text-muted-foreground">Last updated: {new Date(realPriceData.lastUpdate).toLocaleTimeString()}</div>
+              )}
             </div>
-            Staking will use these prices if the oracle fails.
+            Your transactions use current market prices, not stale data.
           </AlertDescription>
         </Alert>
 
@@ -71,9 +106,9 @@ export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: Pric
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-chart-1 mt-0.5" />
             <div>
-              <div className="font-semibold text-foreground">Share Calculation Impact</div>
+              <div className="font-semibold text-foreground">Real-Time Pricing Active</div>
               <div className="text-sm text-muted-foreground">
-                New deposits will use fallback prices instead of live market prices
+                API fallback ensures deposits use current market prices, not stale oracle data
               </div>
             </div>
           </div>
@@ -87,7 +122,7 @@ export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: Pric
             variant="default"
           >
             <Zap className="h-4 w-4 mr-2" />
-            Continue with Fallback Prices
+            Continue with API Prices
           </Button>
           
           <Button 
@@ -102,19 +137,23 @@ export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: Pric
         {showDetails && (
           <div className="mt-4 p-3 bg-muted border border-border rounded text-xs space-y-2">
             <div><strong>Network:</strong> {isLocalNetwork ? 'Local Hardhat' : `Chain ${chainId}`}</div>
-            <div><strong>Issue:</strong> PriceFeed.getPrice() returning empty data</div>
-            <div><strong>Solution:</strong> Contract uses hardcoded fallback values</div>
-            <div><strong>Code Location:</strong> StakeBasket._calculateSharesToMint()</div>
+            <div><strong>Issue:</strong> Switchboard oracle temporarily unavailable or price staleness detected</div>
+            <div><strong>Solution:</strong> Smart API fallback with real-time CoinGecko prices</div>
+            <div><strong>Integration:</strong> Switchboard On-Demand + API fallback system</div>
             <div className="pt-2 border-t border-border">
-              <strong>Fallback Logic:</strong>
+              <strong>Smart Price Resolution:</strong>
               <pre className="text-xs mt-1 text-muted-foreground font-mono">
-{`if (address(priceFeed) != address(0)) {
-  corePrice_ = priceFeed.getPrice("CORE") * 1e10;
-  lstBTCPrice_ = priceFeed.getPrice("BTC") * 1e10;
-} else {
-  // Fallback to mock prices
-  corePrice_ = 15e17;  // $1.5 CORE
-  lstBTCPrice_ = 95000e18; // $95k BTC
+{`// 1. Try Switchboard On-Demand (preferred)
+if (switchboard.updateFeeds(updates)) {
+  price = switchboard.latestUpdate(feedId);
+}
+// 2. API fallback when stale/unavailable
+else if (priceAge > 1 hour) {
+  price = fetchApiPrice('coredaoorg'); // Real-time
+}
+// 3. Last known good price
+else {
+  price = lastKnownGoodPrice[asset];
 }`}
               </pre>
             </div>
@@ -126,10 +165,15 @@ export function PriceFeedFallback({ priceError, onProceedAnyway, chainId }: Pric
           <Alert className="border-accent/50 bg-accent/20">
             <Info className="h-4 w-4" />
             <AlertDescription className="text-foreground text-sm">
-              <strong>For Developers:</strong> You can fix the price feed by redeploying or running:
-              <code className="block mt-1 p-2 bg-secondary rounded text-xs font-mono text-primary-foreground">
-                npx hardhat run scripts/setup-price-feed.cjs --network localhost
-              </code>
+              <strong>For Developers:</strong> Update Switchboard prices or test API fallback:
+              <div className="space-y-1 mt-1">
+                <code className="block p-2 bg-secondary rounded text-xs font-mono text-primary-foreground">
+                  npm run update:switchboard
+                </code>
+                <code className="block p-2 bg-secondary rounded text-xs font-mono text-primary-foreground">
+                  npm run setup:switchboard
+                </code>
+              </div>
             </AlertDescription>
           </Alert>
         )}

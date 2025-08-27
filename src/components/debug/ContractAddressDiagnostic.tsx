@@ -25,12 +25,12 @@ export function ContractAddressDiagnostic() {
       <div className="space-y-1 text-sm text-muted-foreground">
         <p><strong>Chain ID:</strong> {chainId}</p>
         <p><strong>StakeBasket:</strong> {contracts.StakeBasket}</p>
-        <p><strong>Expected:</strong> 0x976C214741b4657bd99DFD38a5c0E3ac5C99D903</p>
-        <p><strong>Match:</strong> {contracts.StakeBasket === '0x976C214741b4657bd99DFD38a5c0E3ac5C99D903' ? '✅' : '❌'}</p>
+        <p><strong>Expected:</strong> 0x88BC8a4398a6364290933a93DcE03AAad616dC01</p>
+        <p><strong>Match:</strong> {contracts.StakeBasket === '0x88BC8a4398a6364290933a93DcE03AAad616dC01' ? '✅' : '❌'}</p>
         <hr className="my-2 border-border" />
         <p><strong>StakeBasketToken:</strong> {contracts.StakeBasketToken}</p>
-        <p><strong>Expected:</strong> 0x114e375B6FCC6d6fCb68c7A1d407E652C54F25FB</p>
-        <p><strong>Match:</strong> {contracts.StakeBasketToken === '0x114e375B6FCC6d6fCb68c7A1d407E652C54F25FB' ? '✅' : '❌'}</p>
+        <p><strong>Expected:</strong> 0xE0E0b66E661068Fd4311F6fbC34c0c1eb869784F</p>
+        <p><strong>Match:</strong> {contracts.StakeBasketToken === '0xE0E0b66E661068Fd4311F6fbC34c0c1eb869784F' ? '✅' : '❌'}</p>
       </div>
     </div>
   )

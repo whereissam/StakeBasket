@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@switchboard-xyz/on-demand-solidity/surge/interfaces/ISwitchboard.sol";
+import "@switchboard-xyz/on-demand-solidity/surge/libraries/SwitchboardTypes.sol";
 
 // Chainlink-style aggregator interface
 interface AggregatorV3Interface {
@@ -34,6 +36,9 @@ interface IPyth {
     function updatePriceFeeds(bytes[] calldata priceUpdateData) external payable;
 }
 
+// Switchboard On-Demand Interface (already imported above)
+// This provides real-time, pull-based oracle data with no staleness issues
+
 /**
  * @title PriceFeed
  * @dev Enhanced oracle integration with comprehensive circuit breaker mechanisms
@@ -64,8 +69,13 @@ contract PriceFeed is Ownable {
     mapping(string => bytes32) public pythPriceIds; // Pyth price feed IDs
     IPyth public pythOracle; // Pyth contract address
     
+    // Switchboard On-Demand integration
+    ISwitchboard public switchboard; // Switchboard contract address
+    mapping(string => bytes32) public switchboardFeedIds; // Switchboard feed IDs
+    
     // Enhanced Configuration
-    uint256 public constant MAX_PRICE_AGE = 3600; // 1 hour
+    uint256 public constant MAX_PRICE_AGE = 86400; // 24 hours (more flexible)
+    uint256 public constant PRICE_CACHE_DURATION = 30; // 30 seconds fresh price cache
     uint256 public constant PRICE_DEVIATION_THRESHOLD = 1000; // 10% (basis points)
     uint256 public constant EXTREME_DEVIATION_THRESHOLD = 2000; // 20% (basis points)
     bool public circuitBreakerEnabled = true;
@@ -92,6 +102,9 @@ contract PriceFeed is Ownable {
     event BackupPriceFeedSet(string indexed asset, address indexed backupFeed);
     event PythPriceIdSet(string indexed asset, bytes32 indexed priceId);
     event PythOracleSet(address indexed pythOracle);
+    event SwitchboardFeedIdSet(string indexed asset, bytes32 indexed feedId);
+    event SwitchboardOracleSet(address indexed switchboard);
+    event SwitchboardPriceUpdated(string indexed asset, int128 result, uint256 timestamp);
     event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice, string reason);
     event CircuitBreakerReset(string indexed asset);
     event EmergencyModeActivated(string reason);
@@ -100,12 +113,15 @@ contract PriceFeed is Ownable {
     event BackupOracleUsed(string indexed asset, uint256 price);
     event OracleFailure(string indexed asset, string reason);
     
-    constructor(address initialOwner, address _pythOracle) Ownable(initialOwner) {
+    constructor(address initialOwner, address _pythOracle, address _switchboard) Ownable(initialOwner) {
         // Set Pyth oracle contract for Core blockchain
         pythOracle = IPyth(_pythOracle);
         
-        // Assets will be activated via setPythPriceId() function
-        // All prices come from Pyth Network in real-time - no manual initialization
+        // Set Switchboard contract for Core blockchain
+        switchboard = ISwitchboard(_switchboard);
+        
+        // Assets will be activated via setPythPriceId() or setSwitchboardFeedId() functions
+        // Switchboard provides real-time, no-staleness oracle data
     }
     
     /**
@@ -220,14 +236,19 @@ contract PriceFeed is Ownable {
         );
         
         // Convert Pyth price to uint256 with 18 decimals
+        int256 price = int256(pythPrice.price);
+        int32 expo = pythPrice.expo;
+        require(price > 0, "PriceFeed: negative price");
+        
         uint256 newPrice;
-        if (pythPrice.expo >= 0) {
-            // Positive exponent: multiply
-            newPrice = uint256(uint64(pythPrice.price)) * (10 ** uint256(uint32(pythPrice.expo))) * 1e18;
+        if (expo < 0) {
+            uint256 scale = uint256(int256(-expo));
+            require(scale <= 77, "PriceFeed: exponent too negative");
+            newPrice = uint256(price) * 1e18 / (10 ** scale);
         } else {
-            // Negative exponent: divide
-            uint256 divisor = 10 ** uint256(uint32(-pythPrice.expo));
-            newPrice = (uint256(uint64(pythPrice.price)) * 1e18) / divisor;
+            uint256 scale = uint256(uint32(expo));
+            require(scale <= 59, "PriceFeed: exponent too large");
+            newPrice = uint256(price) * (10 ** scale) * 1e18;
         }
         
         priceUpdateCount[asset]++;
@@ -249,6 +270,64 @@ contract PriceFeed is Ownable {
         
         _setPriceData(asset, newPrice, 18);
         emit PriceUpdated(asset, newPrice, block.timestamp);
+    }
+    
+    /**
+     * @dev Update price from Switchboard On-Demand oracle (RECOMMENDED - NO STALENESS)
+     * @param asset Asset symbol
+     * @param updates Encoded Switchboard updates from Crossbar client
+     */
+    function updatePriceFromSwitchboard(string memory asset, bytes[] calldata updates) public payable {
+        bytes32 feedId = switchboardFeedIds[asset];
+        require(feedId != bytes32(0), "PriceFeed: Switchboard feed ID not set");
+        require(address(switchboard) != address(0), "PriceFeed: Switchboard oracle not set");
+        
+        // Store current price as last known good before attempting update
+        if (priceData[asset].isActive && priceData[asset].price > 0) {
+            lastKnownGoodPrice[asset] = priceData[asset].price;
+        }
+        
+        // Get the fee for updating feeds
+        uint256 fee = switchboard.getFee(updates);
+        require(msg.value >= fee, "PriceFeed: insufficient fee for Switchboard update");
+        
+        // Submit the updates to Switchboard contract
+        switchboard.updateFeeds{value: fee}(updates);
+        
+        // Read the latest value from Switchboard feed (this will be fresh, no staleness!)
+        SwitchboardTypes.Update memory latestUpdate = switchboard.latestUpdate(feedId);
+        
+        // Switchboard results are int128, ensure positive
+        require(latestUpdate.result > 0, "PriceFeed: invalid Switchboard result");
+        
+        // Convert int128 to uint256 (Switchboard uses 18 decimals)
+        uint256 newPrice = uint256(uint128(latestUpdate.result));
+        
+        priceUpdateCount[asset]++;
+        
+        // Enhanced circuit breaker check (same logic as Pyth)
+        if (circuitBreakerEnabled && priceData[asset].isActive && !emergencyMode) {
+            uint256 oldPrice = priceData[asset].price;
+            uint256 deviation = _calculateDeviation(oldPrice, newPrice);
+            
+            if (deviation > EXTREME_DEVIATION_THRESHOLD) {
+                _startGradualPriceUpdate(asset, oldPrice, newPrice);
+                emit CircuitBreakerTriggered(asset, oldPrice, newPrice, "Extreme deviation from Switchboard oracle");
+                return;
+            } else if (deviation > PRICE_DEVIATION_THRESHOLD) {
+                _triggerCircuitBreaker(asset, oldPrice, newPrice, "Price deviation exceeds threshold on Switchboard oracle");
+                return;
+            }
+        }
+        
+        _setPriceData(asset, newPrice, 18);
+        emit PriceUpdated(asset, newPrice, block.timestamp);
+        emit SwitchboardPriceUpdated(asset, latestUpdate.result, block.timestamp);
+        
+        // Refund excess ETH
+        if (msg.value > fee) {
+            payable(msg.sender).transfer(msg.value - fee);
+        }
     }
     
     /**
@@ -420,6 +499,15 @@ contract PriceFeed is Ownable {
     }
     
     /**
+     * @dev Set Switchboard oracle contract address
+     * @param _switchboard Switchboard contract address on Core blockchain
+     */
+    function setSwitchboardOracle(address _switchboard) external onlyOwner {
+        switchboard = ISwitchboard(_switchboard);
+        emit SwitchboardOracleSet(_switchboard);
+    }
+    
+    /**
      * @dev Set Pyth price ID for an asset
      * @param asset Asset symbol
      * @param priceId Pyth price feed ID
@@ -457,6 +545,43 @@ contract PriceFeed is Ownable {
     }
     
     /**
+     * @dev Set Switchboard feed ID for an asset
+     * @param asset Asset symbol
+     * @param feedId Switchboard feed ID
+     */
+    function setSwitchboardFeedId(string memory asset, bytes32 feedId) external onlyOwner {
+        switchboardFeedIds[asset] = feedId;
+        // Mark asset as active so it can be used
+        if (!priceData[asset].isActive) {
+            priceData[asset].isActive = true;
+            priceData[asset].decimals = 18;
+        }
+        emit SwitchboardFeedIdSet(asset, feedId);
+    }
+    
+    /**
+     * @dev Set multiple Switchboard feed IDs at once for initialization
+     * @param assets Array of asset symbols
+     * @param feedIds Array of Switchboard feed IDs
+     */
+    function setSwitchboardFeedIds(
+        string[] memory assets, 
+        bytes32[] memory feedIds
+    ) external onlyOwner {
+        require(assets.length == feedIds.length, "PriceFeed: arrays length mismatch");
+        
+        for (uint256 i = 0; i < assets.length; i++) {
+            switchboardFeedIds[assets[i]] = feedIds[i];
+            // Mark asset as active
+            if (!priceData[assets[i]].isActive) {
+                priceData[assets[i]].isActive = true;
+                priceData[assets[i]].decimals = 18;
+            }
+            emit SwitchboardFeedIdSet(assets[i], feedIds[i]);
+        }
+    }
+    
+    /**
      * @dev Set backup oracle for an asset
      */
     function setBackupPriceFeed(string memory asset, address backupFeedAddress) external onlyOwner {
@@ -479,6 +604,54 @@ contract PriceFeed is Ownable {
         emit EmergencyModeActivated(reason);
     }
     
+    /**
+     * @dev Smart price update - only pulls fresh data if cache is stale (>30 seconds)
+     * @param asset Asset symbol  
+     * @param updates Switchboard price update data
+     * @return updated True if price was actually updated, false if using cache
+     */
+    function smartUpdatePrice(string memory asset, bytes[] calldata updates) external payable returns (bool updated) {
+        PriceData memory data = priceData[asset];
+        
+        // Check if we have fresh cached price (within 30 seconds)
+        if (data.isActive && data.price > 0 && (block.timestamp - data.lastUpdated) <= PRICE_CACHE_DURATION) {
+            // Price is still fresh, no update needed
+            return false;
+        }
+        
+        // Price is stale or missing, update with fresh Switchboard data
+        updatePriceFromSwitchboard(asset, updates);
+        return true;
+    }
+    
+    /**
+     * @dev Batch smart update for multiple assets
+     * @param assets Array of asset symbols
+     * @param updates Array of Switchboard update data for each asset
+     * @return updatedAssets Array of booleans indicating which assets were updated
+     */
+    function smartUpdatePrices(
+        string[] memory assets, 
+        bytes[][] calldata updates
+    ) external payable returns (bool[] memory updatedAssets) {
+        require(assets.length == updates.length, "PriceFeed: arrays length mismatch");
+        
+        updatedAssets = new bool[](assets.length);
+        
+        for (uint256 i = 0; i < assets.length; i++) {
+            PriceData memory data = priceData[assets[i]];
+            
+            // Check if price needs updating
+            if (data.isActive && data.price > 0 && (block.timestamp - data.lastUpdated) <= PRICE_CACHE_DURATION) {
+                updatedAssets[i] = false; // Using cache
+            } else {
+                // Update with fresh data
+                updatePriceFromSwitchboard(assets[i], updates[i]);
+                updatedAssets[i] = true; // Actually updated
+            }
+        }
+    }
+
     /**
      * @dev Deactivate emergency mode
      */

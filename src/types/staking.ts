@@ -10,10 +10,11 @@ export interface DualStakeInfo {
 
 export enum DualTier {
   None = -1,
-  Bronze = 0,
-  Silver = 1,
-  Gold = 2,
-  Satoshi = 3
+  Base = 0,      // Minimal tier for small amounts (3% APY)
+  Bronze = 1,
+  Silver = 2,
+  Gold = 3,
+  Satoshi = 4
 }
 
 export interface TierInfo {
@@ -27,6 +28,7 @@ export interface TierInfo {
 
 export const TIER_RATIOS = {
   [DualTier.None]: 0,
+  [DualTier.Base]: 1000,      // Low ratio for minimal staking
   [DualTier.Bronze]: 5000,
   [DualTier.Silver]: 10000,
   [DualTier.Gold]: 20000,
@@ -36,11 +38,19 @@ export const TIER_RATIOS = {
 export const tierInfo: Record<DualTier, TierInfo> = {
   [DualTier.None]: {
     name: 'Not Qualified',
-    ratio: '< $1,000 total value',
+    ratio: 'Below minimum requirements',
     apy: '0%',
     color: 'text-muted-foreground',
     bgColor: 'bg-muted/50',
-    description: 'Minimum $1,000 total value required to qualify for dual staking rewards'
+    description: 'Does not meet minimum staking requirements'
+  },
+  [DualTier.Base]: {
+    name: 'Base Pool',
+    ratio: 'Any amount above minimums',
+    apy: '3%',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    description: 'Minimal rewards for small amounts - Start earning with any valid deposit'
   },
   [DualTier.Bronze]: {
     name: 'Bronze Pool',

@@ -79,17 +79,17 @@ export const CONTRACT_ADDRESSES = {
     StakeBasketWithSparks: '0x0000000000000000000000000000000000000000', // To be deployed
   },
   coreTestnet2: {
-    // Core Testnet2 deployed contracts - LATEST DEPLOYMENT 2025-08-25 (with proper permissions)
-    PriceFeed: '0x8a12e5F90279f0a5682c33D6Cab5C430B71aC80F',
-    StakingManager: '0x148E370Cd3277c4db666bDf28d8FE8Daf0e7abf6',
-    StakeBasketToken: '0xE0E0b66E661068Fd4311F6fbC34c0c1eb869784F',
-    StakeBasket: '0x88BC8a4398a6364290933a93DcE03AAad616dC01',
-    BasketStaking: '0x88BC8a4398a6364290933a93DcE03AAad616dC01', // Using new StakeBasket
+    // Core Testnet2 deployed contracts - LATEST DEPLOYMENT with Switchboard integration
+    PriceFeed: '0xd3fC275555C46Ffa4a6F9d15380D4edA9D9fb06b',
+    StakingManager: '0x3185E363446163581Fcc1ed3D85029b1C7A7520A', 
+    StakeBasketToken: '0xf98167f5f4BFC87eD67D8eAe3590B00630f864b6',
+    StakeBasket: '0x958C634b197fE5F09ba3012D45B4281F0C278821',
+    BasketStaking: '0x958C634b197fE5F09ba3012D45B4281F0C278821', // Using new StakeBasket
     MockCORE: '0xa41575D35563288d6C59d8a02603dF9E2e171eeE',
     MockCoreBTC: '0x01b93AC7b5Ee7e473F90aE66979a9402EbcaCcF7',
     MockCoreStaking: '0xd7c4D6f6f0aFCABaAa3B2c514Fb1C2f62cf8326A',
     MockLstBTC: '0xE03484f1682fa55c2AB9bbCF8e451b857EcE6DA8',
-    CoreOracle: '0xADBD20E27FfF3B90CF73fA5A327ce77D32138ded', // Using PriceFeed
+    CoreOracle: '0xd3fC275555C46Ffa4a6F9d15380D4edA9D9fb06b', // Using updated PriceFeed with Switchboard
     
     // Governance
     BasketGovernance: '0x43e9E9f5DA3dF1e0E0659be7E321e9397E41aa8e', // Keep existing
@@ -100,10 +100,10 @@ export const CONTRACT_ADDRESSES = {
     CoreLiquidStakingManager: '0x0925Df2ae2eC60f0abFF0e7E4dCA6f4B16351c0E', // Keep existing
     StCoreToken: '0x19640421A039E231312c2C0941D8b112e02876C5', // Keep existing
     
-    // Dual Staking Contracts - LATEST DEPLOYMENT 2025-08-25 (FIXED with working contract)
+    // Dual Staking Contracts - DEPLOYED 2025-08-27 (SWITCHBOARD INTEGRATION)
     MockDualStaking: '0xd7c4D6f6f0aFCABaAa3B2c514Fb1C2f62cf8326A', // MockCoreStaking
-    DualStakingBasket: '0x88BC8a4398a6364290933a93DcE03AAad616dC01', // Using NEW working StakeBasket
-    SatoshiTierBasket: '0x88BC8a4398a6364290933a93DcE03AAad616dC01', // Using NEW working StakeBasket
+    DualStakingBasket: '0x0DD17d450968DafF1Cf9E2e8945E934B77CA4a4a', // SWITCHBOARD REAL-TIME PRICES
+    SatoshiTierBasket: '0x0DD17d450968DafF1Cf9E2e8945E934B77CA4a4a', // Using DualStakingBasket
     
     // Test Tokens and Faucet
     TestBTC: '0x01b93AC7b5Ee7e473F90aE66979a9402EbcaCcF7', // MockCoreBTC

@@ -5,8 +5,10 @@ import { ArrowLeftRight, AlertTriangle, Award, Target } from 'lucide-react'
 import { useAccount, useReadContract, useBalance } from 'wagmi'
 import { formatEther, erc20Abi } from 'viem'
 import { useDualStakingTransactions } from '../hooks/useDualStakingTransactions'
+import { useRealPriceData } from '../hooks/useRealPriceData'
 import { BalanceCard } from './shared/BalanceCard'
 import { TierDisplay } from './shared/TierDisplay'
+import { ContractInformation } from './shared/ContractInformation'
 import { DualStakingHero } from './staking/DualStakingHero'
 import { PortfolioDisplay } from './staking/PortfolioDisplay'
 import { DualStakingForm } from './staking/DualStakingForm'
@@ -22,6 +24,7 @@ import { DualTier, DualStakeInfo, TierInfo } from '../types/staking'
 // Target ratios for optimal bonus within each tier
 const TIER_OPTIMAL_RATIOS: Record<DualTier, number> = {
   [DualTier.None]: 0,
+  [DualTier.Base]: 1000,     // 1,000:1 CORE:BTC minimal for Base
   [DualTier.Bronze]: 5000,   // 5,000:1 CORE:BTC optimal for Bronze
   [DualTier.Silver]: 10000,  // 10,000:1 CORE:BTC optimal for Silver  
   [DualTier.Gold]: 20000,    // 20,000:1 CORE:BTC optimal for Gold
@@ -30,7 +33,8 @@ const TIER_OPTIMAL_RATIOS: Record<DualTier, number> = {
 
 // USD value thresholds for tier qualification
 const TIER_USD_THRESHOLDS: Record<DualTier, { min: number; max: number }> = {
-  [DualTier.None]: { min: 0, max: 1000 },
+  [DualTier.None]: { min: 0, max: 50 },
+  [DualTier.Base]: { min: 50, max: 1000 },      // $50-$1000 for base tier
   [DualTier.Bronze]: { min: 1000, max: 10000 },
   [DualTier.Silver]: { min: 10000, max: 100000 },
   [DualTier.Gold]: { min: 100000, max: 500000 },
@@ -40,11 +44,19 @@ const TIER_USD_THRESHOLDS: Record<DualTier, { min: number; max: number }> = {
 const TIER_INFO: Record<DualTier, TierInfo> = {
   [DualTier.None]: {
     name: 'Not Qualified',
-    ratio: '< $1,000 total value',
+    ratio: 'Below minimum requirements',
     apy: '0%',
     color: 'text-muted-foreground',
     bgColor: 'bg-muted/50',
-    description: 'Minimum $1,000 total value required to qualify for dual staking rewards'
+    description: 'Does not meet minimum staking requirements'
+  },
+  [DualTier.Base]: {
+    name: 'Base Pool',
+    ratio: '$50 - $1k total value',
+    apy: '3%',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    description: 'Minimal rewards for small amounts - Start earning with any valid deposit'
   },
   [DualTier.Bronze]: {
     name: 'Bronze Pool',
@@ -82,20 +94,21 @@ const TIER_INFO: Record<DualTier, TierInfo> = {
 
 // Base minimum deposit requirements (prevents dust gaming)
 const MIN_DEPOSIT_REQUIREMENTS = {
-  CORE: 100,      // Minimum 100 CORE tokens
-  BTC: 0.01,      // Minimum 0.01 BTC tokens
-  USD_VALUE: 1000 // Minimum $1000 total USD value for any tier
+  CORE: 10,       // Minimum 10 CORE tokens (reduced for base tier)
+  BTC: 0.001,     // Minimum 0.001 BTC tokens (reduced for base tier)
+  USD_VALUE: 50   // Minimum $50 total USD value for base tier
 }
 
-// Price assumptions (should be replaced with oracle data)
-const ASSET_PRICES_USD = {
-  CORE: 1.5,      // $1.50 per CORE token
-  BTC: 65000      // $65,000 per BTC token
-}
+// Dynamic price function using real data
+const getAssetPrices = (priceData: { corePrice: number; btcPrice: number }) => ({
+  CORE: priceData.corePrice || 1.5,      // Use real CORE price or fallback
+  BTC: priceData.btcPrice || 65000       // Use real BTC price or fallback
+})
 
 // Maximum bonus caps per tier (prevents excessive rewards)
 const TIER_MAX_BONUS: Record<DualTier, number> = {
   [DualTier.None]: 0,
+  [DualTier.Base]: 0,        // No bonus for base tier
   [DualTier.Bronze]: 0.25,   // +25% max bonus
   [DualTier.Silver]: 0.35,   // +35% max bonus
   [DualTier.Gold]: 0.50,     // +50% max bonus
@@ -119,8 +132,12 @@ export function DualStakingInterface() {
     isApprovingCore,
     isApprovingBtc,
     approveCoreSuccess,
-    approveBtcSuccess
+    approveBtcSuccess,
+    dualStakeSuccess
   } = useDualStakingTransactions()
+  
+  // Real-time price data from multiple sources
+  const priceData = useRealPriceData()
   
   // Validate network support
   const networkValidation = validateNetwork(currentChainId)
@@ -145,13 +162,13 @@ export function DualStakingInterface() {
     apy: '0'
   })
   const [coreAmount, setCoreAmount] = useState('')
-  const [btcAmount, setBtcAmount] = useState('0')
+  const [btcAmount, setBtcAmount] = useState(MIN_DEPOSIT_REQUIREMENTS.BTC.toString())
   const [needsRebalancing] = useState(false)
   // CORE approval not needed for native token
   const [isAwaitingBtcApproval, setIsAwaitingBtcApproval] = useState(false);
   
   // Native ETH balance (for local hardhat)
-  const { data: nativeCoreBalance } = useBalance({
+  const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
     address: address,
     query: {
       enabled: !!address && isNativeCORE,
@@ -161,7 +178,7 @@ export function DualStakingInterface() {
   // CORE is native token - use native balance only
   const coreBalanceData = nativeCoreBalance?.value
   
-  const { data: btcBalanceData } = useReadContract({
+  const { data: btcBalanceData, refetch: refetchBtcBalance } = useReadContract({
     address: btcTokenAddress as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
@@ -189,7 +206,8 @@ export function DualStakingInterface() {
     try {
       const val = parseFloat(btcAmount)
       if (isNaN(val)) return 0n
-      return BigInt(Math.floor(val * 10**8))
+      // Use 18 decimals to match ERC20 standard (not 8 decimals for BTC)
+      return BigInt(Math.floor(val * 10**18))
     } catch {
       return 0n
     }
@@ -199,11 +217,34 @@ export function DualStakingInterface() {
   
 
   const needsBtcApprovalCheck = useMemo(() => {
+    const debugInfo = {
+      isAwaitingBtcApproval,
+      parsedBtcAmount: parsedBtcAmount.toString(),
+      btcAllowance: btcAllowance?.toString(),
+      btcAmount,
+      btcAllowanceExists: btcAllowance !== undefined,
+      btcAllowanceNumber: btcAllowance ? Number(btcAllowance) : 0,
+      parsedBtcNumber: Number(parsedBtcAmount),
+      needsApproval: btcAllowance !== undefined && (btcAllowance as bigint) < parsedBtcAmount
+    }
+    console.log('🔍 BTC Approval Check:', debugInfo)
+    
     if (isAwaitingBtcApproval) return false;
     if (!parsedBtcAmount || parsedBtcAmount === 0n) return false
-    if (btcAllowance === undefined) return true
-    return (btcAllowance as bigint) < parsedBtcAmount
-  }, [btcAllowance, parsedBtcAmount, isAwaitingBtcApproval])
+    
+    // BTC tokens always need approval unless there's sufficient allowance
+    if (btcAllowance === undefined || btcAllowance === null) {
+      console.log('⚠️ BTC allowance undefined/null - requiring approval')
+      return true
+    }
+    
+    // Compare allowance with required amount
+    const needsApproval = (btcAllowance as bigint) < parsedBtcAmount
+    console.log(`🔍 BTC allowance: ${btcAllowance?.toString()}, needed: ${parsedBtcAmount.toString()}, approval needed: ${needsApproval}`)
+    
+    return needsApproval
+    
+  }, [btcAllowance, parsedBtcAmount, isAwaitingBtcApproval, btcAmount])
 
   // Consolidated transaction effects - simplified since these variables are not defined
   // Transaction success/error handling is managed by the useDualStakingTransactions hook
@@ -220,11 +261,27 @@ export function DualStakingInterface() {
     }
   }, [approveBtcSuccess, refetchBtcAllowance])
 
-  // Calculate total USD value of the stake
+  // Refresh balances after successful deposit
+  useEffect(() => {
+    if (dualStakeSuccess) {
+      // Refresh both CORE and BTC balances
+      refetchCoreBalance()
+      refetchBtcBalance()
+      
+      // Clear form amounts to show updated balances
+      setCoreAmount('')
+      setBtcAmount(MIN_DEPOSIT_REQUIREMENTS.BTC.toString())
+      
+      toast.success('🎉 Dual staking deposit successful! Your balances have been updated.')
+    }
+  }, [dualStakeSuccess, refetchCoreBalance, refetchBtcBalance])
+
+  // Calculate total USD value of the stake using real prices
   const calculateTotalUSDValue = (core: string, btc: string): number => {
     const coreNum = Number(core) || 0
     const btcNum = Number(btc) || 0
-    return (coreNum * ASSET_PRICES_USD.CORE) + (btcNum * ASSET_PRICES_USD.BTC)
+    const prices = getAssetPrices(priceData)
+    return (coreNum * prices.CORE) + (btcNum * prices.BTC)
   }
   
   // Calculate ratio bonus based on how close to optimal ratio (used for future reward calculations)
@@ -277,31 +334,44 @@ export function DualStakingInterface() {
       return DualTier.Silver  
     } else if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Bronze].min) {
       return DualTier.Bronze
+    } else if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Base].min) {
+      return DualTier.Base
     }
     
     return DualTier.None
   }
 
   const handleAutoCalculate = (targetTier: DualTier) => {
-    if (targetTier === DualTier.None) return
+    // Handle None tier - show minimal example for Base tier
+    if (targetTier === DualTier.None) {
+      setBtcAmount(MIN_DEPOSIT_REQUIREMENTS.BTC.toString())
+      setCoreAmount(MIN_DEPOSIT_REQUIREMENTS.CORE.toString())
+      return
+    }
     
     // Get the minimum USD value for this tier
     const minUSDValue = TIER_USD_THRESHOLDS[targetTier].min
     const optimalRatio = TIER_OPTIMAL_RATIOS[targetTier]
+    const prices = getAssetPrices(priceData)
     
     // Start with minimum BTC requirement
-    const btcAmount = Math.max(MIN_DEPOSIT_REQUIREMENTS.BTC, minUSDValue * 0.1 / ASSET_PRICES_USD.BTC)
+    let btcAmount = Math.max(MIN_DEPOSIT_REQUIREMENTS.BTC, minUSDValue * 0.1 / prices.BTC)
+    
+    // For Base tier, keep amounts small but valid
+    if (targetTier === DualTier.Base) {
+      btcAmount = Math.max(MIN_DEPOSIT_REQUIREMENTS.BTC, 0.001) // Small BTC amount
+    }
     
     // Calculate CORE amount for optimal ratio
     const coreAmountForRatio = btcAmount * optimalRatio
     
     // Ensure we meet minimum USD value requirement
-    const currentUSDValue = (coreAmountForRatio * ASSET_PRICES_USD.CORE) + (btcAmount * ASSET_PRICES_USD.BTC)
+    const currentUSDValue = (coreAmountForRatio * prices.CORE) + (btcAmount * prices.BTC)
     
     let finalCoreAmount = coreAmountForRatio
     if (currentUSDValue < minUSDValue) {
       // Add more CORE to reach minimum USD value
-      const additionalCoreNeeded = (minUSDValue - currentUSDValue) / ASSET_PRICES_USD.CORE
+      const additionalCoreNeeded = (minUSDValue - currentUSDValue) / prices.CORE
       finalCoreAmount = coreAmountForRatio + additionalCoreNeeded
     }
     
@@ -351,12 +421,26 @@ export function DualStakingInterface() {
     // Check minimum USD value requirement
     const totalUSDValue = calculateTotalUSDValue(coreAmount, btcAmount)
     if (totalUSDValue < MIN_DEPOSIT_REQUIREMENTS.USD_VALUE) {
-      toast.error(`Minimum $${MIN_DEPOSIT_REQUIREMENTS.USD_VALUE.toLocaleString()} total value required for dual staking`)
+      toast.error(`Minimum $${MIN_DEPOSIT_REQUIREMENTS.USD_VALUE} total value required for dual staking`)
       return
     }
     
     if (!address) {
       toast.error('Please connect your wallet')
+      return
+    }
+    
+    // Check CORE balance (native)
+    const coreBalance = Number(coreBalanceFormatted)
+    if (coreNum > coreBalance) {
+      toast.error(`Insufficient CORE balance. You have ${coreBalance.toFixed(4)} ${tokenSymbol}`)
+      return
+    }
+    
+    // Check BTC balance  
+    const btcBalance = Number(btcBalanceFormatted)
+    if (btcNum > btcBalance) {
+      toast.error(`Insufficient BTC balance. You have ${btcBalance.toFixed(4)} BTC`)
       return
     }
     
@@ -369,8 +453,14 @@ export function DualStakingInterface() {
     }
     
     try {
+      // Check if we have valid price data
+      if (!priceData.corePrice || !priceData.btcPrice) {
+        toast.error('Price data unavailable. Please wait for prices to load.')
+        return
+      }
+      
       // Use unified dual staking transaction system
-      // Determine if using native CORE (chainId 1114 for Core testnet) or ERC20 CORE (local hardhat)
+      // Determine if using native CORE (chainId 1114 for Core testnet) or ERC20 CORE (local hardhat)  
       const useNativeCORE = currentChainId === 1114 || currentChainId === 1116
       await depositDualStake(coreAmount, btcAmount, useNativeCORE)
       
@@ -425,9 +515,9 @@ export function DualStakingInterface() {
     )
   }
 
-  // Format balances - Native CORE uses 18 decimals
+  // Format balances - Both CORE and BTC tokens use 18 decimals
   const coreBalanceFormatted = coreBalanceData ? formatEther(coreBalanceData as bigint) : '0'
-  const btcBalanceFormatted = btcBalanceData ? (Number(btcBalanceData as bigint) / 10**8).toFixed(8) : '0'
+  const btcBalanceFormatted = btcBalanceData ? formatEther(btcBalanceData as bigint) : '0'
   
   const currentTierInfo = TIER_INFO[stakeInfo.tier as DualTier]
 
@@ -527,9 +617,9 @@ export function DualStakingInterface() {
           isApprovingCoreTx={isApprovingCore}
           isApprovingBtcTx={isApprovingBtc}
           isAwaitingCoreApproval={approveCoreSuccess}
-          isAwaitingBtcApproval={approveBtcSuccess}
+          isAwaitingBtcApproval={isAwaitingBtcApproval}
           handleDualStake={handleDualStake}
-          isStaking={isDualStaking}
+          isStaking={isDualStaking || priceData.isLoading}
         />
 
         {/* Your Basket Position (if user has shares) */}
@@ -582,6 +672,28 @@ export function DualStakingInterface() {
 
         {/* Safety Notice */}
         <SafetyNotice />
+        
+        {/* Price Data Indicator */}
+        <div className="bg-muted/30 rounded-lg p-4 border border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${!priceData.error ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+              <span className="text-sm font-medium">
+                Price Source: {priceData.source === 'oracle' ? 'Switchboard Oracle' : 
+                              priceData.source === 'coingecko' ? 'CoinGecko API' : 
+                              priceData.source === 'core-api' ? 'Core API' :
+                              priceData.source === 'fallback' ? 'Fallback Data' : 'Loading...'}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <div>CORE: ${priceData.corePrice?.toFixed(3)} | BTC: ${priceData.btcPrice?.toLocaleString()}</div>
+              {priceData.error && <div className="text-yellow-600">⚠ {priceData.error}</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Contract Information */}
+        <ContractInformation chainId={currentChainId} />
       </div>
     </div>
   )

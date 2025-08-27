@@ -5,6 +5,13 @@ import { Target, Info, Lightbulb, AlertTriangle, Briefcase, CheckCircle, Zap } f
 import { DualTier, TierInfo } from '../../types/staking'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
+// Base minimum deposit requirements (should match DualStakingInterface.tsx)
+const MIN_DEPOSIT_REQUIREMENTS = {
+  CORE: 10,       // Minimum 10 CORE tokens (reduced for base tier)
+  BTC: 0.001,     // Minimum 0.001 BTC tokens (reduced for base tier)
+  USD_VALUE: 50   // Minimum $50 total USD value for base tier
+}
+
 interface DualStakingFormProps {
   coreAmount: string
   btcAmount: string
@@ -130,7 +137,7 @@ export function DualStakingForm({
                 <span className="text-sm font-medium text-foreground flex items-center gap-2">
                   {networkInfo.tokenSymbol} Tokens
                   {!isNativeCORE && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
                       ERC-20 Token
                     </span>
                   )}
@@ -140,7 +147,7 @@ export function DualStakingForm({
                     type="number"
                     value={coreAmount}
                     onChange={(e) => setCoreAmount(e.target.value)}
-                    placeholder="0.00"
+                    placeholder={MIN_DEPOSIT_REQUIREMENTS.CORE.toString()}
                     className="text-right font-mono text-lg pl-12"
                   />
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-chart-1 font-semibold text-sm">
@@ -157,7 +164,7 @@ export function DualStakingForm({
                   Use All
                 </button>
               </div>
-              <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200 flex items-start gap-2">
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded border border-border flex items-start gap-2">
                 <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0" />
                 <span>Dual Staking uses your native CORE balance + BTC tokens from faucet. Get BTC tokens at /faucet first.</span>
               </div>
@@ -170,7 +177,7 @@ export function DualStakingForm({
                     type="number"
                     value={btcAmount}
                     onChange={(e) => setBtcAmount(e.target.value)}
-                    placeholder="0.00"
+                    placeholder={MIN_DEPOSIT_REQUIREMENTS.BTC.toString()}
                     className="text-right font-mono text-lg pl-12"
                   />
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-chart-2 font-semibold text-sm">
@@ -200,19 +207,20 @@ export function DualStakingForm({
           <div className="text-xs text-muted-foreground space-y-2">
             <div>
               <p className="font-medium">Base Requirements:</p>
-              <p>• Minimum 0.1 {networkInfo.tokenSymbol} + 0.0001 BTC for any tier</p>
+              <p>• Minimum {MIN_DEPOSIT_REQUIREMENTS.CORE} {networkInfo.tokenSymbol} + {MIN_DEPOSIT_REQUIREMENTS.BTC} BTC for any tier</p>
+              <p>• Minimum ${MIN_DEPOSIT_REQUIREMENTS.USD_VALUE} total USD value</p>
             </div>
             <div>
-              <p className="font-medium">Tier-Specific Requirements (Ratio + Total Value + BTC Minimum):</p>
-              <p>• <span className="font-medium text-gray-600">Base:</span> Any ratio + 1 CORE total + <span className="text-orange-600 font-bold">0.0005 BTC</span></p>
-              <p>• <span className="font-medium text-blue-600">Boost:</span> 2,000:1 ratio + 20 CORE total + <span className="text-orange-600 font-bold">0.002 BTC</span></p>
-              <p>• <span className="font-medium text-purple-600">Super:</span> 6,000:1 ratio + 50 CORE total + <span className="text-orange-600 font-bold">0.005 BTC</span></p>
-              <p>• <span className="font-medium text-yellow-600">Satoshi:</span> 16,000:1 ratio + 100 CORE total + <span className="text-orange-600 font-bold">0.01 BTC</span></p>
+              <p className="font-medium">Tier Benefits (Higher tiers = Higher rewards):</p>
+              <p>• <span className="font-medium text-muted-foreground">Base:</span> Starting tier - {MIN_DEPOSIT_REQUIREMENTS.CORE} {networkInfo.tokenSymbol} + {MIN_DEPOSIT_REQUIREMENTS.BTC} BTC minimum</p>
+              <p>• <span className="font-medium text-primary">Silver:</span> Enhanced rewards - Higher amounts for better ratios</p>
+              <p>• <span className="font-medium text-accent-foreground">Gold:</span> Premium rewards - Significant holdings required</p>
+              <p>• <span className="font-medium text-chart-4">Satoshi:</span> Maximum rewards - Whale tier with optimal ratios</p>
             </div>
-            <div className="bg-accent/50 border border-accent rounded p-2 mt-2">
+            <div className="bg-primary/10 border border-primary/30 rounded p-2 mt-2">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-accent-foreground" />
-                <p className="text-accent-foreground font-medium">BTC is now properly rewarded! Higher tiers require meaningful BTC holdings, not just tiny amounts.</p>
+                <Zap className="h-4 w-4 text-primary" />
+                <p className="text-primary font-medium">BTC is now properly rewarded! Higher tiers require meaningful BTC holdings, not just tiny amounts.</p>
               </div>
             </div>
           </div>
@@ -279,14 +287,14 @@ export function DualStakingForm({
         {/* Approval and Staking */}
         <div className="space-y-4 pt-4 border-t border-border">
           {(needsCoreApproval || needsBtcApproval) && (
-            <div className="bg-chart-1/5 border border-chart-1/30 rounded-lg p-4">
+            <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Info className="h-4 w-4 text-chart-1" />
-                <span className="text-sm font-medium text-chart-1">
+                <Info className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
                   Token Approval Required
                 </span>
               </div>
-              <p className="text-xs text-chart-1/80 mb-3">
+              <p className="text-xs text-muted-foreground mb-3">
                 You need to approve the smart contract to use your tokens. This is a one-time action for security.
               </p>
               <div className="space-y-2">
