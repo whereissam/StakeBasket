@@ -138,7 +138,8 @@
       "WebFetch(domain:discord.gg)",
       "WebFetch(domain:docs.stakebasket.fi)",
       "WebFetch(domain:x.com)",
-      "WebFetch(domain:discord.com)"
+      "WebFetch(domain:discord.com)",
+      "Bash(bunx playwright:*)"
     ],
     "deny": []
   }
