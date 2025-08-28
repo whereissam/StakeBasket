@@ -175,14 +175,6 @@ npm run test:e2e
 npm run type-check
 ```
 
-## 🔐 Security
-
-- ✅ **ReentrancyGuard** on all state-changing functions
-- ✅ **Access Control** with role-based permissions  
-- ✅ **Circuit Breakers** for price deviation protection
-- ✅ **Timelock** governance with execution delays
-- ✅ **Pausable** emergency stop functionality
-- ✅ **Comprehensive Auditing** and testing
 
 ## 🌍 Network Support
 
@@ -194,29 +186,29 @@ npm run type-check
 
 ## 📈 Roadmap
 
-### Phase 1: Core ETF ✅ **COMPLETED**
-- [x] Multi-asset staking (CORE + lstBTC)
-- [x] Automated rebalancing
-- [x] Price feed integration
-- [x] Basic governance
+**Phase 1: Core ETF** ✅ COMPLETED
+- Multi-asset staking (CORE + lstBTC)
+- Automated rebalancing
+- Price feed integration
+- Basic governance
 
-### Phase 2: Advanced Features ✅ **COMPLETED**  
-- [x] Tiered staking rewards
-- [x] Liquid staking (stCORE)
-- [x] Dual staking optimization
-- [x] Enhanced governance
+**Phase 2: Advanced Features** ✅ COMPLETED
+- Tiered staking rewards
+- Liquid staking (stCORE)
+- Dual staking optimization
+- Enhanced governance
 
-### Phase 3: Ecosystem Expansion 🚧 **IN PROGRESS**
-- [ ] Additional asset support (stETH, wBTC)
-- [ ] Cross-chain integration
-- [ ] Advanced trading strategies
-- [ ] Mobile app
+**Phase 3: Ecosystem Expansion** 🚧 IN PROGRESS
+- Additional asset support (stETH, wBTC)
+- Cross-chain integration
+- Advanced trading strategies
+- Mobile app
 
-### Phase 4: Mainnet & Scale 🎯 **PLANNED**
-- [ ] Core Mainnet deployment
-- [ ] Security audits
-- [ ] Liquidity mining programs
-- [ ] Institutional partnerships
+**Phase 4: Mainnet & Scale** 🎯 PLANNED
+- Core Mainnet deployment
+- Security audits
+- Liquidity mining programs
+- Institutional partnerships
 
 ## 🏆 Key Features
 
