@@ -91,7 +91,7 @@ Dual Staking requires a minimum stake threshold and rewards scale with both **ra
 ### For Developers
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/staking
+git clone https://github.com/huangbozhang/staking
 cd staking
 
 # Install dependencies
@@ -240,11 +240,7 @@ npm run type-check
 
 ## 📞 Community & Support
 
-- **🐦 Twitter**: [@StakeBasket](https://twitter.com/stakebasket)
-- **💬 Discord**: [Join Community](https://discord.gg/stakebasket)
-- **📧 Email**: team@stakebasket.fi
-- **📖 Docs**: [Documentation Site](https://docs.stakebasket.fi)
-- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/staking/issues)
+- **🐛 Issues**: [GitHub Issues](https://github.com/huangbozhang/staking/issues)
 
 ## 📚 Documentation
 
@@ -268,7 +264,7 @@ See [Developer Guide](DEVELOPER_GUIDE.md) for detailed contribution guidelines.
 
 ## ⚖️ Legal
 
-This project is for educational and research purposes. Smart contracts are experimental technology. Use at your own risk. See [full disclaimer](LEGAL.md).
+This project is for educational and research purposes. Smart contracts are experimental technology. Use at your own risk.
 
 ## 📝 License
 

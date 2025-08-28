@@ -131,7 +131,14 @@
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run update-specific-pricefeed.cjs --network coreTestnet2)",
       "Bash(__NEW_LINE__ echo \"✅ GITIGNORE FIXED!\")",
       "Bash(__NEW_LINE__ echo \"🛡️ TESTS SECURITY SUMMARY:\")",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:scan.test2.btcs.network)",
+      "WebFetch(domain:scan.test2.btcs.network)",
+      "WebFetch(domain:twitter.com)",
+      "WebFetch(domain:discord.gg)",
+      "WebFetch(domain:docs.stakebasket.fi)",
+      "WebFetch(domain:x.com)",
+      "WebFetch(domain:discord.com)"
     ],
     "deny": []
   }
