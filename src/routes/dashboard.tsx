@@ -3,14 +3,10 @@ import { Button } from '../components/ui/button'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import * as React from 'react'
 import { RefreshCw } from 'lucide-react'
-import { useContractData } from '../hooks/useContractData'
+import { useDashboardData } from '../hooks/useDashboardData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
-import { useTransactionHistory } from '../hooks/useTransactionHistory'
-import { usePriceFeedManager } from '../hooks/usePriceFeedManager'
-import { useAccount, useChainId, useSimulateContract } from 'wagmi'
-import { useContracts } from '../hooks/useContracts'
-import { parseEther } from 'viem'
-import { useContractHealth } from '../hooks/useContractHealth'
+import { useAccount, useChainId } from 'wagmi'
+// import { parseEther } from 'viem'
 import { PriceStalenessIndicator } from '../components/PriceStalenessIndicator'
 import { NetworkStatus } from '../components/dashboard/NetworkStatus'
 import { PortfolioOverview } from '../components/dashboard/PortfolioOverview'
@@ -21,22 +17,19 @@ import { WalletConnectionPrompt } from '../components/dashboard/WalletConnection
 import { ApiWithdrawForm } from '../components/dashboard/ApiWithdrawForm'
 import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 import { toast } from 'sonner'
-import { DashboardDebug } from '../components/debug/DashboardDebug'
-import { ContractAddressDiagnostic } from '../components/debug/ContractAddressDiagnostic'
-import { StorageReset } from '../components/debug/StorageReset'
-import { SystemDiagnostic } from '../components/debug/SystemDiagnostic'
-import { DebugWrapper } from '../components/debug/DebugWrapper'
+// import { DashboardDebug } from '../components/debug/DashboardDebug'
+// import { ContractAddressDiagnostic } from '../components/debug/ContractAddressDiagnostic'
+// import { StorageReset } from '../components/debug/StorageReset'
+// import { SystemDiagnostic } from '../components/debug/SystemDiagnostic'
+// import { DebugWrapper } from '../components/debug/DebugWrapper'
 const Dashboard = React.memo(() => {
-  const { address, isConnected: walletConnected } = useAccount()
+  const { address } = useAccount()
   const chainId = useChainId()
   const [isInitialized, setIsInitialized] = useState(false)
   
   // Memoize network validation to prevent recalculation on every render
   const networkValidation = useMemo(() => validateNetwork(chainId), [chainId])
   const tokenSymbol = useMemo(() => getTokenSymbol(chainId), [chainId])
-  
-  // Use the centralized contracts hook instead of direct store access
-  const { contracts: contractAddresses, config } = useContracts()
   
   // Delay initialization to spread out API calls
   useEffect(() => {
@@ -47,23 +40,25 @@ const Dashboard = React.memo(() => {
     return () => clearTimeout(timer)
   }, [])
   
-  // Get contract health status - only after initialization
-  const { getHealthSummary, runFullHealthCheck, isChecking } = useContractHealth()
-  const healthSummary = useMemo(() => isInitialized ? getHealthSummary() : { healthPercentage: 0, healthyContracts: 0, totalContracts: 0 }, [getHealthSummary, isInitialized])
-  
+  // Use centralized dashboard data hook
+  const dashboardData = useDashboardData(isInitialized)
   const {
+    walletConnected,
+    contractAddresses,
+    config,
     coreBalance,
-    basketBalance,
-    corePrice,
-    btcPrice,
-    totalPooledCore,
-    supportedAssets,
     isConnected,
-    priceError,
-    priceLoading,
-    refetchBasketBalance
-  } = useContractData(isInitialized ? address : undefined) // Only fetch when initialized
-
+    refetchBasketBalance,
+    healthSummary,
+    runFullHealthCheck,
+    isChecking,
+    updateCorePrice,
+    isUpdating: isPriceUpdating,
+    updateSuccess: priceUpdateSuccess,
+    transactions,
+    loading: txLoading,
+    error: txError
+  } = dashboardData
 
   const [depositAmount, setDepositAmount] = useState('')
   
@@ -75,21 +70,6 @@ const Dashboard = React.memo(() => {
     depositSuccess,
     depositHash
   } = stakeBasketHooks
-
-  // Use the flexible withdraw flow hook
-
-  // Price feed management
-  const {
-    updateCorePrice,
-    isUpdating: isPriceUpdating,
-    updateSuccess: priceUpdateSuccess
-  } = usePriceFeedManager()
-
-  // Get real transaction history from blockchain - only after delay
-  const { transactions, loading: txLoading, error: txError } = useTransactionHistory(isInitialized ? address : undefined)
-
-  // Memoize portfolio value calculation
-  const portfolioValueUSD = useMemo(() => basketBalance * corePrice * 1.085, [basketBalance, corePrice])
 
   const handleDeposit = useCallback(async () => {
     if (!depositAmount) return
@@ -185,18 +165,6 @@ const Dashboard = React.memo(() => {
     return <WalletConnectionPrompt config={config} chainId={chainId} />
   }
 
-  // Show loading state during initialization
-  if (!isInitialized) {
-    return (
-      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-          <p className="text-xs text-muted-foreground mt-2">Optimizing API calls to prevent rate limits</p>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -252,37 +220,23 @@ const Dashboard = React.memo(() => {
         </div>
       </div>
       <NetworkStatus 
-        config={config}
+        dashboardData={dashboardData}
         chainId={chainId}
-        corePrice={corePrice}
-        btcPrice={btcPrice}
-        totalPooledCore={totalPooledCore}
-        supportedAssets={supportedAssets}
-        priceLoading={priceLoading}
-        priceError={priceError}
-        updateCorePrice={updateCorePrice}
-        isPriceUpdating={isPriceUpdating}
       />
 
       <PortfolioOverview 
-        portfolioValueUSD={portfolioValueUSD}
-        basketBalance={basketBalance}
-        coreBalance={coreBalance}
-        corePrice={corePrice}
+        dashboardData={dashboardData}
         chainId={chainId}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StakeForm 
+          dashboardData={dashboardData}
           chainId={chainId}
           depositAmount={depositAmount}
           setDepositAmount={setDepositAmount}
           handleDeposit={handleDeposit}
           isDepositing={isDepositing}
-          coreBalance={coreBalance}
-          corePrice={corePrice}
-          updateCorePrice={updateCorePrice}
-          isPriceUpdating={isPriceUpdating}
         />
         
         {/* Temporarily disabled to prevent excessive API calls */}

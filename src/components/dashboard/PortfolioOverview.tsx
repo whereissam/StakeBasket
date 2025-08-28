@@ -3,21 +3,42 @@ import { BalanceCard } from '../shared/BalanceCard'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface PortfolioOverviewProps {
-  portfolioValueUSD: number
-  basketBalance: number
-  coreBalance: number
-  corePrice: number
+  dashboardData: any
   chainId: number
 }
 
 export function PortfolioOverview({
-  portfolioValueUSD,
-  basketBalance,
-  coreBalance,
-  corePrice,
+  dashboardData,
   chainId: _chainId
 }: PortfolioOverviewProps) {
   const networkInfo = useNetworkInfo()
+  
+  // Show loading state if dashboardData is not yet loaded
+  if (!dashboardData || dashboardData.coreBalance === undefined) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {Array.from({length: 4}).map((_, i) => (
+          <div key={i} className="animate-pulse">
+            <div className="border rounded-lg p-4 space-y-2">
+              <div className="h-4 bg-muted rounded w-3/4"></div>
+              <div className="h-8 bg-muted rounded w-1/2"></div>
+              <div className="h-3 bg-muted rounded w-2/3"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
+  // Destructure from dashboardData
+  const {
+    portfolioValueUSD,
+    basketBalance,
+    coreBalance,
+    corePrice,
+    navPerShare,
+    estimatedAPY
+  } = dashboardData
   
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -37,14 +58,14 @@ export function PortfolioOverview({
 
       <BalanceCard
         title="Current APY"
-        value="8.5%"
+        value={`${estimatedAPY}%`}
         subtitle="Estimated annual yield"
         icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
       />
 
       <BalanceCard
         title="NAV per Share"
-        value={`$${(corePrice * 1.085).toFixed(4)}`}
+        value={`$${navPerShare.toFixed(4)}`}
         subtitle="Net Asset Value"
         icon={<TrendingUp className="h-4 w-4 text-muted-foreground" />}
       />

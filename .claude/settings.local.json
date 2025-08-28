@@ -130,7 +130,8 @@
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run check-price-feed-status.cjs --network coreTestnet2)",
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run update-specific-pricefeed.cjs --network coreTestnet2)",
       "Bash(__NEW_LINE__ echo \"✅ GITIGNORE FIXED!\")",
-      "Bash(__NEW_LINE__ echo \"🛡️ TESTS SECURITY SUMMARY:\")"
+      "Bash(__NEW_LINE__ echo \"🛡️ TESTS SECURITY SUMMARY:\")",
+      "Bash(npm uninstall:*)"
     ],
     "deny": []
   }

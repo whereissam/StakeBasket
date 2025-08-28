@@ -1,11 +1,30 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { RefreshCw, AlertTriangle, BarChart3, Wrench, Target, RotateCcw, Zap, Shield } from 'lucide-react'
+import { RefreshCw, AlertTriangle, BarChart3, Wrench, Target, RotateCcw, Zap, Shield, TestTube, CheckCircle, X } from 'lucide-react'
 import { useHybridRedemption } from '../../hooks/useHybridRedemption'
 import { useEffect, useState } from 'react'
-import { formatEther } from 'viem'
+import { formatEther, parseEther } from 'viem'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
+import { useSimulateContract, useAccount } from 'wagmi'
+import { useContracts } from '../../hooks/useContracts'
+
+// DualStakingBasket ABI for redeem function
+const DUAL_STAKING_BASKET_ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "shares",
+        "type": "uint256"
+      }
+    ],
+    "name": "redeem",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+] as const
 
 interface ApiWithdrawFormProps {
   chainId: number
@@ -13,7 +32,11 @@ interface ApiWithdrawFormProps {
 
 export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
   const networkInfo = useNetworkInfo()
+  const { address } = useAccount()
+  const { contracts } = useContracts()
   const [inputAmount, setInputAmount] = useState('')
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simulationResult, setSimulationResult] = useState<any>(null)
   
   const {
     calculateRedemption,
@@ -28,6 +51,22 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
     canRedeem
   } = useHybridRedemption()
 
+  // Use wagmi's useSimulateContract for proper contract simulation
+  const { 
+    data: simulateData, 
+    error: simulateError, 
+    isLoading: isSimulateLoading 
+  } = useSimulateContract({
+    address: (contracts.DualStakingBasket || contracts.StakeBasket) as `0x${string}`,
+    abi: DUAL_STAKING_BASKET_ABI,
+    functionName: 'redeem',
+    args: inputAmount ? [parseEther(inputAmount)] : undefined,
+    account: address,
+    query: {
+      enabled: !!(inputAmount && parseFloat(inputAmount) > 0 && address && (contracts.DualStakingBasket || contracts.StakeBasket))
+    }
+  })
+
   // Calculate redemption amount when input changes
   useEffect(() => {
     if (inputAmount && parseFloat(inputAmount) > 0) {
@@ -35,16 +74,85 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
     }
   }, [inputAmount, calculateRedemption])
 
-  const handleRedeem = async () => {
+
+  const runSimulation = async (): Promise<{ hasIssues: boolean; issues?: any[]; result?: any }> => {
+    try {
+      const issues = []
+      const userBalanceFormatted = userBalance ? formatEther(BigInt(userBalance)) : '0'
+      
+      // Basic validation checks first
+      if (parseFloat(inputAmount) > parseFloat(userBalanceFormatted)) {
+        issues.push({ type: 'error', text: 'Insufficient BASKET token balance', icon: X })
+      }
+      if (!networkInfo.isSupported) {
+        issues.push({ type: 'error', text: 'Unsupported network', icon: X })
+      }
+      if (!canRedeem(inputAmount)) {
+        issues.push({ type: 'error', text: 'Cannot execute redemption (check network/balance)', icon: X })
+      }
+      if (priceData.error) {
+        issues.push({ type: 'warning', text: `Price data error: ${priceData.error}`, icon: AlertTriangle })
+      }
+      if (!calculatedReturn || parseFloat(calculatedReturn) <= 0) {
+        issues.push({ type: 'warning', text: 'Invalid calculated return amount', icon: AlertTriangle })
+      }
+      
+      // Check wagmi contract simulation results
+      if (simulateError) {
+        issues.push({ type: 'error', text: `Contract simulation failed: ${simulateError.message}`, icon: X })
+      } else if (!simulateData && !isSimulateLoading) {
+        issues.push({ type: 'warning', text: 'Unable to simulate contract call', icon: AlertTriangle })
+      }
+      
+      if (issues.length > 0) {
+        const result = { type: 'issues', issues }
+        setSimulationResult(result)
+        return { hasIssues: true, issues, result }
+      } else {
+        const result = { 
+          type: 'success', 
+          text: `Contract simulation successful! Ready to redeem ${inputAmount} BASKET tokens`, 
+          details: `Estimated return: ${calculatedReturn} ${networkInfo.tokenSymbol}\nUSD value: $${usdValue.toFixed(2)}\n${simulateData ? `Gas estimate: ${simulateData.request.gas?.toString() || 'N/A'}` : ''}`, 
+          icon: CheckCircle 
+        }
+        setSimulationResult(result)
+        return { hasIssues: false, result }
+      }
+    } catch (error) {
+      const result = { type: 'error', text: `Simulation failed: ${error instanceof Error ? error.message : 'Unknown error'}`, icon: X }
+      setSimulationResult(result)
+      return { hasIssues: true, result }
+    }
+  }
+
+  const handleRedeemWithSimulation = async () => {
     if (!inputAmount || !canRedeem(inputAmount)) return
     
     // CRITICAL SECURITY CHECK: Verify user is on correct network
     if (!networkInfo.isSupported) {
-      console.error('❌ Network not supported for redemption:', chainId)
-      alert(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network before making transactions.`)
+      console.error('Network not supported for redemption:', chainId)
+      alert(`Wrong Network! You're on chain ${chainId}. Please switch to a supported network before making transactions.`)
       return
     }
     
+    // Show inline simulation loading
+    setIsSimulating(true)
+    setSimulationResult(null)
+    
+    // Run simulation first
+    const simulationCheck = await runSimulation()
+    
+    if (simulationCheck.hasIssues) {
+      // Show simulation issues but don't proceed - keep loading state off
+      setIsSimulating(false)
+      return
+    }
+    
+    // If simulation passes, clear simulation result and proceed with redemption
+    setIsSimulating(false)
+    setSimulationResult(null)
+    
+    // Call the actual redemption function (this may have its own loading states)
     await executeRedemption(inputAmount)
   }
 
@@ -52,16 +160,11 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
   useEffect(() => {
     if (isSuccess) {
       setInputAmount('')
+      setSimulationResult(null)
     }
   }, [isSuccess])
 
   const userBalanceFormatted = userBalance ? formatEther(BigInt(userBalance)) : '0'
-  const canExecuteRedemption = inputAmount && 
-    parseFloat(inputAmount) > 0 && 
-    parseFloat(inputAmount) <= parseFloat(userBalanceFormatted) &&
-    !isPending && 
-    !isConfirming &&
-    networkInfo.isSupported
 
   // Conditional rendering instead of early return
   if (!networkInfo.isSupported) {
@@ -108,11 +211,16 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
             />
             
             <Button 
-              onClick={handleRedeem} 
-              disabled={!canExecuteRedemption}
+              onClick={handleRedeemWithSimulation} 
+              disabled={isSimulating || isPending || isConfirming || !inputAmount || !networkInfo.isSupported || parseFloat(inputAmount) <= 0 || parseFloat(inputAmount) > parseFloat(userBalanceFormatted)}
               className="w-full min-h-[44px]"
             >
-              {isPending ? (
+              {isSimulating ? (
+                <>
+                  <TestTube className="w-4 h-4 mr-2 animate-spin" />
+                  Simulating...
+                </>
+              ) : isPending ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   Confirming in Wallet...
@@ -133,6 +241,67 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
         <div className="text-xs text-muted-foreground">
           Available: {parseFloat(userBalanceFormatted).toFixed(4)} BASKET
         </div>
+
+        {/* Simulation Loading/Result */}
+        {(isSimulating || simulationResult) && (
+          <div className={`p-3 border rounded-md ${
+            isSimulating ? 'bg-muted border-border' :
+            simulationResult.type === 'success' ? 'bg-primary/10 border-primary text-primary' :
+            simulationResult.type === 'error' ? 'bg-destructive/10 border-destructive text-destructive' :
+            'bg-secondary border-secondary-foreground/20 text-secondary-foreground'
+          }`}>
+            <div className="flex items-start gap-2">
+              <TestTube className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isSimulating ? 'animate-spin' : ''}`} />
+              <div>
+                <p className="text-sm font-medium">
+                  {isSimulating ? 'Simulating Redemption...' : 'Redemption Simulation Result'}
+                </p>
+                {isSimulating && (
+                  <div className="text-xs mt-1 text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Validating redemption with blockchain...</span>
+                    </div>
+                  </div>
+                )}
+                {!isSimulating && simulationResult?.type === 'success' && (
+                  <div className="text-xs mt-1">
+                    <div className="flex items-center gap-1 mb-1">
+                      <CheckCircle className="w-3 h-3" />
+                      <span>{simulationResult.text}</span>
+                    </div>
+                    {simulationResult.details && (
+                      <pre className="text-xs whitespace-pre-wrap opacity-75">{simulationResult.details}</pre>
+                    )}
+                  </div>
+                )}
+                {!isSimulating && simulationResult?.type === 'error' && (
+                  <div className="flex items-center gap-1 text-xs mt-1">
+                    <X className="w-3 h-3" />
+                    <span>{simulationResult.text}</span>
+                  </div>
+                )}
+                {!isSimulating && simulationResult?.type === 'issues' && (
+                  <div className="text-xs mt-1 space-y-1">
+                    <p className="font-medium">Issues found:</p>
+                    {simulationResult.issues.map((issue: any, index: number) => (
+                      <div key={index} className="flex items-center gap-1">
+                        <issue.icon className="w-3 h-3" />
+                        <span>{issue.text}</span>
+                      </div>
+                    ))}
+                    {simulationResult.issues.some((issue: any) => issue.text.includes('Price data error')) && (
+                      <div className="flex items-center gap-1 mt-2 font-medium">
+                        <Target className="w-3 h-3" />
+                        <span>API fallback will be used if contract prices fail</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Redemption Preview */}
         {calculatedReturn && inputAmount && (

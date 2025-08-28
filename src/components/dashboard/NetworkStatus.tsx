@@ -5,31 +5,55 @@ import { BalanceCard } from '../shared/BalanceCard'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
 
 interface NetworkStatusProps {
-  config: { name: string }
+  dashboardData: any
   chainId: number
-  corePrice: number
-  btcPrice: number
-  totalPooledCore: number
-  supportedAssets: readonly string[]
-  priceLoading: boolean
-  priceError?: string
-  updateCorePrice: () => void
-  isPriceUpdating: boolean
 }
 
 export function NetworkStatus({
-  config,
-  chainId,
-  corePrice,
-  btcPrice,
-  totalPooledCore,
-  supportedAssets,
-  priceLoading,
-  priceError,
-  updateCorePrice,
-  isPriceUpdating
+  dashboardData,
+  chainId
 }: NetworkStatusProps) {
   const networkInfo = useNetworkInfo()
+  
+  // Show loading state if dashboardData is not yet loaded
+  if (!dashboardData || !dashboardData.config) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="w-5 h-5" />
+            Network Status
+            <span className="text-sm font-normal text-muted-foreground">
+              (Loading... - Chain ID: {chainId})
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({length: 4}).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 bg-muted rounded mb-2"></div>
+                <div className="h-8 bg-muted rounded"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+  
+  // Destructure from dashboardData
+  const {
+    config,
+    corePrice,
+    btcPrice,
+    totalPooledCore,
+    supportedAssets,
+    priceLoading,
+    priceError,
+    updateCorePrice,
+    isUpdating: isPriceUpdating
+  } = dashboardData
   
   return (
     <Card>
@@ -72,7 +96,7 @@ export function NetworkStatus({
           </div>
           
           {priceError && (
-            <div className="p-2 bg-accent/50 border border-border rounded text-xs text-accent-foreground">
+            <div className="p-2 bg-accent/50 border border-border rounded text-xs text-foreground">
               ⚠️ {priceError}
               {priceError.includes('stale') && (
                 <div className="mt-2">

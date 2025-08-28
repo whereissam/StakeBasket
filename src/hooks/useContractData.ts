@@ -1,5 +1,5 @@
 import { useReadContract, useChainId, useBalance } from 'wagmi'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useContracts } from './useContracts'
 import { useRealPriceData } from './useRealPriceData'
 

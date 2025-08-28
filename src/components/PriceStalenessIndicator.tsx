@@ -74,13 +74,18 @@ export function PriceStalenessIndicator({ onUpdatePrice, isUpdating }: Props) {
           onClick={onUpdatePrice}
           disabled={isUpdating}
           size="sm"
-          variant="ghost"
-          className="h-5 px-2 text-xs"
+          className="h-6 px-2 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
         >
           {isUpdating ? (
-            <RefreshCw className="h-3 w-3 animate-spin" />
+            <>
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              Updating...
+            </>
           ) : (
-            'Fix'
+            <>
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Fix
+            </>
           )}
         </Button>
       )}
