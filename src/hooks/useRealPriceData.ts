@@ -92,7 +92,7 @@ async function fetchCoinGeckoPrice() {
   }
 }
 
-export function useRealPriceData(): PriceData {
+export function useRealPriceData(enabled: boolean = true): PriceData {
   const chainId = useChainId()
   const { contracts } = getNetworkByChainId(chainId)
   
@@ -114,12 +114,12 @@ export function useRealPriceData(): PriceData {
     functionName: 'getPrice',
     args: ['CORE'],
     query: { 
-      enabled: shouldUseOracle,
+      enabled: enabled && shouldUseOracle,
       retry: false,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
-      staleTime: 60000, // Cache for 1 minute
-      gcTime: 300000, // Keep in cache for 5 minutes
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
       refetchInterval: false // Disable automatic refetching
     }
   })
@@ -130,12 +130,12 @@ export function useRealPriceData(): PriceData {
     functionName: 'getPrice',
     args: ['BTC'],
     query: { 
-      enabled: shouldUseOracle,
+      enabled: enabled && shouldUseOracle,
       retry: false,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
-      staleTime: 60000, // Cache for 1 minute
-      gcTime: 300000, // Keep in cache for 5 minutes
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
       refetchInterval: false // Disable automatic refetching
     }
   })
@@ -146,12 +146,12 @@ export function useRealPriceData(): PriceData {
     functionName: 'isPriceValid',
     args: ['CORE'],
     query: { 
-      enabled: shouldUseOracle,
+      enabled: enabled && shouldUseOracle,
       retry: false,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
-      staleTime: 60000, // Cache for 1 minute
-      gcTime: 300000, // Keep in cache for 5 minutes
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
       refetchInterval: false // Disable automatic refetching
     }
   })
@@ -162,12 +162,12 @@ export function useRealPriceData(): PriceData {
     functionName: 'isPriceValid',
     args: ['BTC'],
     query: { 
-      enabled: shouldUseOracle,
+      enabled: enabled && shouldUseOracle,
       retry: false,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
-      staleTime: 60000, // Cache for 1 minute
-      gcTime: 300000, // Keep in cache for 5 minutes
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
       refetchInterval: false // Disable automatic refetching
     }
   })
@@ -195,6 +195,11 @@ export function useRealPriceData(): PriceData {
   }, [corePriceOracle, btcPriceOracle, corePriceValid, btcPriceValid, coreOracleError, btcOracleError])
 
   useEffect(() => {
+    // Don't fetch if not enabled
+    if (!enabled) {
+      return
+    }
+    
     let mounted = true
     const coreApiClient = new CoreApiClient(chainId)
 
@@ -353,7 +358,7 @@ export function useRealPriceData(): PriceData {
     return () => {
       mounted = false
     }
-  }, [chainId, shouldUseOracle, oracleAddress]) // Simplified dependencies
+  }, [chainId, shouldUseOracle, oracleAddress, enabled]) // Include enabled in dependencies
 
   return priceData
 }

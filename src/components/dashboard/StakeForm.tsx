@@ -78,7 +78,7 @@ export function StakeForm({
   const [isSimulating, setIsSimulating] = useState(false)
   const [simulationResult, setSimulationResult] = useState<any>(null)
   
-  // Check if CORE price is stale in the contract
+  // Check if CORE price is stale in the contract - optimized with longer intervals
   const { data: isPriceValid } = useReadContract({
     address: contracts.CoreOracle as `0x${string}`,
     abi: [
@@ -93,12 +93,16 @@ export function StakeForm({
     functionName: 'isPriceValid',
     args: ['CORE'],
     query: {
-      enabled: !!contracts.CoreOracle,
-      refetchInterval: 30000, // Check every 30 seconds
+      enabled: !!contracts.CoreOracle && !!address, // Only when we have address
+      refetchInterval: 5 * 60 * 1000, // Check every 5 minutes instead of 30 seconds
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      staleTime: 2 * 60 * 1000, // Consider data fresh for 2 minutes
+      gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     }
   })
   
-  // Use wagmi's useSimulateContract for proper contract simulation
+  // Use wagmi's useSimulateContract for proper contract simulation - optimized
   const { 
     data: simulateData, 
     error: simulateError, 
@@ -111,7 +115,12 @@ export function StakeForm({
     value: depositAmount ? parseEther(depositAmount) : undefined,
     account: address,
     query: {
-      enabled: !!(depositAmount && parseFloat(depositAmount) > 0 && address && contracts.StakeBasket)
+      enabled: !!(depositAmount && parseFloat(depositAmount) > 0 && address && contracts.StakeBasket),
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false, // Don't refetch on mount
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
     }
   })
   

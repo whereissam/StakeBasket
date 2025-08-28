@@ -21,6 +21,6 @@ export const config = getDefaultConfig({
     [coreTestnet2.id]: http('https://rpc.test2.btcs.network'),
     [coreMainnet.id]: http('https://rpc.coredao.org'),
   },
-  // Configure polling at the client level instead
-  pollingInterval: 4_000, // 4 seconds
+  // Configure polling at the client level instead - reduced to prevent API spam
+  pollingInterval: 30_000, // 30 seconds to prevent excessive API calls
 })

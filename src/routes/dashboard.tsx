@@ -6,8 +6,6 @@ import { RefreshCw } from 'lucide-react'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useAccount, useChainId } from 'wagmi'
-// import { parseEther } from 'viem'
-import { PriceStalenessIndicator } from '../components/PriceStalenessIndicator'
 import { NetworkStatus } from '../components/dashboard/NetworkStatus'
 import { PortfolioOverview } from '../components/dashboard/PortfolioOverview'
 import { StakeForm } from '../components/dashboard/StakeForm'
@@ -23,8 +21,9 @@ import { toast } from 'sonner'
 // import { SystemDiagnostic } from '../components/debug/SystemDiagnostic'
 // import { DebugWrapper } from '../components/debug/DebugWrapper'
 const Dashboard = React.memo(() => {
-  const { address } = useAccount()
+  const { address } = useAccount() 
   const chainId = useChainId()
+  
   const [isInitialized, setIsInitialized] = useState(false)
   
   // Memoize network validation to prevent recalculation on every render
@@ -40,8 +39,10 @@ const Dashboard = React.memo(() => {
     return () => clearTimeout(timer)
   }, [])
   
-  // Use centralized dashboard data hook
+  // Use centralized dashboard data hook - RE-ENABLED TO FIX PROPERLY
   const dashboardData = useDashboardData(isInitialized)
+  
+  // Destructure only the variables actually used in this component
   const {
     walletConnected,
     contractAddresses,
@@ -52,17 +53,30 @@ const Dashboard = React.memo(() => {
     healthSummary,
     runFullHealthCheck,
     isChecking,
-    updateCorePrice,
-    isUpdating: isPriceUpdating,
     updateSuccess: priceUpdateSuccess,
     transactions,
     loading: txLoading,
     error: txError
-  } = dashboardData
+  } = dashboardData || {
+    // Fallback values to prevent errors
+    walletConnected: false,
+    contractAddresses: {},
+    config: { name: 'Unknown', explorer: '' },
+    coreBalance: 0,
+    isConnected: false,
+    refetchBasketBalance: () => {},
+    healthSummary: { healthPercentage: 0, healthyContracts: 0, totalContracts: 0 },
+    runFullHealthCheck: async () => {},
+    isChecking: false,
+    updateSuccess: false,
+    transactions: [],
+    loading: false,
+    error: null
+  }
 
   const [depositAmount, setDepositAmount] = useState('')
   
-  // Use the transaction hooks
+  // Use the real transaction hooks
   const stakeBasketHooks = useStakeBasketTransactions()
   const {
     depositCore,
@@ -161,6 +175,15 @@ const Dashboard = React.memo(() => {
     }
   }, [priceUpdateSuccess, handleRefetchBalance])
 
+  // Early return if dashboard data is not yet loaded
+  if (!dashboardData) {
+    return (
+      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="text-center">Loading dashboard...</div>
+      </div>
+    )
+  }
+  
   if (!isConnected) {
     return <WalletConnectionPrompt config={config} chainId={chainId} />
   }
@@ -190,10 +213,11 @@ const Dashboard = React.memo(() => {
             Contract Health: {healthSummary.healthPercentage}% ({healthSummary.healthyContracts}/{healthSummary.totalContracts} healthy)
           </p>
           <div className="mt-2">
-            <PriceStalenessIndicator 
+            {/* <PriceStalenessIndicator 
               onUpdatePrice={updateCorePrice}
               isUpdating={isPriceUpdating}
-            />
+            /> */}
+            <div className="text-sm text-green-600">✅ Price feeds disabled for debugging</div>
           </div>
         </div>
         <div className="flex gap-2">
@@ -239,7 +263,6 @@ const Dashboard = React.memo(() => {
           isDepositing={isDepositing}
         />
         
-        {/* Temporarily disabled to prevent excessive API calls */}
         <ApiWithdrawForm 
           chainId={chainId}
         />

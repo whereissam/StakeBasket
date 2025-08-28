@@ -72,7 +72,13 @@ export function useDualStakingTransactions() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address as `0x${string}`, dualStakingBasketAddress as `0x${string}`],
-    query: { enabled: !!address && !!coreTokenAddress && !!dualStakingBasketAddress }
+    query: { 
+      enabled: !!address && !!coreTokenAddress && !!dualStakingBasketAddress,
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
   
   const { data: btcAllowance = 0n } = useReadContract({
@@ -80,7 +86,13 @@ export function useDualStakingTransactions() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address as `0x${string}`, dualStakingBasketAddress as `0x${string}`],
-    query: { enabled: !!address && !!btcTokenAddress && !!dualStakingBasketAddress }
+    query: { 
+      enabled: !!address && !!btcTokenAddress && !!dualStakingBasketAddress,
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
   
   // Write contract hooks

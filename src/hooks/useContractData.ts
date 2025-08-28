@@ -1,5 +1,5 @@
 import { useReadContract, useChainId, useBalance } from 'wagmi'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useContracts } from './useContracts'
 import { useRealPriceData } from './useRealPriceData'
 
@@ -66,15 +66,25 @@ export function useContractData(userAddress?: string) {
   const chainId = useChainId()
   const { contracts } = useContracts()
   
-  // Get real-time price data from Core APIs
-  const realPriceData = useRealPriceData()
+  // Only enable RPC calls if user is actually connected and contracts are available
+  const shouldFetchData = useMemo(() => 
+    !!userAddress && !!contracts.StakeBasket && !!contracts.StakeBasketToken,
+    [userAddress, contracts.StakeBasket, contracts.StakeBasketToken]
+  )
+  
+  // Re-enabled real price data for testing - but only when needed
+  const realPriceData = useRealPriceData(shouldFetchData)
 
-  // Get native CORE balance from wallet
+  // Native CORE balance with aggressive caching
   const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
     address: userAddress as `0x${string}`,
     query: { 
-      enabled: !!userAddress,
-      staleTime: 30000 // Use cached data for 30 seconds, no auto-refresh
+      enabled: shouldFetchData,
+      staleTime: 120000, // Cache for 2 minutes
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
     }
   })
 
@@ -86,25 +96,36 @@ export function useContractData(userAddress?: string) {
     return
   }, [userAddress, chainId])
 
-  // Get BASKET token balance (StakeBasketToken - the token you get from staking)
+  // Basket token balance with aggressive caching
   const { data: basketBalance, refetch: refetchBasketBalance } = useReadContract({
     address: contracts.StakeBasketToken as `0x${string}`,
     abi: CORE_TOKEN_ABI,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress as `0x${string}`] : undefined,
     query: { 
-      enabled: !!userAddress && !!contracts.StakeBasketToken,
-      staleTime: 30000 // Cache for 30 seconds, no auto-refresh
+      enabled: shouldFetchData,
+      staleTime: 120000, // Cache for 2 minutes
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
     }
   })
 
-  // Get oracle prices (fallback only)
+  // Oracle price calls with heavy caching
   const { data: oracleCorePrice } = useReadContract({
     address: contracts.CoreOracle as `0x${string}`,
     abi: ORACLE_ABI,
     functionName: 'getPrice',
     args: ['CORE'],
-    query: { enabled: !!contracts.CoreOracle }
+    query: { 
+      enabled: shouldFetchData && !!contracts.CoreOracle,
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
 
   const { data: oracleBtcPrice } = useReadContract({
@@ -112,26 +133,43 @@ export function useContractData(userAddress?: string) {
     abi: ORACLE_ABI,
     functionName: 'getPrice',
     args: ['BTC'],
-    query: { enabled: !!contracts.CoreOracle }
+    query: { 
+      enabled: shouldFetchData && !!contracts.CoreOracle,
+      staleTime: 180000, // Cache for 3 minutes
+      gcTime: 600000, // Keep in cache for 10 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
 
-  // Get total pooled CORE
+  // Pool and asset data with heavy caching
   const { data: totalPooledCore } = useReadContract({
     address: contracts.StakeBasket as `0x${string}`,
     abi: STAKE_BASKET_ABI,
     functionName: 'totalPooledCore',
     query: { 
-      enabled: !!contracts.StakeBasket,
-      staleTime: 30000 // Cache for 30 seconds, no auto-refresh
+      enabled: shouldFetchData && !!contracts.StakeBasket,
+      staleTime: 120000, // Cache for 2 minutes
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
     }
   })
 
-  // Get supported assets
   const { data: supportedAssets } = useReadContract({
     address: contracts.CoreOracle as `0x${string}`,
     abi: ORACLE_ABI,
     functionName: 'getSupportedAssets',
-    query: { enabled: !!contracts.CoreOracle }
+    query: { 
+      enabled: shouldFetchData && !!contracts.CoreOracle,
+      staleTime: 600000, // Cache for 10 minutes (assets don't change often)
+      gcTime: 1200000, // Keep in cache for 20 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
 
   // Use only wagmi balance for all networks to avoid API polling

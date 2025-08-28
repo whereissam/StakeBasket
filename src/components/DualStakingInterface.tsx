@@ -116,6 +116,8 @@ export const DualStakingInterface = React.memo(() => {
   const { address } = useAccount()
   const { chainId: storeChainId } = useNetworkStore()
   const { chainId } = useContracts()
+  
+  // Use real data - no mocks
   const currentChainId = chainId || storeChainId || 31337
   const [isDataLoaded, setIsDataLoaded] = useState(false)
   
@@ -131,7 +133,7 @@ export const DualStakingInterface = React.memo(() => {
   // Get token symbol first (needed for all cases)
   const tokenSymbol = getTokenSymbol(currentChainId)
   
-  // Use unified dual staking transaction system
+  // Use unified dual staking transaction system - re-enabled
   const {
     depositDualStake,
     approveBtcTokens,
@@ -143,8 +145,8 @@ export const DualStakingInterface = React.memo(() => {
     dualStakeSuccess
   } = useDualStakingTransactions()
   
-  // Real-time price data from multiple sources
-  const priceData = useRealPriceData()
+  // Real-time price data from multiple sources - re-enabled
+  const priceData = useRealPriceData(isDataLoaded)
   
   // Validate network support
   const networkValidation = validateNetwork(currentChainId)
@@ -180,18 +182,29 @@ export const DualStakingInterface = React.memo(() => {
     BTC: priceData.btcPrice || 65000       // Use real BTC price or fallback
   }), [])
 
-  // Native ETH balance (for local hardhat) - with caching to reduce API calls
+  // Native ETH balance (for local hardhat) - TEMPORARILY DISABLED FOR DEBUGGING
+  // const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
+  //   address: address,
+  //   query: {
+  //     enabled: !!address && isNativeCORE && isDataLoaded, // Only load after delay
+  //     staleTime: 30000, // Cache for 30 seconds
+  //     gcTime: 120000, // Keep in cache for 2 minutes
+  //     refetchOnWindowFocus: false
+  //   },
+  // })
+
+  // Real balance data - re-enabled
   const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
-    address: address,
+    address: address as `0x${string}`,
     query: {
-      enabled: !!address && isNativeCORE && isDataLoaded, // Only load after delay
-      staleTime: 30000, // Cache for 30 seconds
+      enabled: !!address && isDataLoaded,
+      staleTime: 30000, // Cache for 30 seconds  
       gcTime: 120000, // Keep in cache for 2 minutes
       refetchOnWindowFocus: false
     },
   })
 
-  // CORE is native token - use native balance only
+  // CORE is native token - use native balance
   const coreBalanceData = nativeCoreBalance?.value
   
   const { data: btcBalanceData, refetch: refetchBtcBalance } = useReadContract({
@@ -200,7 +213,7 @@ export const DualStakingInterface = React.memo(() => {
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address && !!btcTokenAddress && isDataLoaded, // Only load after delay
+      enabled: !!address && !!btcTokenAddress && isDataLoaded,
       staleTime: 30000, // Cache for 30 seconds
       gcTime: 120000, // Keep in cache for 2 minutes
       refetchOnWindowFocus: false
@@ -210,6 +223,19 @@ export const DualStakingInterface = React.memo(() => {
   // CORE is native token - no allowance needed (like ETH)
   // Remove unnecessary allowance check since CORE is native
 
+  // const { data: btcAllowance, refetch: refetchBtcAllowance } = useReadContract({
+  //   address: btcTokenAddress as `0x${string}`,
+  //   abi: erc20Abi,
+  //   functionName: 'allowance',
+  //   args: address && stakingContractAddress ? [address, stakingContractAddress as `0x${string}`] : undefined,
+  //   query: {
+  //     enabled: !!address && !!btcTokenAddress && !!stakingContractAddress,
+  //     staleTime: 30000, // Cache for 30 seconds
+  //     gcTime: 120000, // Keep in cache for 2 minutes
+  //     refetchOnWindowFocus: false
+  //   }
+  // })
+  
   const { data: btcAllowance, refetch: refetchBtcAllowance } = useReadContract({
     address: btcTokenAddress as `0x${string}`,
     abi: erc20Abi,

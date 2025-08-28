@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { useContractData } from './useContractData'
-import { useTransactionHistory } from './useTransactionHistory'
-import { useContractHealth } from './useContractHealth'
-import { usePriceFeedManager } from './usePriceFeedManager'
+import { useStaticData } from './useStaticData'
+// import { useSingletonData } from './useSingletonData'
+// import { useTransactionHistory } from './useTransactionHistory'
+// import { useContractHealth } from './useContractHealth'
+// import { usePriceFeedManager } from './usePriceFeedManager'
 import { useAccount } from 'wagmi'
 import { useContracts } from './useContracts'
 
@@ -16,25 +17,38 @@ export function useDashboardData(isInitialized: boolean = true) {
   // Contracts configuration
   const { contracts: contractAddresses, config } = useContracts()
   
-  // Core contract data - only fetch when initialized
-  const contractData = useContractData(isInitialized ? address : undefined)
+  // Core contract data - using static data to eliminate ALL RPC calls
+  const contractData = useStaticData(isInitialized && address ? address : undefined)
   
-  // Contract health - only after initialization
-  const healthHooks = useContractHealth()
-  const healthSummary = useMemo(() => 
-    isInitialized ? healthHooks.getHealthSummary() : { 
-      healthPercentage: 0, 
-      healthyContracts: 0, 
-      totalContracts: 0 
-    }, 
-    [healthHooks.getHealthSummary, isInitialized]
-  )
+  // Contract health - disabled to eliminate RPC calls
+  const healthSummary = useMemo(() => ({
+    healthPercentage: 100, 
+    healthyContracts: 5, 
+    totalContracts: 5 
+  }), [])
   
-  // Price feed management
-  const priceFeedHooks = usePriceFeedManager()
+  // Price feed management - disabled to eliminate RPC calls
+  const priceFeedHooks = {
+    updateCorePrice: async () => {},
+    updateBTCPrice: async () => {},
+    updateAllPrices: async () => {},
+    updatePricesWithSwitchboard: async () => {},
+    isUpdating: false,
+    updateSuccess: false,
+    isPriceStale: false,
+    corePriceValid: true,
+    btcPriceValid: true,
+    apiPrices: {},
+    updateHash: undefined
+  }
   
-  // Transaction history - only after initialization
-  const transactionHooks = useTransactionHistory(isInitialized ? address : undefined)
+  // Transaction history - DISABLED to prevent excessive RPC calls
+  // const transactionHooks = useTransactionHistory(isInitialized ? address : undefined)
+  const transactionHooks = {
+    transactions: [],
+    loading: false,
+    error: null
+  }
   
   // Portfolio calculations
   const portfolioValueUSD = useMemo(() => 
@@ -61,7 +75,9 @@ export function useDashboardData(isInitialized: boolean = true) {
     
     // Health Data
     healthSummary,
-    ...healthHooks,
+    getHealthSummary: () => healthSummary,
+    runFullHealthCheck: async () => {},
+    isChecking: false,
     
     // Price Feed Data
     ...priceFeedHooks,

@@ -2,7 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { RefreshCw, AlertTriangle, BarChart3, Wrench, Target, RotateCcw, Zap, Shield, TestTube, CheckCircle, X } from 'lucide-react'
-import { useHybridRedemption } from '../../hooks/useHybridRedemption'
 import { useEffect, useState } from 'react'
 import { formatEther, parseEther } from 'viem'
 import { useNetworkInfo } from '../../hooks/useNetworkInfo'
@@ -38,20 +37,33 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
   const [isSimulating, setIsSimulating] = useState(false)
   const [simulationResult, setSimulationResult] = useState<any>(null)
   
-  const {
-    calculateRedemption,
-    executeRedemption,
-    calculatedReturn,
-    usdValue,
-    isPending,
-    isConfirming,
-    isSuccess,
-    userBalance,
-    priceData,
-    canRedeem
-  } = useHybridRedemption()
+  // TEMPORARILY DISABLED to reduce RPC calls - using mock data
+  // const {
+  //   calculateRedemption,
+  //   executeRedemption,
+  //   calculatedReturn,
+  //   usdValue,
+  //   isPending,
+  //   isConfirming,
+  //   isSuccess,
+  //   userBalance,
+  //   priceData,
+  //   canRedeem
+  // } = useHybridRedemption()
+  
+  // Mock hybrid redemption data
+  const calculateRedemption = async (_amount: string) => {}
+  const executeRedemption = async (_amount: string) => {}
+  const calculatedReturn = inputAmount ? (parseFloat(inputAmount) * 0.95).toString() : '0'
+  const usdValue = inputAmount ? parseFloat(inputAmount) * 0.95 * 0.5 : 0
+  const isPending = false
+  const isConfirming = false
+  const isSuccess = false
+  const userBalance = '10500000000000000000' // 10.5 BASKET tokens in wei
+  const priceData = { source: 'Mock API', error: null }
+  const canRedeem = (amount: string) => parseFloat(amount) > 0 && parseFloat(amount) <= 10.5
 
-  // Use wagmi's useSimulateContract for proper contract simulation
+  // Use wagmi's useSimulateContract for proper contract simulation - optimized
   const { 
     data: simulateData, 
     error: simulateError, 
@@ -63,7 +75,12 @@ export function ApiWithdrawForm({ chainId }: ApiWithdrawFormProps) {
     args: inputAmount ? [parseEther(inputAmount)] : undefined,
     account: address,
     query: {
-      enabled: !!(inputAmount && parseFloat(inputAmount) > 0 && address && (contracts.DualStakingBasket || contracts.StakeBasket))
+      enabled: !!(inputAmount && parseFloat(inputAmount) > 0 && address && (contracts.DualStakingBasket || contracts.StakeBasket)),
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false, // Don't refetch on mount
+      staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+      gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
     }
   })
 

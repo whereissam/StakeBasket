@@ -321,7 +321,13 @@ export function useStakeBasketTransactions() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address as `0x${string}`, contracts.StakeBasket as `0x${string}`],
-    query: { enabled: !!address && !!basketTokenAddress && !!contracts.StakeBasket }
+    query: { 
+      enabled: !!address && !!basketTokenAddress && !!contracts.StakeBasket,
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false,
+      refetchInterval: false // Disable automatic refetching
+    }
   })
   
   
