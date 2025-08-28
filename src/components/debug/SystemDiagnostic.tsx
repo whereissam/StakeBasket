@@ -33,15 +33,22 @@ export function SystemDiagnostic() {
   
   const priceFeedStatus = usePriceFeedStatus()
 
-  // Check RPC connection based on network
+  // Check RPC connection based on network (run once on mount, not continuously)
   useEffect(() => {
+    let isMounted = true
+    let timeoutId: NodeJS.Timeout | null = null
+    
     const checkRPC = async () => {
+      if (!isMounted) return
+      
       try {
         let rpcUrl = 'http://localhost:8545' // Default local
         
         // Use appropriate RPC based on chain ID
-        if (chainId === 1114 || chainId === 1115) {
-          rpcUrl = 'https://rpc.coredao.org' // Core network RPC
+        if (chainId === 1114) {
+          rpcUrl = 'https://rpc.test2.btcs.network' // Core Testnet2 RPC
+        } else if (chainId === 1115) {
+          rpcUrl = 'https://rpc.coredao.org' // Core Mainnet RPC
         }
         
         const response = await fetch(rpcUrl, {
@@ -51,33 +58,53 @@ export function SystemDiagnostic() {
             jsonrpc: '2.0',
             method: 'eth_blockNumber',
             params: [],
-            id: 1
+            id: Date.now()
           })
         })
+        
+        if (!isMounted) return
+        
         const result = await response.json()
         
-        if (result.result) {
+        if (result.result && isMounted) {
           setBlockNumber(parseInt(result.result, 16))
           setRpcStatus('connected')
-        } else {
+        } else if (isMounted) {
           setRpcStatus('failed')
         }
       } catch (error) {
-        setRpcStatus('failed')
+        if (isMounted) {
+          setRpcStatus('failed')
+        }
       }
     }
     
-    checkRPC()
-    const interval = setInterval(checkRPC, 5000) // Check every 5 seconds
-    return () => clearInterval(interval)
+    // Only check once on mount/chain change, don't poll continuously
+    // Add a small delay to prevent excessive calls on component mount
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        checkRPC()
+      }
+    }, 1000) // 1 second delay to prevent spam
+    
+    return () => {
+      isMounted = false
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
   }, [chainId])
 
-  // Test contract reads
+  // Test contract reads (with stable queries to prevent re-renders)
   const { data: totalPooled, error: poolError } = useReadContract({
     address: contracts.StakeBasket as `0x${string}`,
     abi: DIAGNOSTIC_ABI,
     functionName: 'totalPooledCore',
-    query: { enabled: !!contracts.StakeBasket }
+    query: { 
+      enabled: !!contracts.StakeBasket,
+      staleTime: 30000, // Cache for 30 seconds
+      retry: 1
+    }
   })
 
   const { data: corePrice, error: priceError } = useReadContract({
@@ -87,7 +114,8 @@ export function SystemDiagnostic() {
     args: ['CORE'],
     query: { 
       enabled: !!(contracts.CoreOracle || contracts.PriceFeed),
-      retry: false
+      staleTime: 30000, // Cache for 30 seconds
+      retry: 1
     }
   })
 

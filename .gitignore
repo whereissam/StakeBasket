@@ -110,9 +110,9 @@ cache_forge/
 .openzeppelin/
 deployments/localhost/
 
-# Contract artifacts that shouldn't be committed
-contracts/artifacts/
-contracts/cache/
+# Contract artifacts that shouldn't be committed (covered by artifacts/ above)
+# contracts/artifacts/
+# contracts/cache/
 
 # Private keys and mnemonics (NEVER commit these)
 *.key
@@ -125,9 +125,9 @@ wallet.json
 keystore/
 accounts.json
 
-# Environment files that may contain keys
-.env*
-!.env.example
+# Environment files that may contain keys (already covered above)
+# .env*
+# !.env.example
 .environment
 secrets.json
 config.json
@@ -162,8 +162,5 @@ scripts/deploy-mainnet*.cjs
 .vscode/settings.json
 .vscode/launch.json
 
-scripts/
-tests/
-tools/
 docs/
-deployment-data/
+artifacts/

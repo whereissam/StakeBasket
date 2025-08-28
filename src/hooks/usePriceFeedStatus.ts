@@ -17,7 +17,7 @@ export function usePriceFeedStatus() {
   const chainId = useChainId()
   const { contracts } = getNetworkByChainId(chainId)
   
-  // Try to read CORE price to test if price feed is working
+  // Try to read CORE price to test if price feed is working - with caching
   const { data: corePrice, error: corePriceError, isLoading } = useReadContract({
     address: contracts.PriceFeed as `0x${string}`,
     abi: PRICE_FEED_ABI,
@@ -26,10 +26,14 @@ export function usePriceFeedStatus() {
     query: { 
       enabled: !!contracts.PriceFeed,
       retry: false, // Don't retry failed calls
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
     }
   })
 
-  // Try to read BTC price as well
+  // Try to read BTC price as well - with caching
   const { data: btcPrice, error: btcPriceError } = useReadContract({
     address: contracts.PriceFeed as `0x${string}`,
     abi: PRICE_FEED_ABI,
@@ -38,6 +42,10 @@ export function usePriceFeedStatus() {
     query: { 
       enabled: !!contracts.PriceFeed && !corePriceError,
       retry: false, // Don't retry failed calls
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
     }
   })
   

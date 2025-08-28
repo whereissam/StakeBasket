@@ -65,6 +65,10 @@ export interface CoreSupplyResponse {
   message: string
 }
 
+// Global cache for API responses
+const apiCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 120000 // 2 minutes cache
+
 export class CoreApiClient {
   private apiKey: string
   private chainId: number
@@ -81,6 +85,15 @@ export class CoreApiClient {
   }
 
   private async request<T>(params: Record<string, string>): Promise<T> {
+    // Create cache key
+    const cacheKey = `${this.baseUrl}_${JSON.stringify(params)}_${this.chainId}`
+    const cached = apiCache.get(cacheKey)
+    
+    // Return cached result if still valid
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return cached.data
+    }
+
     const url = new URL(this.baseUrl)
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, value)
@@ -95,10 +108,15 @@ export class CoreApiClient {
     })
 
     if (!response.ok) {
-      throw new Error(`Core API request failed: ${response.status} ${response.statusText}`)
+      throw new Error(`Core API request failed: ${response.status}`)
     }
 
-    return response.json()
+    const data = await response.json()
+    
+    // Cache the result
+    apiCache.set(cacheKey, { data, timestamp: Date.now() })
+    
+    return data
   }
 
   async getCorePrice(): Promise<CorePriceResponse> {

@@ -46,22 +46,30 @@ export function Dashboard() {
     if (!depositAmount) return
     
     setIsDepositing(true)
-    // TODO: Implement actual deposit logic
-    setTimeout(() => {
-      setIsDepositing(false)
+    try {
+      // TODO: Implement actual deposit logic
+      await new Promise(resolve => resolve(undefined))
       setDepositAmount('')
-    }, 2000)
+    } catch (error) {
+      console.error('Deposit error:', error)
+    } finally {
+      setIsDepositing(false)
+    }
   }
 
   const handleWithdraw = async () => {
     if (!withdrawAmount) return
     
     setIsWithdrawing(true)
-    // TODO: Implement actual withdraw logic
-    setTimeout(() => {
-      setIsWithdrawing(false)
+    try {
+      // TODO: Implement actual withdraw logic
+      await new Promise(resolve => resolve(undefined))
       setWithdrawAmount('')
-    }, 2000)
+    } catch (error) {
+      console.error('Withdraw error:', error)
+    } finally {
+      setIsWithdrawing(false)
+    }
   }
 
   return (

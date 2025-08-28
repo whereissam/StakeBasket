@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useChainId, useReadContract } from 'wagmi'
 import { CoreApiClient } from '../utils/coreApi'
 import { getNetworkByChainId } from '../config/contracts'
+import { limitedFetch } from '../utils/requestLimiter'
 
 interface PriceData {
   corePrice: number
@@ -13,6 +14,10 @@ interface PriceData {
 }
 
 const COINGECKO_API_URL = 'https://api.coingecko.com/api/v3/simple/price'
+
+// Cache to prevent excessive API calls
+let priceCache: { data: any; timestamp: number } | null = null
+const CACHE_DURATION = 60000 // 1 minute cache
 
 // PriceFeed contract ABI for price checking
 const PRICE_FEED_ABI = [
@@ -39,10 +44,15 @@ const PRICE_FEED_ABI = [
   }
 ] as const
 
-// CoinGecko API helper
+// CoinGecko API helper with caching
 async function fetchCoinGeckoPrice() {
   try {
-    const response = await fetch(
+    // Check cache first
+    if (priceCache && Date.now() - priceCache.timestamp < CACHE_DURATION) {
+      return priceCache.data
+    }
+
+    const response = await limitedFetch(
       `${COINGECKO_API_URL}?ids=ethereum,bitcoin,coredaoorg&vs_currencies=usd`,
       {
         headers: {
@@ -53,19 +63,32 @@ async function fetchCoinGeckoPrice() {
     )
     
     if (!response.ok) {
+      if (response.status === 429) {
+        console.warn('CoinGecko rate limited - using cache if available')
+        return priceCache?.data || null
+      }
       throw new Error(`CoinGecko API error: ${response.status}`)
     }
     
     const data = await response.json()
     
-    return {
+    const result = {
       ethPrice: data.ethereum?.usd || 0,
       btcPrice: data.bitcoin?.usd || 0,
       corePrice: data.coredaoorg?.usd || 0
     }
+
+    // Cache the result
+    priceCache = {
+      data: result,
+      timestamp: Date.now()
+    }
+    
+    return result
   } catch (error) {
     console.warn('CoinGecko API failed:', error)
-    return null
+    // Return cached data if available, otherwise null
+    return priceCache?.data || null
   }
 }
 
@@ -94,7 +117,10 @@ export function useRealPriceData(): PriceData {
       enabled: shouldUseOracle,
       retry: false,
       refetchOnMount: false,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false // Disable automatic refetching
     }
   })
   
@@ -107,7 +133,10 @@ export function useRealPriceData(): PriceData {
       enabled: shouldUseOracle,
       retry: false,
       refetchOnMount: false,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false // Disable automatic refetching
     }
   })
   
@@ -120,7 +149,10 @@ export function useRealPriceData(): PriceData {
       enabled: shouldUseOracle,
       retry: false,
       refetchOnMount: false,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false // Disable automatic refetching
     }
   })
   
@@ -133,9 +165,34 @@ export function useRealPriceData(): PriceData {
       enabled: shouldUseOracle,
       retry: false,
       refetchOnMount: false,
-      refetchOnWindowFocus: false
+      refetchOnWindowFocus: false,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false // Disable automatic refetching
     }
   })
+
+  // Use useRef to store stable references and prevent unnecessary re-renders
+  const oracleDataRef = useRef({
+    corePriceOracle,
+    btcPriceOracle,
+    corePriceValid,
+    btcPriceValid,
+    coreOracleError,
+    btcOracleError
+  })
+  
+  // Update ref when oracle data changes
+  useEffect(() => {
+    oracleDataRef.current = {
+      corePriceOracle,
+      btcPriceOracle,
+      corePriceValid,
+      btcPriceValid,
+      coreOracleError,
+      btcOracleError
+    }
+  }, [corePriceOracle, btcPriceOracle, corePriceValid, btcPriceValid, coreOracleError, btcOracleError])
 
   useEffect(() => {
     let mounted = true
@@ -144,9 +201,10 @@ export function useRealPriceData(): PriceData {
     const fetchPriceData = async () => {
       try {
         // 1. First priority: Try Switchboard oracle from contract (if available and valid)
-        if (shouldUseOracle && corePriceOracle && btcPriceOracle && corePriceValid && btcPriceValid) {
-          const corePrice = Number(corePriceOracle) / 1e18 // Convert from wei
-          const btcPrice = Number(btcPriceOracle) / 1e18   // Convert from wei
+        const oracle = oracleDataRef.current
+        if (shouldUseOracle && oracle.corePriceOracle && oracle.btcPriceOracle && oracle.corePriceValid && oracle.btcPriceValid) {
+          const corePrice = Number(oracle.corePriceOracle) / 1e18 // Convert from wei
+          const btcPrice = Number(oracle.btcPriceOracle) / 1e18   // Convert from wei
           
           if (corePrice > 0 && btcPrice > 0 && mounted) {
             setPriceData({
@@ -164,9 +222,9 @@ export function useRealPriceData(): PriceData {
         // 2. Oracle failed/stale - show this in error for user awareness
         let oracleStatus = ''
         if (shouldUseOracle) {
-          if (coreOracleError || btcOracleError) {
+          if (oracle.coreOracleError || oracle.btcOracleError) {
             oracleStatus = 'Oracle contract error'
-          } else if (corePriceValid === false || btcPriceValid === false) {
+          } else if (oracle.corePriceValid === false || oracle.btcPriceValid === false) {
             oracleStatus = 'Oracle prices are stale'
           }
         } else if (!oracleAddress) {
@@ -289,16 +347,13 @@ export function useRealPriceData(): PriceData {
       }
     }
 
+    // Only fetch once on mount - no continuous polling to prevent performance issues
     fetchPriceData()
-    
-    // Refresh prices every 30 seconds (but skip for local network)
-    const interval = chainId === 31337 ? null : setInterval(fetchPriceData, 30000)
     
     return () => {
       mounted = false
-      if (interval) clearInterval(interval)
     }
-  }, [chainId])
+  }, [chainId, shouldUseOracle, oracleAddress]) // Simplified dependencies
 
   return priceData
 }

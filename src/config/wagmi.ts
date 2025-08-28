@@ -8,9 +8,19 @@ console.log('🔧 Wagmi Config Debug:', {
   actualUsed: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo-project-id'
 })
 
+import { http } from 'wagmi'
+
 export const config = getDefaultConfig({
   appName: 'StakeBasket',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo-project-id',
   chains: [hardhat, coreTestnet2, coreMainnet],
   ssr: false,
+  // Add custom transport configuration
+  transports: {
+    [hardhat.id]: http('http://localhost:8545'),
+    [coreTestnet2.id]: http('https://rpc.test2.btcs.network'),
+    [coreMainnet.id]: http('https://rpc.coredao.org'),
+  },
+  // Configure polling at the client level instead
+  pollingInterval: 4_000, // 4 seconds
 })

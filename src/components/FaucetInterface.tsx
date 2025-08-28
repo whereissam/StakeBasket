@@ -206,13 +206,20 @@ const FaucetInterface: React.FC = () => {
       setLoading(true);
       toast.success('Requesting all tokens directly from contracts...');
       
-      // Request each token sequentially
-      const tokens = faucetStatus?.tokens || [];
-      tokens.forEach((token, index) => {
-        setTimeout(() => requestTokensDirectly(token.name, token.address), index * 1000);
-      });
-      
-      setLoading(false);
+      try {
+        // Request each token sequentially without blocking setTimeout
+        const tokens = faucetStatus?.tokens || [];
+        for (const token of tokens) {
+          await requestTokensDirectly(token.name, token.address);
+          // Small delay to avoid nonce conflicts without blocking
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error('Error requesting tokens:', error);
+        toast.error('Failed to request some tokens');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 

@@ -1,4 +1,4 @@
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
@@ -13,13 +13,14 @@ const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
-    <React.StrictMode>
+    // Temporarily disabled React.StrictMode to prevent double API calls
+    // <React.StrictMode>
       <Web3Provider>
         <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
           <RouterProvider router={router} />
           <Toaster />
         </ThemeProvider>
       </Web3Provider>
-    </React.StrictMode>
+    // </React.StrictMode>
   );
 }

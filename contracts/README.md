@@ -452,9 +452,70 @@ graph LR
     style Formula fill:#e1f5fe
 ```
 
-### Core Governance & Management Layer
+## 📁 Organized Contract Structure
 
-#### **BasketGovernance.sol**
+This contracts directory is now organized into logical categories for better maintainability:
+
+```
+contracts/
+├── core/                          # Core protocol contracts
+│   ├── staking/                   # Main staking logic (7 files)
+│   │   ├── DualStakingBasket.sol     # CoreDAO dual staking optimization
+│   │   ├── StakeBasket.sol           # Multi-asset staking ETF
+│   │   ├── BasketStaking.sol         # Tiered staking rewards
+│   │   ├── StakingManager.sol        # Validator management
+│   │   ├── CoreLiquidStakingManager.sol # CORE liquid staking
+│   │   ├── UnbondingQueue.sol        # Withdrawal queue management
+│   │   └── SatoshiTierBasket.sol     # Specialized tier basket
+│   ├── tokens/                    # Token contracts (4 files)
+│   │   ├── StakeBasketToken.sol      # ETF share tokens
+│   │   ├── StCoreToken.sol           # Liquid CORE tokens
+│   │   ├── CoreDAOLiquidBTC.sol      # Liquid BTC implementation
+│   │   └── SimpleToken.sol           # Basic ERC20 implementation
+│   └── governance/               # Governance systems (2 files)
+│       ├── BasketGovernance.sol      # Main DAO governance
+│       └── CoreDAOGovernanceProxy.sol # Network bridge
+├── integrations/                  # External integrations
+│   └── oracles/                  # Price feed contracts (3 files)
+│       ├── PriceFeed.sol            # Main oracle integration
+│       ├── CoreOracle.sol           # Core-specific oracle
+│       └── API3PriceFeed.sol        # API3 integration
+├── interfaces/                    # Contract interfaces (5 files)
+├── security/                      # Security modules (2 files)
+├── testing/                      # Test infrastructure
+│   ├── mocks/                    # Mock contracts (8 files)
+│   └── helpers/                  # Test helpers (2 files)
+└── utils/                        # Utility contracts
+    ├── deployment/               # Deployment scripts (1 file)
+    ├── factory/                  # Factory contracts (1 file)
+    └── configuration/            # Config contracts (2 files)
+```
+
+### Core Protocol Layer
+
+#### **core/staking/ - Main Staking Logic**
+
+**DualStakingBasket.sol**
+- **Purpose**: Specialized strategy for CoreDAO dual staking optimization
+- **Key Features**:
+  - Maintains optimal CORE:BTC ratios for maximum yield
+  - 4 tiers: BASE (0:1), BOOST (2000:1), SUPER (6000:1), SATOSHI (16000:1)
+  - Automatic DEX rebalancing with slippage protection
+  - Targets highest yield tier (Satoshi)
+- **Integrations**: StakeBasketToken, PriceFeed, DEX routers
+
+**BasketStaking.sol**
+- **Purpose**: Tiered staking rewards system for BASKET tokens
+- **Key Features**:
+  - 4 tiers: Bronze (100), Silver (1K), Gold (10K), Platinum (100K) BASKET
+  - Fee reductions: 5% → 50% based on tier
+  - Voting power multipliers: 1x → 1.5x
+  - Protocol fee distribution as ETH rewards
+- **Integrations**: BasketGovernance (voting power), StakeBasket (fee discounts)
+
+#### **core/governance/ - Governance Systems**
+
+**BasketGovernance.sol**
 - **Purpose**: Decentralized governance system for BASKET token holders
 - **Key Features**:
   - Proposal submission, voting, and execution
@@ -463,14 +524,14 @@ graph LR
   - 3-day voting period with 1-day execution delay
 - **Integrations**: BasketStaking (voting multipliers), CoreDAOGovernanceProxy
 
-#### **BasketStaking.sol**
-- **Purpose**: Tiered staking rewards system for BASKET tokens
+#### **core/tokens/ - Token Infrastructure**
+
+**StakeBasketToken.sol**
+- **Purpose**: ERC20 token representing shares in StakeBasket ETF
 - **Key Features**:
-  - 4 tiers: Bronze (100), Silver (1K), Gold (10K), Platinum (100K) BASKET
-  - Fee reductions: 5% → 50% based on tier
-  - Voting power multipliers: 1x → 1.5x
-  - Protocol fee distribution as ETH rewards
-- **Integrations**: BasketGovernance (voting power), StakeBasket (fee discounts)
+  - Mintable/burnable only by StakeBasket contract
+  - Represents proportional ownership of underlying assets
+- **Integrations**: StakeBasket (exclusive minting)
 
 ### Liquid Staking Infrastructure
 
@@ -628,7 +689,52 @@ Target Tier ← Current Ratio ← Price Feeds ← Optimal Yield
 - **Price Staleness**: 1 hour maximum
 - **Circuit Breaker**: 10% price deviation
 
-## 🚀 Deployment Flow
+## 🚀 Deployment & Configuration
+
+### 📁 Organized Deployment Files
+
+All deployment configurations and contract addresses are organized in `/deployment-data/`:
+
+```
+deployment-data/
+├── 🏠 LOCAL DEPLOYMENTS
+│   ├── local-deployment.json              # ← YOUR ANVIL DEPLOYMENT (reusable!)
+│   └── local-governance-deployment.json   # Governance contracts
+│
+├── 🌐 TESTNET DEPLOYMENTS  
+│   ├── testnet2-deployment.json          # Main testnet deployment
+│   ├── testnet2-frontend-config.json     # Frontend configuration
+│   └── oracle-deployment.json            # Oracle-specific deployment
+│
+├── 🚀 PRODUCTION
+│   ├── final-deployment.json             # Final production deployment
+│   └── production-deployment.json        # Production configuration
+│
+└── ⚙️ CONFIGURATION
+    ├── contract-deployment-config.json   # Contract deployment settings
+    └── final-deployment.json             # Final deployment record
+```
+
+### 🔥 Quick Local Development
+
+**Reuse Your Anvil Deployment:**
+```bash
+# 1. Start Anvil (same accounts as before)
+npm run node:start
+
+# 2. Your contracts are ready at these addresses:
+# StakeBasket: 0xf5059a5D33d5853360D16C683c16e67980206f36
+# MockCORE: 0x610178dA211FEF7D417bC0e6FeD39F05609AD788  
+# PriceFeed: 0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e
+
+# 3. Test immediately (no redeployment needed!)
+npm run test:verify
+npm run test:integration:dual
+```
+
+**💡 Pro Tip:** The `local-deployment.json` will work as long as you use the same Anvil seed/mnemonic. If addresses change, just run `npm run deploy:local` to redeploy and update the file.
+
+### 📋 Standard Deployment Flow
 
 1. **Core Infrastructure**
    ```

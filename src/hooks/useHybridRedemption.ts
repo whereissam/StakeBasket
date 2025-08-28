@@ -102,43 +102,85 @@ export function useHybridRedemption() {
   // Create transaction state manager
   const transactionState = createTransactionStateManager('Hybrid Redemption')
 
-  // Try to get prices from contract first
+  // Try to get prices from contract first - with caching
   const { data: contractCorePrice, error: contractCorePriceError } = useReadContract({
     address: contracts.PriceFeed as `0x${string}`,
     abi: PRICE_FEED_ABI,
     functionName: 'getCorePrice',
+    query: {
+      enabled: !!contracts.PriceFeed,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
   const { data: contractBTCPrice, error: contractBTCPriceError } = useReadContract({
     address: contracts.PriceFeed as `0x${string}`,
     abi: PRICE_FEED_ABI,
     functionName: 'getPrimaryBTCPrice',
+    query: {
+      enabled: !!contracts.PriceFeed,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
-  // Read contract data for pool calculations
+  // Read contract data for pool calculations - with caching
   const { data: userBalance } = useReadContract({
     address: contracts.StakeBasketToken as `0x${string}`,
     abi: TOKEN_ABI,
     functionName: 'balanceOf',
     args: [address as `0x${string}`],
+    query: {
+      enabled: !!address && !!contracts.StakeBasketToken,
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
   const { data: totalSupply } = useReadContract({
     address: contracts.StakeBasketToken as `0x${string}`,
     abi: TOKEN_ABI,
     functionName: 'totalSupply',
+    query: {
+      enabled: !!contracts.StakeBasketToken,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
   const { data: totalPooledCore } = useReadContract({
     address: contracts.StakeBasket as `0x${string}`,
     abi: POOL_ABI,
     functionName: 'totalPooledCore',
+    query: {
+      enabled: !!contracts.StakeBasket,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
   const { data: totalPooledLstBTC } = useReadContract({
     address: contracts.StakeBasket as `0x${string}`,
     abi: POOL_ABI,
     functionName: 'totalPooledLstBTC',
+    query: {
+      enabled: !!contracts.StakeBasket,
+      staleTime: 60000, // Cache for 1 minute
+      gcTime: 300000, // Keep in cache for 5 minutes
+      refetchInterval: false, // Disable automatic refetching
+      refetchOnWindowFocus: false
+    }
   })
 
   // Write contract hook

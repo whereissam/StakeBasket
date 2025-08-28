@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Button } from '../components/ui/button'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import * as React from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useContractData } from '../hooks/useContractData'
 import { useStakeBasketTransactions } from '../hooks/useStakeBasketTransactions'
 import { useTransactionHistory } from '../hooks/useTransactionHistory'
 import { usePriceFeedManager } from '../hooks/usePriceFeedManager'
-import { useAccount, useChainId } from 'wagmi'
-import { getNetworkByChainId } from '../config/contracts'
-import { useContractStore, useEnvironmentContracts } from '../store/useContractStore'
+import { useAccount, useChainId, useSimulateContract } from 'wagmi'
+import { useContracts } from '../hooks/useContracts'
+import { parseEther } from 'viem'
 import { useContractHealth } from '../hooks/useContractHealth'
 import { PriceStalenessIndicator } from '../components/PriceStalenessIndicator'
 import { NetworkStatus } from '../components/dashboard/NetworkStatus'
@@ -26,33 +26,30 @@ import { ContractAddressDiagnostic } from '../components/debug/ContractAddressDi
 import { StorageReset } from '../components/debug/StorageReset'
 import { SystemDiagnostic } from '../components/debug/SystemDiagnostic'
 import { DebugWrapper } from '../components/debug/DebugWrapper'
-function Dashboard() {
+const Dashboard = React.memo(() => {
   const { address, isConnected: walletConnected } = useAccount()
   const chainId = useChainId()
-  const { config } = getNetworkByChainId(chainId)
+  const [isInitialized, setIsInitialized] = useState(false)
   
-  // Validate network
-  const networkValidation = validateNetwork(chainId)
-  const tokenSymbol = getTokenSymbol(chainId)
+  // Memoize network validation to prevent recalculation on every render
+  const networkValidation = useMemo(() => validateNetwork(chainId), [chainId])
+  const tokenSymbol = useMemo(() => getTokenSymbol(chainId), [chainId])
   
+  // Use the centralized contracts hook instead of direct store access
+  const { contracts: contractAddresses, config } = useContracts()
   
-  // Initialize environment contract overrides
-  useEnvironmentContracts()
+  // Delay initialization to spread out API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialized(true)
+    }, 1000) // 1 second delay
+    
+    return () => clearTimeout(timer)
+  }, [])
   
-  // Get contract configuration from store
-  const { setChainId, getAllAddresses } = useContractStore()
-  const contractAddresses = getAllAddresses()
-  
-  // Get contract health status
+  // Get contract health status - only after initialization
   const { getHealthSummary, runFullHealthCheck, isChecking } = useContractHealth()
-  const healthSummary = getHealthSummary()
-  
-  // Update store when chain changes
-  React.useEffect(() => {
-    if (chainId) {
-      setChainId(chainId)
-    }
-  }, [chainId, setChainId])
+  const healthSummary = useMemo(() => isInitialized ? getHealthSummary() : { healthPercentage: 0, healthyContracts: 0, totalContracts: 0 }, [getHealthSummary, isInitialized])
   
   const {
     coreBalance,
@@ -65,7 +62,7 @@ function Dashboard() {
     priceError,
     priceLoading,
     refetchBasketBalance
-  } = useContractData(address)
+  } = useContractData(isInitialized ? address : undefined) // Only fetch when initialized
 
 
   const [depositAmount, setDepositAmount] = useState('')
@@ -88,13 +85,13 @@ function Dashboard() {
     updateSuccess: priceUpdateSuccess
   } = usePriceFeedManager()
 
-  // Get real transaction history from blockchain
-  const { transactions, loading: txLoading, error: txError } = useTransactionHistory()
+  // Get real transaction history from blockchain - only after delay
+  const { transactions, loading: txLoading, error: txError } = useTransactionHistory(isInitialized ? address : undefined)
 
-  // Calculate portfolio value
-  const portfolioValueUSD = basketBalance * corePrice * 1.085 // Assume 8.5% premium for NAV
+  // Memoize portfolio value calculation
+  const portfolioValueUSD = useMemo(() => basketBalance * corePrice * 1.085, [basketBalance, corePrice])
 
-  const handleDeposit = async () => {
+  const handleDeposit = useCallback(async () => {
     if (!depositAmount) return
     
     // Clear any existing toasts first
@@ -157,41 +154,59 @@ function Dashboard() {
       console.error('❌ Deposit failed in handleDeposit:', error)
       // Error already handled by depositCore
     }
-  }
+  }, [depositAmount, chainId, address, walletConnected, coreBalance, tokenSymbol, depositCore, networkValidation])
 
 
+
+  // Memoize the balance refetch callback to prevent unnecessary re-renders
+  const handleRefetchBalance = useCallback(() => {
+    refetchBasketBalance?.()
+  }, [refetchBasketBalance])
 
   // Clear inputs and refetch balances on successful transactions
   useEffect(() => {
     if (depositSuccess) {
       setDepositAmount('')
-      refetchBasketBalance?.() // Refresh BASKET token balance after deposit
+      handleRefetchBalance()
     }
-  }, [depositSuccess, refetchBasketBalance])
+  }, [depositSuccess, handleRefetchBalance])
 
 
 
   // Handle price update success
   useEffect(() => {
     if (priceUpdateSuccess) {
-      // Refresh data after price update
-      window.location.reload() // Simple way to refresh all price-dependent data
+      // Refresh balance data after price update instead of full reload
+      handleRefetchBalance()
     }
-  }, [priceUpdateSuccess])
+  }, [priceUpdateSuccess, handleRefetchBalance])
 
   if (!isConnected) {
     return <WalletConnectionPrompt config={config} chainId={chainId} />
   }
 
+  // Show loading state during initialization
+  if (!isInitialized) {
+    return (
+      <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+          <p className="text-xs text-muted-foreground mt-2">Optimizing API calls to prevent rate limits</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Debug Info - Only shown in development/local */}
-      <DebugWrapper>
+      {/* <DebugWrapper>
         <SystemDiagnostic />
         <StorageReset />
         <ContractAddressDiagnostic />
         <DashboardDebug />
-      </DebugWrapper>
+      </DebugWrapper> */}
       
       {/* Wallet Diagnostic */}
       {/* <WalletDiagnostic /> */}
@@ -270,9 +285,14 @@ function Dashboard() {
           isPriceUpdating={isPriceUpdating}
         />
         
+        {/* Temporarily disabled to prevent excessive API calls */}
         <ApiWithdrawForm 
           chainId={chainId}
         />
+       
+        {/* <div className="p-4 text-center text-muted-foreground bg-muted/30 rounded-lg">
+          Smart Withdrawal temporarily disabled to optimize performance
+        </div> */}
       </div>
 
 
@@ -294,7 +314,7 @@ function Dashboard() {
       />
       </div>
     )
-  }
+  })
 
 export const Route = createFileRoute('/dashboard')({
   component: Dashboard,

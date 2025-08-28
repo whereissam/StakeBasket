@@ -18,5 +18,9 @@ export const isLocalNetwork = (chainId: number) => {
 
 export const shouldShowDebugComponents = (chainId?: number) => {
   // Show debug components only in development or on local networks
+  // Hide on all testnets and mainnets to prevent excessive API calls
+  if (chainId && (chainId === 1114 || chainId === 1115)) {
+    return false // Hide on Core Testnet2 and Mainnet
+  }
   return isDevelopment() || (chainId && isLocalNetwork(chainId))
 }

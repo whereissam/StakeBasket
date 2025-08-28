@@ -29,7 +29,6 @@ export function StakeForm({
   isPriceUpdating
 }: StakeFormProps) {
   const networkInfo = useNetworkInfo()
-  console.log('networkInfo', networkInfo)
   
   // Conditional rendering instead of early return
   if (!networkInfo.isSupported) {

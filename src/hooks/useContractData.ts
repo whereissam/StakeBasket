@@ -74,40 +74,16 @@ export function useContractData(userAddress?: string) {
     address: userAddress as `0x${string}`,
     query: { 
       enabled: !!userAddress,
-      refetchInterval: 2000, // Refresh every 2 seconds
-      staleTime: 0 // Don't use stale data
+      staleTime: 30000 // Use cached data for 30 seconds, no auto-refresh
     }
   })
 
-  // Also get balance from Core API for verification (only for live networks)
-  const [coreApiBalance, setCoreApiBalance] = useState<number>(0)
+  // Core API balance removed to avoid excessive network requests
   
   useEffect(() => {
-    // Skip Core API calls for local network (31337)
-    if (!userAddress || chainId === 31337 || chainId !== 1114) return
-    
-    const fetchCoreBalance = async () => {
-      try {
-        const apiKey = import.meta.env.VITE_CORE_TEST2_BTCS_KEY || '6f207a377c3b41d3aa74bd6832684cc7'
-        const response = await fetch(
-          `https://api.test2.btcs.network/api/accounts/core_balance_by_address/${userAddress}?apikey=${apiKey}`
-        )
-        
-        if (response.ok) {
-          const data = await response.json()
-          if (data.status === '1') {
-            setCoreApiBalance(Number(data.result) / 1e18)
-          }
-        }
-      } catch (error) {
-        console.log('Core API balance fetch failed:', error)
-      }
-    }
-    
-    fetchCoreBalance()
-    const interval = setInterval(fetchCoreBalance, 10000) // Every 10 seconds
-    
-    return () => clearInterval(interval)
+    // Skip Core API calls completely - use wagmi balance only for better performance
+    // Core API polling was causing excessive network requests
+    return
   }, [userAddress, chainId])
 
   // Get BASKET token balance (StakeBasketToken - the token you get from staking)
@@ -118,7 +94,7 @@ export function useContractData(userAddress?: string) {
     args: userAddress ? [userAddress as `0x${string}`] : undefined,
     query: { 
       enabled: !!userAddress && !!contracts.StakeBasketToken,
-      refetchInterval: 2000 // Refresh every 2 seconds
+      staleTime: 30000 // Cache for 30 seconds, no auto-refresh
     }
   })
 
@@ -146,7 +122,7 @@ export function useContractData(userAddress?: string) {
     functionName: 'totalPooledCore',
     query: { 
       enabled: !!contracts.StakeBasket,
-      refetchInterval: 2000 // Refresh every 2 seconds
+      staleTime: 30000 // Cache for 30 seconds, no auto-refresh
     }
   })
 
@@ -158,10 +134,8 @@ export function useContractData(userAddress?: string) {
     query: { enabled: !!contracts.CoreOracle }
   })
 
-  // Debug logging
-  const finalCoreBalance = chainId === 31337 
-    ? (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0) // For local, only use wagmi balance
-    : (nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : coreApiBalance) // For live networks, prefer wagmi with API backup
+  // Use only wagmi balance for all networks to avoid API polling
+  const finalCoreBalance = nativeCoreBalance ? Number(nativeCoreBalance.value) / 1e18 : 0
     
   // console.log('Balance debug:', {
   //   nativeCoreBalance: nativeCoreBalance?.value?.toString(),

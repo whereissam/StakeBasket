@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import * as React from 'react'
 import { ArrowLeftRight, AlertTriangle, Award, Target } from 'lucide-react'
 import { useAccount, useReadContract, useBalance } from 'wagmi'
 import { formatEther, erc20Abi } from 'viem'
@@ -99,11 +100,7 @@ const MIN_DEPOSIT_REQUIREMENTS = {
   USD_VALUE: 50   // Minimum $50 total USD value for base tier
 }
 
-// Dynamic price function using real data
-const getAssetPrices = (priceData: { corePrice: number; btcPrice: number }) => ({
-  CORE: priceData.corePrice || 1.5,      // Use real CORE price or fallback
-  BTC: priceData.btcPrice || 65000       // Use real BTC price or fallback
-})
+// Dynamic price function using real data - moved inside component to be memoized
 
 // Maximum bonus caps per tier (prevents excessive rewards)
 const TIER_MAX_BONUS: Record<DualTier, number> = {
@@ -115,11 +112,21 @@ const TIER_MAX_BONUS: Record<DualTier, number> = {
   [DualTier.Satoshi]: 0.60   // +60% max bonus
 }
 
-export function DualStakingInterface() {
+export const DualStakingInterface = React.memo(() => {
   const { address } = useAccount()
   const { chainId: storeChainId } = useNetworkStore()
   const { chainId } = useContracts()
   const currentChainId = chainId || storeChainId || 31337
+  const [isDataLoaded, setIsDataLoaded] = useState(false)
+  
+  // Delay data loading to prevent initial API spam
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsDataLoaded(true)
+    }, 1500) // 1.5 second delay
+    
+    return () => clearTimeout(timer)
+  }, [])
   
   // Get token symbol first (needed for all cases)
   const tokenSymbol = getTokenSymbol(currentChainId)
@@ -167,11 +174,20 @@ export function DualStakingInterface() {
   // CORE approval not needed for native token
   const [isAwaitingBtcApproval, setIsAwaitingBtcApproval] = useState(false);
   
-  // Native ETH balance (for local hardhat)
+  // Memoize price calculation to prevent excessive re-calculations
+  const getAssetPrices = useCallback((priceData: { corePrice: number; btcPrice: number }) => ({
+    CORE: priceData.corePrice || 1.5,      // Use real CORE price or fallback
+    BTC: priceData.btcPrice || 65000       // Use real BTC price or fallback
+  }), [])
+
+  // Native ETH balance (for local hardhat) - with caching to reduce API calls
   const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
     address: address,
     query: {
-      enabled: !!address && isNativeCORE,
+      enabled: !!address && isNativeCORE && isDataLoaded, // Only load after delay
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false
     },
   })
 
@@ -184,7 +200,10 @@ export function DualStakingInterface() {
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address && !!btcTokenAddress,
+      enabled: !!address && !!btcTokenAddress && isDataLoaded, // Only load after delay
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false
     },
   })
   
@@ -197,7 +216,10 @@ export function DualStakingInterface() {
     functionName: 'allowance',
     args: address && stakingContractAddress ? [address, stakingContractAddress as `0x${string}`] : undefined,
     query: {
-      enabled: !!address && !!btcTokenAddress && !!stakingContractAddress
+      enabled: !!address && !!btcTokenAddress && !!stakingContractAddress,
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchOnWindowFocus: false
     }
   })
 
@@ -276,16 +298,16 @@ export function DualStakingInterface() {
     }
   }, [dualStakeSuccess, refetchCoreBalance, refetchBtcBalance])
 
-  // Calculate total USD value of the stake using real prices
-  const calculateTotalUSDValue = (core: string, btc: string): number => {
+  // Memoize USD value calculation to prevent excessive re-calculations
+  const calculateTotalUSDValue = useCallback((core: string, btc: string): number => {
     const coreNum = Number(core) || 0
     const btcNum = Number(btc) || 0
     const prices = getAssetPrices(priceData)
     return (coreNum * prices.CORE) + (btcNum * prices.BTC)
-  }
+  }, [priceData, getAssetPrices])
   
-  // Calculate ratio bonus based on how close to optimal ratio (used for future reward calculations)
-  const calculateRatioBonus = (core: string, btc: string, tier: DualTier): number => {
+  // Memoize ratio bonus calculation to prevent excessive re-calculations
+  const calculateRatioBonus = useCallback((core: string, btc: string, tier: DualTier): number => {
     if (tier === DualTier.None) return 0
     
     const coreNum = Number(core) || 0
@@ -306,9 +328,10 @@ export function DualStakingInterface() {
     
     const maxBonus = TIER_MAX_BONUS[tier]
     return Math.min(maxBonus, ratioScore * maxBonus * (1 + sizeMultiplier))
-  }
+  }, [calculateTotalUSDValue])
   
-  const calculateTier = (core: string, btc: string): DualTier => {
+  // Memoize tier calculation to prevent excessive re-calculations
+  const calculateTier = useCallback((core: string, btc: string): DualTier => {
     const coreNum = Number(core) || 0
     const btcNum = Number(btc) || 0
     
@@ -339,7 +362,7 @@ export function DualStakingInterface() {
     }
     
     return DualTier.None
-  }
+  }, [calculateTotalUSDValue])
 
   const handleAutoCalculate = (targetTier: DualTier) => {
     // Handle None tier - show minimal example for Base tier
@@ -697,4 +720,4 @@ export function DualStakingInterface() {
       </div>
     </div>
   )
-}
+})

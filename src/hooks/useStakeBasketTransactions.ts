@@ -277,14 +277,7 @@ export function useStakeBasketTransactions() {
   const { address } = useAccount()
   const { contracts } = getNetworkByChainId(chainId)
   
-  // Debug contract addresses
-  console.log('🔍 useStakeBasketTransactions addresses:', {
-    chainId,
-    StakeBasket: contracts.StakeBasket,
-    StakeBasketToken: contracts.StakeBasketToken,
-    expectedStakeBasket: '0x88BC8a4398a6364290933a93DcE03AAad616dC01',
-    expectedStakeBasketToken: '0xE0E0b66E661068Fd4311F6fbC34c0c1eb869784F'
-  })
+  // Contract addresses - removed excessive logging
   
   // Create transaction state managers for each operation
   const depositStateManager = createTransactionStateManager('Stake')

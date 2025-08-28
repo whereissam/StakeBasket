@@ -1,0 +1,23 @@
+{
+  "network": "coreTestnet2",
+  "chainId": 1114,
+  "deployer": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
+  "contracts": {
+    "MockCORE": "0xa41575D35563288d6C59d8a02603dF9E2e171eeE",
+    "MockCoreBTC": "0x01b93AC7b5Ee7e473F90aE66979a9402EbcaCcF7",
+    "MockLstBTC": "0xE03484f1682fa55c2AB9bbCF8e451b857EcE6DA8",
+    "MockCoreStaking": "0xd7c4D6f6f0aFCABaAa3B2c514Fb1C2f62cf8326A",
+    "PriceFeed": "0xADBD20E27FfF3B90CF73fA5A327ce77D32138ded",
+    "StakingManager": "0x332F127ab0DFD5CaE7985e6Aeb885bFcE2ab9916",
+    "StakeBasketToken": "0x678EE11EbE92C403AF024B05be9323b21462cc3B",
+    "StakeBasket": "0x468049459476d3733476bA8550dE4881dc623078"
+  },
+  "timestamp": "2025-08-25T13:00:00.000Z",
+  "status": "deployed_successfully",
+  "features": {
+    "staking_core_to_basket": true,
+    "dual_staking_core_btc": true,
+    "governance_token": true,
+    "chainlink_ready": true
+  }
+}

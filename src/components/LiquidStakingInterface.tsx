@@ -87,15 +87,15 @@ export function LiquidStakingInterface() {
     try {
       // First approve, then unstake
       if (approve) {
-        approve()
-        // Note: In a real implementation, you'd wait for approval confirmation
-        // before calling requestUnstake
-        setTimeout(() => {
-          requestUnstake()
-        }, 2000)
+        await approve()
+        // Wait for approval confirmation before calling requestUnstake
+        if (requestUnstake) {
+          await requestUnstake()
+        }
       }
     } catch (error) {
       console.error('Unstake error:', error)
+    } finally {
       setIsUnstaking(false)
     }
   }

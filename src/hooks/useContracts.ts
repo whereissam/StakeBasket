@@ -1,7 +1,7 @@
 import { useChainId } from 'wagmi'
 import { useContractStore, useEnvironmentContracts } from '../store/useContractStore'
 import { getNetworkByChainId } from '../config/contracts'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 /**
  * Universal hook for getting contract addresses across all components
@@ -27,7 +27,8 @@ export function useContracts() {
   // Get all contract addresses from the store
   const contracts = getAllAddresses()
   
-  return {
+  // Memoize the return object to prevent unnecessary rerenders
+  return useMemo(() => ({
     // Contract addresses (dynamic, can be overridden)
     contracts,
     
@@ -62,5 +63,5 @@ export function useContracts() {
     isLocalNetwork: network === 'hardhat',
     isTestnet: network === 'coreTestnet2',
     isMainnet: network === 'coreMainnet'
-  }
+  }), [contracts, config, network, chainId, getContractAddress])
 }

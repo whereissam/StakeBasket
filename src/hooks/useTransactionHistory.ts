@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccount, useChainId } from 'wagmi'
 import { getNetworkByChainId } from '../config/contracts'
+
+// Cache for transaction data to prevent excessive API calls
+let txCache: { [key: string]: { data: Transaction[], timestamp: number } } = {}
+const CACHE_DURATION = 30000 // 30 seconds
 
 interface Transaction {
   hash: string
@@ -12,18 +16,42 @@ interface Transaction {
   blockNumber: number
 }
 
-export function useTransactionHistory() {
-  const { address } = useAccount()
+export function useTransactionHistory(targetAddress?: string) {
+  const { address: walletAddress } = useAccount()
+  const address = targetAddress || walletAddress
   const chainId = useChainId()
   const { contracts } = getNetworkByChainId(chainId)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Use ref to prevent excessive calls
+  const lastFetchRef = useRef(0)
+
   useEffect(() => {
     if (!address || !contracts.StakeBasket) return
 
+    let isMounted = true
+
     const fetchTransactions = async () => {
+      if (!isMounted) return
+      
+      // Check cache first
+      const cacheKey = `${chainId}-${address}`
+      const cached = txCache[cacheKey]
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setTransactions(cached.data)
+        setLoading(false)
+        return
+      }
+      
+      // Prevent too frequent calls (max once per 10 seconds)
+      const now = Date.now()
+      if (now - lastFetchRef.current < 10000) {
+        return
+      }
+      lastFetchRef.current = now
+      
       setLoading(true)
       setError(null)
       
@@ -47,11 +75,12 @@ export function useTransactionHistory() {
               })
             })
             
-            if (!latestBlockResponse.ok) {
+            if (!latestBlockResponse.ok || !isMounted) {
               throw new Error('Failed to get latest block')
             }
             
             const latestBlockData = await latestBlockResponse.json()
+            if (!isMounted) return
             const latestBlock = parseInt(latestBlockData.result, 16)
             
             console.log('Latest block:', latestBlock)
@@ -107,9 +136,14 @@ export function useTransactionHistory() {
             })
             
             // Sort by timestamp (newest first) and limit to 10
-            localTxs.sort((a, b) => b.timestamp - a.timestamp)
-            setTransactions(localTxs.slice(0, 10))
-            console.log('Found local transactions:', localTxs)
+            if (isMounted) {
+              const finalTxs = localTxs.slice(0, 10)
+              localTxs.sort((a, b) => b.timestamp - a.timestamp)
+              setTransactions(finalTxs)
+              // Cache the results
+              txCache[cacheKey] = { data: finalTxs, timestamp: Date.now() }
+              console.log('Found local transactions:', finalTxs)
+            }
             
           } catch (localError) {
             console.error('Failed to fetch local transaction history:', localError)
@@ -130,10 +164,10 @@ export function useTransactionHistory() {
             )
             if (response.ok) {
               data = await response.json()
-              console.log('Core list_of_txs API response:', data)
+              // Core API response received
             }
           } catch (e) {
-            console.log('Core list_of_txs API failed:', e)
+            // Core API request failed
           }
           
           // If that fails, try the etherscan-style API as fallback
@@ -174,27 +208,40 @@ export function useTransactionHistory() {
               }))
               .slice(0, 5) // Show last 5 transactions
             
-            setTransactions(parsedTxs)
+            if (isMounted) {
+              setTransactions(parsedTxs)
+              // Cache the results
+              txCache[cacheKey] = { data: parsedTxs, timestamp: Date.now() }
+            }
           } else {
             // If no transactions found, show empty array (will display the fallback message)
-            setTransactions([])
+            if (isMounted) {
+              const emptyTxs: Transaction[] = []
+              setTransactions(emptyTxs)
+              // Cache empty results too
+              txCache[cacheKey] = { data: emptyTxs, timestamp: Date.now() }
+            }
           }
         }
       } catch (err) {
         console.error('Failed to fetch transaction history:', err)
-        setError('Failed to load transaction history')
+        if (isMounted) {
+          setError('Failed to load transaction history')
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
+    // Only fetch once on mount - no continuous polling to prevent performance issues
     fetchTransactions()
     
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchTransactions, 30000)
-    
-    return () => clearInterval(interval)
-  }, [address, chainId, contracts.StakeBasket])
+    return () => {
+      isMounted = false
+    }
+  }, [address, chainId, contracts.StakeBasket]) // Remove unnecessary dependencies
 
   return { transactions, loading, error }
 }

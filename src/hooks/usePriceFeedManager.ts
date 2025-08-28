@@ -95,7 +95,11 @@ export function usePriceFeedManager() {
     args: ['CORE'],
     query: {
       enabled: !!contracts.CoreOracle,
-      refetchInterval: 30000 // Check every 30 seconds
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchInterval: false, // Disable automatic polling
+      refetchOnMount: true,
+      refetchOnWindowFocus: false
     }
   })
   
@@ -106,7 +110,11 @@ export function usePriceFeedManager() {
     args: ['SolvBTC'],
     query: {
       enabled: !!contracts.CoreOracle,
-      refetchInterval: 30000
+      staleTime: 30000, // Cache for 30 seconds
+      gcTime: 120000, // Keep in cache for 2 minutes
+      refetchInterval: false, // Disable automatic polling
+      refetchOnMount: true,
+      refetchOnWindowFocus: false
     }
   })
   
@@ -256,7 +264,8 @@ export function usePriceFeedManager() {
     try {
       await updateCorePrice()
       // Wait a bit before updating BTC to avoid nonce issues
-      setTimeout(() => updateBTCPrice(), 2000)
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await updateBTCPrice()
     } catch (error) {
       console.error('Update all prices error:', error)
     }
