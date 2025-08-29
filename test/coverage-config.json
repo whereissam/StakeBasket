@@ -1,0 +1,216 @@
+{
+  "testCoverage": {
+    "description": "Comprehensive test coverage configuration for the entire BASKET staking ecosystem",
+    "version": "1.0.0",
+    "targets": {
+      "smartContracts": {
+        "description": "Solidity smart contracts coverage",
+        "tooling": "hardhat-coverage",
+        "thresholds": {
+          "statements": 95,
+          "branches": 90,
+          "functions": 95,
+          "lines": 95
+        },
+        "include": [
+          "contracts/core/**/*.sol",
+          "contracts/integrations/**/*.sol",
+          "contracts/security/**/*.sol"
+        ],
+        "exclude": [
+          "contracts/testing/**/*.sol",
+          "contracts/mocks/**/*.sol",
+          "node_modules/**"
+        ]
+      },
+      "frontend": {
+        "description": "React frontend application coverage",
+        "tooling": "vitest/v8",
+        "thresholds": {
+          "statements": 85,
+          "branches": 75,
+          "functions": 85,
+          "lines": 85
+        },
+        "include": [
+          "src/components/**/*.{ts,tsx}",
+          "src/hooks/**/*.{ts,tsx}",
+          "src/utils/**/*.{ts,tsx}",
+          "src/store/**/*.{ts,tsx}",
+          "src/services/**/*.{ts,tsx}"
+        ],
+        "exclude": [
+          "src/**/*.d.ts",
+          "src/main.tsx",
+          "src/vite-env.d.ts",
+          "src/**/*.stories.{ts,tsx}",
+          "src/**/*.test.{ts,tsx}"
+        ]
+      },
+      "backend": {
+        "description": "Node.js backend services coverage",
+        "tooling": "vitest/v8",
+        "thresholds": {
+          "statements": 90,
+          "branches": 85,
+          "functions": 90,
+          "lines": 90
+        },
+        "include": [
+          "backend/src/**/*.{ts,js}",
+          "backend/src/services/**/*.{ts,js}",
+          "backend/src/routes/**/*.{ts,js}",
+          "backend/src/middleware/**/*.{ts,js}"
+        ],
+        "exclude": [
+          "backend/src/**/*.d.ts",
+          "backend/src/**/*.test.{ts,js}",
+          "backend/src/index.ts",
+          "backend/dist/**"
+        ]
+      },
+      "e2e": {
+        "description": "End-to-end test coverage",
+        "tooling": "playwright",
+        "metrics": {
+          "userFlows": 95,
+          "criticalPaths": 100,
+          "errorScenarios": 85,
+          "crossBrowser": 90
+        },
+        "include": [
+          "e2e/tests/**/*.spec.ts",
+          "e2e/utils/**/*.ts"
+        ],
+        "criticalFlows": [
+          "wallet-connection",
+          "staking-process",
+          "unstaking-process",
+          "governance-voting",
+          "dual-staking",
+          "reward-claiming",
+          "tier-progression"
+        ]
+      },
+      "integration": {
+        "description": "Integration test coverage",
+        "tooling": "hardhat + vitest",
+        "thresholds": {
+          "contractInteractions": 95,
+          "apiEndpoints": 90,
+          "dataFlow": 85,
+          "errorHandling": 80
+        },
+        "include": [
+          "test/integration/**/*.{ts,js,cjs}",
+          "test/unit/**/*.{ts,js,cjs}"
+        ]
+      }
+    },
+    "reportingFormats": [
+      "lcov",
+      "html",
+      "json",
+      "text",
+      "cobertura",
+      "clover"
+    ],
+    "outputDirectories": {
+      "smartContracts": "./coverage/contracts",
+      "frontend": "./coverage/frontend",
+      "backend": "./coverage/backend",
+      "e2e": "./coverage/e2e",
+      "integration": "./coverage/integration",
+      "combined": "./coverage/combined"
+    },
+    "ci": {
+      "failOnThresholdBreach": true,
+      "commentOnPR": true,
+      "uploadToCodecov": true,
+      "generateBadges": true
+    },
+    "hooks": {
+      "preCommit": {
+        "runUnitTests": true,
+        "checkCoverage": true,
+        "generateReport": true
+      },
+      "preRelease": {
+        "runAllTests": true,
+        "generateFullReport": true,
+        "validateThresholds": true,
+        "requireE2EPass": true
+      }
+    },
+    "qualityGates": {
+      "minOverallCoverage": 85,
+      "maxComplexity": 10,
+      "maxTechnicalDebt": 5,
+      "criticalBugs": 0,
+      "securityHotspots": 0
+    },
+    "testCategories": {
+      "unit": {
+        "description": "Individual component/function testing",
+        "pattern": "**/*.test.{ts,tsx,js,jsx,cjs}",
+        "timeout": 5000,
+        "parallel": true
+      },
+      "integration": {
+        "description": "Cross-component and API integration testing",
+        "pattern": "**/integration/**/*.{ts,tsx,js,jsx,cjs}",
+        "timeout": 30000,
+        "parallel": false
+      },
+      "e2e": {
+        "description": "Full user journey testing",
+        "pattern": "e2e/**/*.spec.ts",
+        "timeout": 60000,
+        "parallel": true,
+        "retries": 2
+      },
+      "security": {
+        "description": "Security and vulnerability testing",
+        "pattern": "**/security/**/*.{ts,tsx,js,jsx,cjs}",
+        "timeout": 10000,
+        "parallel": true
+      },
+      "performance": {
+        "description": "Performance and load testing",
+        "pattern": "**/performance/**/*.{ts,tsx,js,jsx,cjs}",
+        "timeout": 120000,
+        "parallel": false
+      }
+    }
+  },
+  "qualityMetrics": {
+    "codeQuality": {
+      "eslintScore": ">= 9.5",
+      "typeScriptStrict": true,
+      "testCoverage": ">= 85%",
+      "codeComplexity": "<= 10",
+      "duplicateCode": "<= 3%"
+    },
+    "performance": {
+      "bundleSize": "<= 2MB",
+      "loadTime": "<= 3s",
+      "firstContentfulPaint": "<= 1.5s",
+      "largestContentfulPaint": "<= 2.5s"
+    },
+    "security": {
+      "vulnerabilities": {
+        "critical": 0,
+        "high": 0,
+        "medium": "<= 5",
+        "low": "<= 10"
+      },
+      "staticAnalysis": "passed",
+      "dependencyCheck": "passed"
+    },
+    "reliability": {
+      "testStability": ">= 95%",
+      "errorRate": "<= 0.1%",
+      "uptime": ">= 99.9%"
+    }
+  }
+}

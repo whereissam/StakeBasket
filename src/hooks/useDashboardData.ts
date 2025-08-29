@@ -17,8 +17,8 @@ export function useDashboardData(isInitialized: boolean = true) {
   // Contracts configuration
   const { contracts: contractAddresses, config } = useContracts()
   
-  // Core contract data - using static data to eliminate ALL RPC calls
-  const contractData = useStaticData(isInitialized && address ? address : undefined)
+  // Core contract data - always fetch price data, only fetch user data if wallet connected
+  const contractData = useStaticData(isInitialized ? address : undefined)
   
   // Contract health - disabled to eliminate RPC calls
   const healthSummary = useMemo(() => ({

@@ -170,3 +170,5 @@ scripts/deploy-mainnet*.cjs
 
 docs/
 artifacts/
+test-results/
+test-results-final/

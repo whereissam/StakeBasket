@@ -49,17 +49,18 @@ export function useStaticData(userAddress?: string) {
   const chainId = useChainId()
   const { contracts } = useContracts()
   
-  // Only fetch when we have user address and contracts
-  const shouldFetch = !!userAddress && !!contracts.StakeBasket && !!contracts.StakeBasketToken
+  // Only fetch user data when we have user address and contracts
+  const shouldFetchUserData = !!userAddress && !!contracts.StakeBasket && !!contracts.StakeBasketToken
   
-  // Real price data
-  const realPriceData = useRealPriceData(shouldFetch)
+  // Price data should always be fetched regardless of wallet connection
+  const shouldFetchPrices = !!contracts.StakeBasket
+  const realPriceData = useRealPriceData(shouldFetchPrices)
   
   // Real native CORE balance
   const { data: nativeCoreBalance, refetch: refetchCoreBalance } = useBalance({
     address: userAddress as `0x${string}`,
     query: { 
-      enabled: shouldFetch,
+      enabled: shouldFetchUserData,
       staleTime: 300000, // Cache for 5 minutes
       gcTime: 600000, // Keep in cache for 10 minutes
       refetchOnWindowFocus: false,
@@ -75,7 +76,7 @@ export function useStaticData(userAddress?: string) {
     functionName: 'balanceOf',
     args: userAddress ? [userAddress as `0x${string}`] : undefined,
     query: { 
-      enabled: shouldFetch,
+      enabled: shouldFetchUserData,
       staleTime: 300000,
       gcTime: 600000,
       refetchOnWindowFocus: false,
@@ -106,7 +107,7 @@ export function useStaticData(userAddress?: string) {
     functionName: 'getPrice',
     args: ['CORE'],
     query: { 
-      enabled: shouldFetch && !!contracts.CoreOracle,
+      enabled: shouldFetchPrices && !!contracts.CoreOracle,
       staleTime: 300000,
       gcTime: 600000,
       refetchOnWindowFocus: false,
@@ -121,7 +122,7 @@ export function useStaticData(userAddress?: string) {
     functionName: 'getPrice',
     args: ['BTC'],
     query: { 
-      enabled: shouldFetch && !!contracts.CoreOracle,
+      enabled: shouldFetchPrices && !!contracts.CoreOracle,
       staleTime: 300000,
       gcTime: 600000,
       refetchOnWindowFocus: false,
@@ -136,7 +137,7 @@ export function useStaticData(userAddress?: string) {
     abi: ORACLE_ABI,
     functionName: 'getSupportedAssets',
     query: { 
-      enabled: shouldFetch && !!contracts.CoreOracle,
+      enabled: shouldFetchPrices && !!contracts.CoreOracle,
       staleTime: 600000, // Cache for 10 minutes (static data)
       gcTime: 1200000,
       refetchOnWindowFocus: false,
