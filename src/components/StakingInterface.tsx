@@ -11,6 +11,7 @@ import { TierProgress } from './staking/TierProgress'
 import { TierBenefits } from './staking/TierBenefits'
 import { TierSystem } from './staking/TierSystem'
 import { ClaimRewards } from './staking/ClaimRewards'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 
 interface StakeInfo {
   amount: string
@@ -44,6 +45,21 @@ export function StakingInterface() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash,
   })
+
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall
+  } = useWalletLogger()
+
+  // Log transaction confirmations
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      logTransactionSuccess('Transaction Confirmed', hash);
+    }
+  }, [isConfirmed, hash, logTransactionSuccess]);
   
   // Contract ABIs
   const basketTokenABI = [
@@ -270,8 +286,19 @@ export function StakingInterface() {
     if (!address || !stakeAmount || !contracts?.BasketStaking || !contracts?.BasketToken) return
     
     try {
-      console.log('Starting approval...')
-      setIsApproving(true)
+      logTransactionStart('Token Approval', {
+        token: 'BASKET',
+        spender: contracts.BasketStaking,
+        amount: stakeAmount
+      });
+      
+      setIsApproving(true);
+      
+      logContractCall('BasketToken', 'approve', {
+        spender: contracts.BasketStaking,
+        amount: parseEther(stakeAmount).toString()
+      });
+      
       writeContract({
         address: contracts.BasketToken as `0x${string}`,
         abi: [
@@ -290,8 +317,12 @@ export function StakingInterface() {
         args: [contracts.BasketStaking as `0x${string}`, parseEther(stakeAmount)],
       })
     } catch (error) {
-      console.error('Approval failed:', error)
-      setIsApproving(false)
+      logTransactionError('Token Approval', error, {
+        token: 'BASKET',
+        amount: stakeAmount,
+        spender: contracts.BasketStaking
+      });
+      setIsApproving(false);
     }
   }
 
@@ -299,11 +330,16 @@ export function StakingInterface() {
     if (!address || !stakeAmount || !contracts?.BasketStaking) return
     
     try {
-      console.log('Starting stake...', {
-        stakeAmount,
-        contractAddress: contracts.BasketStaking,
-        stakeAmountParsed: parseEther(stakeAmount).toString()
-      })
+      logTransactionStart('Staking', {
+        amount: stakeAmount,
+        contract: contracts.BasketStaking,
+        user: address
+      });
+
+      logContractCall('BasketStaking', 'stake', {
+        amount: parseEther(stakeAmount).toString()
+      });
+
       writeContract({
         address: contracts.BasketStaking as `0x${string}`,
         abi: basketStakingABI,
@@ -311,7 +347,10 @@ export function StakingInterface() {
         args: [parseEther(stakeAmount)],
       })
     } catch (error) {
-      console.error('Staking failed:', error)
+      logTransactionError('Staking', error, {
+        amount: stakeAmount,
+        contract: contracts.BasketStaking
+      });
     }
   }
 
@@ -319,7 +358,16 @@ export function StakingInterface() {
     if (!address || !unstakeAmount || !contracts?.BasketStaking) return
     
     try {
-      // Call unstake function on contract
+      logTransactionStart('Unstaking', {
+        amount: unstakeAmount,
+        contract: contracts.BasketStaking,
+        user: address
+      });
+
+      logContractCall('BasketStaking', 'unstake', {
+        amount: parseEther(unstakeAmount).toString()
+      });
+
       writeContract({
         address: contracts.BasketStaking as `0x${string}`,
         abi: basketStakingABI,
@@ -329,7 +377,10 @@ export function StakingInterface() {
       
       setUnstakeAmount('')
     } catch (error) {
-      console.error('Unstaking failed:', error)
+      logTransactionError('Unstaking', error, {
+        amount: unstakeAmount,
+        contract: contracts.BasketStaking
+      });
     }
   }
 

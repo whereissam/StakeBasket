@@ -1,4 +1,6 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit'
+import { useEffect } from 'react'
+import { logger, criticalLogger } from '../utils/logger'
 
 export function ConnectWallet() {
   return (
@@ -20,6 +22,43 @@ export function ConnectWallet() {
           (!authenticationStatus ||
             authenticationStatus === 'authenticated')
 
+        // Log wallet connection state changes
+        useEffect(() => {
+          if (ready) {
+            if (connected && account && chain) {
+              logger.wallet.connection('Connected', {
+                address: account.address,
+                displayName: account.displayName,
+                chainId: chain.id,
+                chainName: chain.name,
+                balance: account.displayBalance
+              });
+            } else if (mounted && !connected) {
+              logger.wallet.connection('Disconnected');
+            }
+          }
+        }, [ready, connected, account?.address, chain?.id]);
+
+        // Log network changes
+        useEffect(() => {
+          if (chain) {
+            logger.wallet.network(chain.id, chain.name);
+            if (chain.unsupported) {
+              criticalLogger.walletError('Unsupported Network', {
+                chainId: chain.id,
+                chainName: chain.name
+              });
+            }
+          }
+        }, [chain?.id, chain?.unsupported]);
+
+        // Log authentication status changes
+        useEffect(() => {
+          if (authenticationStatus) {
+            logger.debug('🔐 Auth Status:', authenticationStatus);
+          }
+        }, [authenticationStatus]);
+
         return (
           <div
             {...(!ready && {
@@ -35,7 +74,10 @@ export function ConnectWallet() {
               if (!connected) {
                 return (
                   <button
-                    onClick={openConnectModal}
+                    onClick={() => {
+                      logger.debug('🔗 Opening connect modal');
+                      openConnectModal();
+                    }}
                     type="button"
                     className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                   >
@@ -47,7 +89,14 @@ export function ConnectWallet() {
               if (chain.unsupported) {
                 return (
                   <button
-                    onClick={openChainModal}
+                    onClick={() => {
+                      logger.warn('🌐 Opening chain modal - wrong network');
+                      criticalLogger.walletError('User on wrong network', {
+                        currentChain: chain.id,
+                        currentChainName: chain.name
+                      });
+                      openChainModal();
+                    }}
                     type="button"
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-6 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                   >

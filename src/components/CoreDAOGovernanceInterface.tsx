@@ -8,6 +8,7 @@ import { formatEther } from 'viem'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { NetworkIndicator } from './NetworkIndicator'
 import { useGovernanceTransactions } from '../hooks/useGovernanceTransactions'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 
 interface CoreDAOProposal {
   id: number
@@ -48,6 +49,15 @@ enum GovernanceType {
 export function CoreDAOGovernanceInterface() {
   const { address } = useAccount()
   const { networkStatus, getCurrentContracts } = useNetworkStore()
+  
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
   
   // Use unified governance transaction system
   const {
@@ -299,53 +309,119 @@ export function CoreDAOGovernanceInterface() {
   }, [coreDAOProposalCount, GOVERNANCE_PROXY_ADDRESS])
 
   const handleCreateCoreDAOProposal = async () => {
-    if (!newCoreDAOProposal.title || !newCoreDAOProposal.description || !newCoreDAOProposal.snapshotId) return
+    if (!newCoreDAOProposal.title || !newCoreDAOProposal.description || !newCoreDAOProposal.snapshotId) {
+      logWalletError('Invalid CoreDAO Proposal Data', {
+        hasTitle: !!newCoreDAOProposal.title,
+        hasDescription: !!newCoreDAOProposal.description,
+        hasSnapshotId: !!newCoreDAOProposal.snapshotId,
+        proposal: newCoreDAOProposal
+      })
+      return
+    }
+
+    logTransactionStart('Create CoreDAO Proposal', {
+      title: newCoreDAOProposal.title,
+      description: newCoreDAOProposal.description,
+      snapshotId: newCoreDAOProposal.snapshotId,
+      address
+    })
 
     try {
+      logContractCall('CoreDAOGovernanceProxy', 'createCoreDAOProposal', {
+        title: newCoreDAOProposal.title,
+        snapshotId: newCoreDAOProposal.snapshotId
+      })
+      
       await createCoreDAOGovernanceProposal(
         newCoreDAOProposal.title,
         newCoreDAOProposal.description,
         newCoreDAOProposal.snapshotId
       )
       
+      logTransactionSuccess('CoreDAO Proposal Created', '')
+      
       // Reset form on success - success handling is done in the hook
       setNewCoreDAOProposal({ title: '', description: '', snapshotId: '' })
       setShowCreateForm(false)
     } catch (error) {
-      console.error('Failed to create CoreDAO proposal:', error)
-      // Error handling is done in the hook
+      logTransactionError('Create CoreDAO Proposal', error, {
+        title: newCoreDAOProposal.title,
+        snapshotId: newCoreDAOProposal.snapshotId
+      })
     }
   }
 
   const handleCreateValidatorDelegation = async () => {
-    if (!newValidatorDelegation.validator || !newValidatorDelegation.amount) return
+    if (!newValidatorDelegation.validator || !newValidatorDelegation.amount) {
+      logWalletError('Invalid Validator Delegation Data', {
+        hasValidator: !!newValidatorDelegation.validator,
+        hasAmount: !!newValidatorDelegation.amount,
+        delegation: newValidatorDelegation
+      })
+      return
+    }
+
+    logTransactionStart('Create Validator Delegation', {
+      validator: newValidatorDelegation.validator,
+      amount: newValidatorDelegation.amount,
+      address
+    })
 
     try {
+      logContractCall('CoreDAOGovernanceProxy', 'createValidatorDelegation', {
+        validator: newValidatorDelegation.validator,
+        amount: newValidatorDelegation.amount
+      })
+      
       await createValidatorDelegationProposal(
         newValidatorDelegation.validator,
         newValidatorDelegation.amount
       )
       
+      logTransactionSuccess('Validator Delegation Created', '')
+      
       // Reset form on success - success handling is done in the hook
       setNewValidatorDelegation({ validator: '', amount: '' })
       setShowCreateForm(false)
     } catch (error) {
-      console.error('Failed to create validator delegation:', error)
-      // Error handling is done in the hook
+      logTransactionError('Create Validator Delegation', error, {
+        validator: newValidatorDelegation.validator,
+        amount: newValidatorDelegation.amount
+      })
     }
   }
 
   const handleCreateHashPowerDelegation = async () => {
-    if (!newHashPowerDelegation.validator || !newHashPowerDelegation.hashPower) return
+    if (!newHashPowerDelegation.validator || !newHashPowerDelegation.hashPower) {
+      logWalletError('Invalid Hash Power Delegation Data', {
+        hasValidator: !!newHashPowerDelegation.validator,
+        hasHashPower: !!newHashPowerDelegation.hashPower,
+        delegation: newHashPowerDelegation
+      })
+      return
+    }
+
+    logTransactionStart('Create Hash Power Delegation', {
+      validator: newHashPowerDelegation.validator,
+      hashPower: newHashPowerDelegation.hashPower,
+      address
+    })
 
     try {
       // Note: Hash Power delegation function needs to be added to useGovernanceTransactions
-      console.log('Hash power delegation not yet implemented in unified hook')
+      logWalletError('Feature Not Implemented', {
+        feature: 'Hash Power Delegation',
+        validator: newHashPowerDelegation.validator,
+        hashPower: newHashPowerDelegation.hashPower
+      })
       
       setNewHashPowerDelegation({ validator: '', hashPower: '' })
       setShowCreateForm(false)
     } catch (error) {
-      console.error('Failed to create hash power delegation:', error)
+      logTransactionError('Create Hash Power Delegation', error, {
+        validator: newHashPowerDelegation.validator,
+        hashPower: newHashPowerDelegation.hashPower
+      })
     }
   }
 

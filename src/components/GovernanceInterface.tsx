@@ -8,6 +8,7 @@ import { formatEther } from 'viem'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { NetworkIndicator } from './NetworkIndicator'
 import { useGovernanceTransactions } from '../hooks/useGovernanceTransactions'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 
 interface Proposal {
   id: number
@@ -50,6 +51,15 @@ enum ProposalType {
 export function GovernanceInterface() {
   const { address } = useAccount()
   const { networkStatus, getCurrentContracts } = useNetworkStore()
+  
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
   
   // Use unified governance transaction system
   const {
@@ -103,27 +113,80 @@ export function GovernanceInterface() {
   }
 
   const handleVote = async (proposalId: number, support: number) => {
-    if (!address) return
+    if (!address) {
+      logWalletError('Wallet Not Connected', {
+        action: 'vote',
+        proposalId,
+        support
+      })
+      return
+    }
+    
+    const voteTypes = ['Against', 'For', 'Abstain']
+    const voteType = voteTypes[support] || 'Unknown'
+    
+    logTransactionStart('Governance Vote', {
+      proposalId,
+      voteType,
+      support,
+      address,
+      votingPower
+    })
     
     try {
+      logContractCall('BasketGovernance', 'castVote', {
+        proposalId,
+        support,
+        voteType
+      })
+      
       await castGovernanceVote(proposalId, support)
+      
+      logTransactionSuccess('Governance Vote Success', '')
       
       // Refresh proposals after voting if successful
       // Note: Success handling is done in the hook with toast notifications
     } catch (error) {
-      console.error('Voting failed:', error)
-      // Error handling is done in the hook
+      logTransactionError('Governance Vote', error, {
+        proposalId,
+        voteType,
+        support,
+        votingPower
+      })
     }
   }
 
   const handleCreateProposal = async () => {
-    if (!address) return
+    if (!address) {
+      logWalletError('Wallet Not Connected', {
+        action: 'createProposal',
+        proposal: newProposal
+      })
+      return
+    }
+    
+    logTransactionStart('Create Governance Proposal', {
+      title: newProposal.title,
+      description: newProposal.description,
+      proposalType: newProposal.proposalType,
+      proposalTypeName: proposalTypeNames[newProposal.proposalType],
+      address,
+      votingPower
+    })
     
     try {
       // Create arrays for the proposal parameters
       const targets = newProposal.target ? [newProposal.target] : []
       const values = newProposal.value ? [newProposal.value] : ['0']
       const calldatas = newProposal.callData ? [newProposal.callData] : ['0x']
+      
+      logContractCall('BasketGovernance', 'createProposal', {
+        title: newProposal.title,
+        proposalType: proposalTypeNames[newProposal.proposalType],
+        targets,
+        values,
+        calldatas
+      })
       
       await createGovernanceProposal(
         newProposal.title,
@@ -132,6 +195,8 @@ export function GovernanceInterface() {
         values,
         calldatas
       )
+      
+      logTransactionSuccess('Governance Proposal Created', '')
       
       // Reset form and hide modal on success
       // Note: Success handling is done in the hook
@@ -146,8 +211,11 @@ export function GovernanceInterface() {
       setShowCreateProposal(false)
       
     } catch (error) {
-      console.error('Proposal creation failed:', error)
-      // Error handling is done in the hook
+      logTransactionError('Create Governance Proposal', error, {
+        title: newProposal.title,
+        proposalType: proposalTypeNames[newProposal.proposalType],
+        votingPower
+      })
     }
   }
 

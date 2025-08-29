@@ -7,6 +7,7 @@ import { useAccount, useReadContract } from 'wagmi'
 import { formatEther } from 'viem'
 import { useContracts } from '../hooks/useContracts'
 import { useSparksTransactions } from '../hooks/useSparksTransactions'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 import { useState } from 'react'
 import { Input } from './ui/input'
 
@@ -83,6 +84,15 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
   const { address } = useAccount()
   const { contracts, network } = useContracts()
   
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
+  
   // Use unified Sparks transaction system
   const {
     redeemSparksPoints,
@@ -148,23 +158,73 @@ export function SparksWidget({ showDetailed = false, className = '' }: SparksWid
   
   // Transaction handlers
   const handleRedeemSparks = async () => {
-    if (!redeemAmount || !redeemReason) return
+    if (!redeemAmount || !redeemReason) {
+      logWalletError('Invalid Sparks Redeem Data', {
+        hasAmount: !!redeemAmount,
+        hasReason: !!redeemReason,
+        amount: redeemAmount,
+        reason: redeemReason
+      })
+      return
+    }
+    
+    logTransactionStart('Redeem Sparks Points', {
+      amount: redeemAmount,
+      reason: redeemReason,
+      currentBalance: sparksInfo.balance,
+      address
+    })
     
     try {
+      logContractCall('SparksManager', 'redeemSparks', {
+        amount: redeemAmount,
+        reason: redeemReason
+      })
+      
       await redeemSparksPoints(redeemAmount, redeemReason)
+      
+      logTransactionSuccess('Sparks Redeemed Successfully', '')
+      
       setRedeemAmount('')
       setRedeemReason('')
       setShowRedeemForm(false)
     } catch (error) {
-      console.error('Redeem Sparks failed:', error)
+      logTransactionError('Redeem Sparks Points', error, {
+        amount: redeemAmount,
+        reason: redeemReason,
+        currentBalance: sparksInfo.balance
+      })
     }
   }
   
   const handleClaimRewards = async () => {
+    if (!address) {
+      logWalletError('Wallet Not Connected', {
+        action: 'claimSparksRewards'
+      })
+      return
+    }
+    
+    logTransactionStart('Claim Sparks Rewards', {
+      address,
+      currentBalance: sparksInfo.balance,
+      currentTier: currentTier.name
+    })
+    
     try {
+      logContractCall('SparksManager', 'claimRewards', {
+        user: address
+      })
+      
       await claimSparksRewards()
+      
+      logTransactionSuccess('Sparks Rewards Claimed', '')
     } catch (error) {
-      console.error('Claim rewards failed:', error)
+      logTransactionError('Claim Sparks Rewards', error, {
+        address,
+        currentBalance: sparksInfo.balance,
+        currentTier: currentTier.name
+      })
     }
   }
 

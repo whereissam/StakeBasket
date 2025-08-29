@@ -15,6 +15,7 @@ import { WalletConnectionPrompt } from '../components/dashboard/WalletConnection
 import { ApiWithdrawForm } from '../components/dashboard/ApiWithdrawForm'
 import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 import { toast } from 'sonner'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 // import { DashboardDebug } from '../components/debug/DashboardDebug'
 // import { ContractAddressDiagnostic } from '../components/debug/ContractAddressDiagnostic'
 // import { StorageReset } from '../components/debug/StorageReset'
@@ -76,6 +77,15 @@ const Dashboard = React.memo(() => {
 
   const [depositAmount, setDepositAmount] = useState('')
   
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
+  
   // Use the real transaction hooks
   const stakeBasketHooks = useStakeBasketTransactions()
   const {
@@ -91,15 +101,21 @@ const Dashboard = React.memo(() => {
     // Clear any existing toasts first
     toast.dismiss()
 
-    console.log('🔍 Environment Debug:', {
+    logTransactionStart('Dashboard Deposit', {
+      amount: depositAmount,
       chainId,
-      walletConnectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
-      allEnvVars: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+      address,
+      walletConnected
     })
     
     // CRITICAL SECURITY CHECK: Verify user is on correct network
     const currentValidation = validateNetwork(chainId)
     if (!currentValidation.isSupported || !currentValidation.isAvailable) {
+      logWalletError('Unsupported Network', {
+        chainId,
+        validation: currentValidation,
+        supportedNetworks: ['Hardhat Local', 'Core Testnet2', 'Core Mainnet']
+      })
       toast.error(`⚠️ Wrong Network! You're on chain ${chainId}. Please switch to a supported network (Hardhat Local, Core Testnet2, or Core Mainnet) before making transactions.`, {
         duration: 8000
       })
@@ -108,6 +124,11 @@ const Dashboard = React.memo(() => {
     
     // Check wallet connection
     if (!address || !walletConnected) {
+      logWalletError('Wallet Not Connected', {
+        address,
+        walletConnected,
+        chainId
+      })
       toast.error('Wallet not connected. Please connect your wallet first.')
       return
     }
@@ -119,34 +140,35 @@ const Dashboard = React.memo(() => {
     
     if (coreBalance < totalNeeded) {
       const shortfall = totalNeeded - coreBalance
+      logWalletError('Insufficient Balance', {
+        required: totalNeeded,
+        available: coreBalance,
+        shortfall,
+        tokenSymbol,
+        depositAmount: depositAmountNum,
+        gasEstimate
+      })
       toast.error(`Insufficient balance. Need ${shortfall.toFixed(4)} more ${tokenSymbol} (including gas fees)`)
       return
     }
     
     try {
-      console.log('🚀 Starting deposit:', {
-        depositAmount,
-        depositAmountNum,
-        coreBalance,
+      logContractCall('StakeBasket', 'depositCore', {
+        amount: depositAmount,
+        amountParsed: depositAmountNum,
+        balance: coreBalance,
         totalNeeded,
-        chainId,
-        address,
-        walletConnected,
         networkValidation
-      })
-      
-      // Additional wallet balance debugging
-      console.log('💰 Balance Debug:', {
-        displayedBalance: coreBalance,
-        depositAmountWei: parseFloat(depositAmount) * 1e18,
-        hasEnoughForDeposit: coreBalance >= depositAmountNum,
-        hasEnoughTotal: coreBalance >= totalNeeded
       })
       
       await depositCore(depositAmount)
     } catch (error) {
-      console.error('❌ Deposit failed in handleDeposit:', error)
-      // Error already handled by depositCore
+      logTransactionError('Dashboard Deposit', error, {
+        amount: depositAmount,
+        chainId,
+        address,
+        balance: coreBalance
+      })
     }
   }, [depositAmount, chainId, address, walletConnected, coreBalance, tokenSymbol, depositCore, networkValidation])
 
@@ -160,10 +182,11 @@ const Dashboard = React.memo(() => {
   // Clear inputs and refetch balances on successful transactions
   useEffect(() => {
     if (depositSuccess) {
+      logTransactionSuccess('Dashboard Deposit Success', depositHash || '')
       setDepositAmount('')
       handleRefetchBalance()
     }
-  }, [depositSuccess, handleRefetchBalance])
+  }, [depositSuccess, depositHash, handleRefetchBalance, logTransactionSuccess])
 
 
 

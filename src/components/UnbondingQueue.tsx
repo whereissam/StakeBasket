@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button'
 import { Clock, AlertCircle, CheckCircle, Timer } from 'lucide-react'
 import { getContractAddress } from '../config/contracts'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 
 interface UnbondingRequest {
   user: string
@@ -29,6 +30,15 @@ export default function UnbondingQueue() {
   const [withdrawalType, setWithdrawalType] = useState<'instant' | 'queue'>('instant')
   const [amount, setAmount] = useState('')
   const [assetType, setAssetType] = useState<'CORE' | 'lstBTC'>('CORE')
+
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
 
   // Contract interactions
   const { writeContract } = useWriteContract()
@@ -146,10 +156,36 @@ export default function UnbondingQueue() {
   }, [pendingData])
 
   const handleWithdrawal = async () => {
-    if (!amount || !address) return
+    if (!amount || !address) {
+      logWalletError('Invalid Withdrawal Request', {
+        hasAmount: !!amount,
+        hasAddress: !!address,
+        amount,
+        address
+      })
+      return
+    }
+
+    const isInstant = withdrawalType === 'instant' && canWithdrawInstantly
+    const withdrawalMethod = isInstant ? 'Instant Withdrawal' : 'Queued Withdrawal'
+    
+    logTransactionStart(withdrawalMethod, {
+      amount,
+      assetType,
+      withdrawalType,
+      canWithdrawInstantly,
+      address,
+      queueInfo
+    })
 
     try {
-      if (withdrawalType === 'instant' && canWithdrawInstantly) {
+      if (isInstant) {
+        logContractCall('StakeBasket', 'processInstantWithdrawal', {
+          user: address,
+          amount: parseEther(amount).toString(),
+          assetType
+        })
+        
         // Process instant withdrawal
         writeContract({
           address: getContractAddress('StakeBasket') as `0x${string}`,
@@ -169,6 +205,12 @@ export default function UnbondingQueue() {
           args: [address, parseEther(amount), assetType]
         })
       } else {
+        logContractCall('StakeBasket', 'requestUnbonding', {
+          user: address,
+          amount: parseEther(amount).toString(),
+          assetType
+        })
+        
         // Queue withdrawal
         writeContract({
           address: getContractAddress('StakeBasket') as `0x${string}`,
@@ -188,8 +230,17 @@ export default function UnbondingQueue() {
           args: [address, parseEther(amount), assetType]
         })
       }
+      
+      logTransactionSuccess(`${withdrawalMethod} Initiated`, '')
+      setAmount('')
     } catch (error) {
-      console.error('Withdrawal error:', error)
+      logTransactionError(withdrawalMethod, error, {
+        amount,
+        assetType,
+        withdrawalType,
+        address,
+        queueInfo
+      })
     }
   }
 

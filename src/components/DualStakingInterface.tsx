@@ -18,6 +18,7 @@ import { SafetyNotice } from './staking/SafetyNotice'
 import { useContracts } from '../hooks/useContracts'
 import { useNetworkStore } from '../store/useNetworkStore'
 import { toast } from 'sonner'
+import { useWalletLogger } from '../hooks/useWalletLogger'
 import { getNetworkByChainId } from '../config/contracts'
 import { validateNetwork, getTokenSymbol } from '../utils/networkHandler'
 import { DualTier, DualStakeInfo, TierInfo } from '../types/staking'
@@ -132,6 +133,15 @@ export const DualStakingInterface = React.memo(() => {
   
   // Get token symbol first (needed for all cases)
   const tokenSymbol = getTokenSymbol(currentChainId)
+  
+  // Enhanced wallet logging
+  const {
+    logTransactionStart,
+    logTransactionSuccess,
+    logTransactionError,
+    logContractCall,
+    logWalletError
+  } = useWalletLogger()
   
   // Use unified dual staking transaction system - re-enabled
   const {
@@ -303,15 +313,18 @@ export const DualStakingInterface = React.memo(() => {
 
   useEffect(() => {
     if (approveBtcSuccess) {
+      logTransactionSuccess('BTC Token Approval Success', '')
       toast.success('BTC tokens approved!')
       setIsAwaitingBtcApproval(false);
       refetchBtcAllowance();
     }
-  }, [approveBtcSuccess, refetchBtcAllowance])
+  }, [approveBtcSuccess, refetchBtcAllowance, logTransactionSuccess])
 
   // Refresh balances after successful deposit
   useEffect(() => {
     if (dualStakeSuccess) {
+      logTransactionSuccess('Dual Staking Deposit Success', '')
+      
       // Refresh both CORE and BTC balances
       refetchCoreBalance()
       refetchBtcBalance()
@@ -322,7 +335,7 @@ export const DualStakingInterface = React.memo(() => {
       
       toast.success('🎉 Dual staking deposit successful! Your balances have been updated.')
     }
-  }, [dualStakeSuccess, refetchCoreBalance, refetchBtcBalance])
+  }, [dualStakeSuccess, refetchCoreBalance, refetchBtcBalance, logTransactionSuccess])
 
   // Memoize USD value calculation to prevent excessive re-calculations
   const calculateTotalUSDValue = useCallback((core: string, btc: string): number => {
@@ -438,10 +451,26 @@ export const DualStakingInterface = React.memo(() => {
 
   const handleApproveBTC = async () => {
     if (!btcAmount) return
+    
+    logTransactionStart('BTC Token Approval', {
+      amount: btcAmount,
+      token: 'BTC',
+      spender: stakingContractAddress
+    })
+    
     try {
+      logContractCall('MockCoreBTC', 'approve', {
+        spender: stakingContractAddress,
+        amount: parsedBtcAmount.toString()
+      })
+      
       await approveBtcTokens(btcAmount)  
     } catch (error) {
-      console.error('BTC approval failed:', error)
+      logTransactionError('BTC Token Approval', error, {
+        amount: btcAmount,
+        token: 'BTC',
+        contract: stakingContractAddress
+      })
     }
   }
 
@@ -450,19 +479,41 @@ export const DualStakingInterface = React.memo(() => {
     const coreNum = Number(coreAmount) || 0
     const btcNum = Number(btcAmount) || 0
     
+    logTransactionStart('Dual Staking Deposit', {
+      coreAmount,
+      btcAmount,
+      chainId: currentChainId,
+      address,
+      tier: calculateTier(coreAmount, btcAmount)
+    })
+    
     // Must have at least one asset for dual staking
     if (coreNum === 0 && btcNum === 0) {
+      logWalletError('Invalid Amounts', {
+        coreAmount,
+        btcAmount,
+        reason: 'Both amounts are zero'
+      })
       toast.error('Please enter CORE and/or BTC amounts to deposit')
       return
     }
     
     // Check minimum requirements for dual staking
     if (coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE) {
+      logWalletError('Insufficient CORE Amount', {
+        required: MIN_DEPOSIT_REQUIREMENTS.CORE,
+        provided: coreNum,
+        tokenSymbol
+      })
       toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.CORE} ${tokenSymbol} required for dual staking`)
       return
     }
     
     if (btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC) {
+      logWalletError('Insufficient BTC Amount', {
+        required: MIN_DEPOSIT_REQUIREMENTS.BTC,
+        provided: btcNum
+      })
       toast.error(`Minimum ${MIN_DEPOSIT_REQUIREMENTS.BTC} BTC required for dual staking`)  
       return
     }
@@ -470,11 +521,21 @@ export const DualStakingInterface = React.memo(() => {
     // Check minimum USD value requirement
     const totalUSDValue = calculateTotalUSDValue(coreAmount, btcAmount)
     if (totalUSDValue < MIN_DEPOSIT_REQUIREMENTS.USD_VALUE) {
+      logWalletError('Insufficient USD Value', {
+        required: MIN_DEPOSIT_REQUIREMENTS.USD_VALUE,
+        calculated: totalUSDValue,
+        coreAmount: coreNum,
+        btcAmount: btcNum,
+        prices: getAssetPrices(priceData)
+      })
       toast.error(`Minimum $${MIN_DEPOSIT_REQUIREMENTS.USD_VALUE} total value required for dual staking`)
       return
     }
     
     if (!address) {
+      logWalletError('Wallet Not Connected', {
+        chainId: currentChainId
+      })
       toast.error('Please connect your wallet')
       return
     }
@@ -482,6 +543,11 @@ export const DualStakingInterface = React.memo(() => {
     // Check CORE balance (native)
     const coreBalance = Number(coreBalanceFormatted)
     if (coreNum > coreBalance) {
+      logWalletError('Insufficient CORE Balance', {
+        required: coreNum,
+        available: coreBalance,
+        tokenSymbol
+      })
       toast.error(`Insufficient CORE balance. You have ${coreBalance.toFixed(4)} ${tokenSymbol}`)
       return
     }
@@ -489,6 +555,10 @@ export const DualStakingInterface = React.memo(() => {
     // Check BTC balance  
     const btcBalance = Number(btcBalanceFormatted)
     if (btcNum > btcBalance) {
+      logWalletError('Insufficient BTC Balance', {
+        required: btcNum,
+        available: btcBalance
+      })
       toast.error(`Insufficient BTC balance. You have ${btcBalance.toFixed(4)} BTC`)
       return
     }
@@ -497,6 +567,10 @@ export const DualStakingInterface = React.memo(() => {
     // Only check BTC approval if depositing BTC
     
     if (btcNum > 0 && needsBtcApprovalCheck) {
+      logWalletError('BTC Approval Required', {
+        btcAmount: btcNum,
+        allowance: btcAllowance?.toString() || '0'
+      })
       toast.error('Please approve BTC tokens first')
       return
     }
@@ -504,6 +578,12 @@ export const DualStakingInterface = React.memo(() => {
     try {
       // Check if we have valid price data
       if (!priceData.corePrice || !priceData.btcPrice) {
+        logWalletError('Price Data Unavailable', {
+          corePrice: priceData.corePrice,
+          btcPrice: priceData.btcPrice,
+          source: priceData.source,
+          error: priceData.error
+        })
         toast.error('Price data unavailable. Please wait for prices to load.')
         return
       }
@@ -511,11 +591,26 @@ export const DualStakingInterface = React.memo(() => {
       // Use unified dual staking transaction system
       // Determine if using native CORE (chainId 1114 for Core testnet) or ERC20 CORE (local hardhat)  
       const useNativeCORE = currentChainId === 1114 || currentChainId === 1116
+      
+      logContractCall('DualStakingBasket', 'depositDualStake', {
+        coreAmount,
+        btcAmount,
+        useNativeCORE,
+        chainId: currentChainId,
+        tier: calculateTier(coreAmount, btcAmount),
+        totalUSDValue
+      })
+      
       await depositDualStake(coreAmount, btcAmount, useNativeCORE)
       
     } catch (error) {
-      console.error('❌ Dual stake setup error:', error)
-      // Error handling is done in the hook, no need for additional toast here
+      logTransactionError('Dual Staking Deposit', error, {
+        coreAmount,
+        btcAmount,
+        chainId: currentChainId,
+        address,
+        useNativeCORE: currentChainId === 1114 || currentChainId === 1116
+      })
     }
   }
 
