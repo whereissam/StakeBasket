@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./BasketGovernance.sol";
-import "./MockCoreStaking.sol";
+import "../../testing/mocks/MockCoreStaking.sol";
 
 /**
  * @title CoreDAOGovernanceProxy

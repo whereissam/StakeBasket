@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./interfaces/ICoreBTCStaking.sol";
+import "../../interfaces/ICoreBTCStaking.sol";
 
 /**
  * @title CoreDAOLiquidBTC (lstBTC Implementation)

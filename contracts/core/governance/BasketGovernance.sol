@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./StakeBasketToken.sol";
+import "../tokens/StakeBasketToken.sol";
 
 interface IBasketStaking {
     function getVotingMultiplier(address user) external view returns (uint256);

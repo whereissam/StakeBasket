@@ -139,7 +139,10 @@
       "WebFetch(domain:docs.stakebasket.fi)",
       "WebFetch(domain:x.com)",
       "WebFetch(domain:discord.com)",
-      "Bash(bunx playwright:*)"
+      "Bash(bunx playwright:*)",
+      "Bash(open test-results/report.html)",
+      "Bash(./scripts/run-comprehensive-tests.sh:*)",
+      "Bash(open test-results-final/comprehensive-report.html)"
     ],
     "deny": []
   }

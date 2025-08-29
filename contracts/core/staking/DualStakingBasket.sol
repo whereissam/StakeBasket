@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./StakeBasketToken.sol";
-import "./PriceFeed.sol";
-import "./interfaces/IDualStaking.sol";
+import "../tokens/StakeBasketToken.sol";
+import "../../integrations/oracles/PriceFeed.sol";
+import "../../interfaces/IDualStaking.sol";
 
 // Uniswap V2 Router interface for DEX integration
 interface IUniswapV2Router {

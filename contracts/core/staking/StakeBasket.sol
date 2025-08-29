@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-import "./StakeBasketToken.sol";
+import "../tokens/StakeBasketToken.sol";
 import "./StakingManager.sol";
-import "./PriceFeed.sol";
+import "../../integrations/oracles/PriceFeed.sol";
 
 interface IBasketStaking {
     function getFeeReduction(address user) external view returns (uint256);
