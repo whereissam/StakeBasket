@@ -1,21 +1,16 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-verify");
 require("dotenv/config");
+require("hardhat-gas-reporter");
+require("solidity-coverage");
+require("hardhat-contract-sizer");
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: {
-    version: "0.8.24",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      viaIR: true,
-    },
-  },
   networks: {
     hardhat: {
       chainId: 1337,
+      initialBaseFeePerGas: 0,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -32,6 +27,29 @@ module.exports = {
       chainId: 1116,
     },
   },
+  etherscan: {
+    apiKey: {
+      // Add your API keys here when needed
+      // ethereum: process.env.ETHERSCAN_KEY,
+      // sepolia: process.env.ETHERSCAN_KEY,
+    },
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS === "true",
+    currency: "USD",
+    coinmarketcap: process.env.CMC_KEY || undefined,
+    excludeContracts: ["mocks/"],
+  },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: false,
+    disambiguatePaths: false,
+  },
+  solcover: {
+    skipFiles: ['testing/mocks/', 'testing/helpers/'],
+    measureStatementCoverage: false,
+    measureFunctionCoverage: true,
+  },
   paths: {
     sources: "./contracts",
     tests: "./test",
@@ -40,5 +58,20 @@ module.exports = {
   },
   mocha: {
     timeout: 40000,
+  },
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.24",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000, // Higher runs for smaller bytecode
+          },
+          viaIR: true,
+          evmVersion: "paris",
+        },
+      }
+    ],
   },
 };
