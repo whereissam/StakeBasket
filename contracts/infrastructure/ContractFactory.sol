@@ -2,24 +2,19 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "../core/tokens/StakeBasketToken.sol";
+import "./ContractFactoryLibrary.sol";
 import "../core/tokens/SimpleToken.sol";
-import "../core/staking/UnbondingQueue.sol";
-import "../core/staking/CoreLiquidStakingManager.sol";
 import "../integrations/oracles/PriceFeed.sol";
-import "../security/AccessControlManager.sol";
-import "../security/PriceSecurityModule.sol";
 
 /**
- * @title ContractFactory
- * @dev Factory contract for deploying the complete staking ecosystem
- * Ensures proper deployment order and configuration
+ * @title ContractFactory  
+ * @dev Optimized factory using library pattern to reduce bytecode size
  */
 contract ContractFactory is Ownable {
     
     struct DeployedContracts {
         address stakeBasketToken;
-        address simpleToken;  // Used as test BTC
+        address simpleToken;
         address unbondingQueue;
         address coreLiquidStakingManager;
         address stCoreToken;

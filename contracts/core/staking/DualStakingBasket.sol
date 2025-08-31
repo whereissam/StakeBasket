@@ -154,8 +154,8 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         tierRatios[StakingTier.GOLD] = 20000 * 1e18;    // 20,000:1 optimal for Gold
         tierRatios[StakingTier.SATOSHI] = 25000 * 1e18; // 25,000:1 optimal for Satoshi
         
-        // Set USD value thresholds
-        tierMinUSD[StakingTier.BRONZE] = 1000;    // $1k minimum
+        // Set USD value thresholds - LOWERED Bronze for accessibility
+        tierMinUSD[StakingTier.BRONZE] = 100;     // $100 minimum (was $1000)
         tierMaxUSD[StakingTier.BRONZE] = 10000;   // $10k maximum
         tierMinUSD[StakingTier.SILVER] = 10000;   // $10k minimum  
         tierMaxUSD[StakingTier.SILVER] = 100000;  // $100k maximum
@@ -175,8 +175,10 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      * @dev Calculate total USD value of deposit
      */
     function _calculateUSDValue(uint256 coreAmount, uint256 btcAmount) internal view returns (uint256) {
-        uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18;
-        uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e8; // BTC has 8 decimals
+        // CORE: 18 decimals * 18 decimal price / 1e18 = 18 decimal USD value / 1e18 = simple USD
+        uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18 / 1e18;
+        // BTC: 8 decimals * 18 decimal price / 1e8 = 18 decimal USD value / 1e18 = simple USD  
+        uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e8 / 1e18;
         return coreValue + btcValue;
     }
     
@@ -574,8 +576,25 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
         
         uint256 btcBalanceBefore = btcToken.balanceOf(address(this));
         
-        // Execute swap through router (implementation depends on specific DEX)
-        // This would be replaced with actual DEX integration
+        // Create swap path
+        address[] memory path = new address[](2);
+        path[0] = address(coreToken);
+        path[1] = address(btcToken);
+        
+        // Execute swap with try-catch for safety
+        try IUniswapV2Router(swapRouter).swapExactTokensForTokens(
+            coreAmount,
+            minBTCOut,
+            path,
+            address(this),
+            block.timestamp + 300
+        ) returns (uint256[] memory amounts) {
+            // Swap successful, amounts[1] contains received BTC
+        } catch Error(string memory reason) {
+            revert(string(abi.encodePacked("DualStaking: swap failed - ", reason)));
+        } catch {
+            revert("DualStaking: swap failed - unknown error");
+        }
         
         uint256 btcBalanceAfter = btcToken.balanceOf(address(this));
         btcReceived = btcBalanceAfter - btcBalanceBefore;
@@ -692,14 +711,14 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      */
     function _calculateShares(uint256 coreAmount, uint256 btcAmount) internal view returns (uint256) {
         if (basketToken.totalSupply() == 0) {
-            // Initial deposit: use USD value
-            uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18;
-            uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e18;
-            return coreValue + btcValue;
+            // Initial deposit: use USD value with proper scaling for readable token amounts
+            uint256 coreValue = (coreAmount * priceFeed.getCorePrice()) / 1e18; // Keep 18 decimals for BASKET tokens
+            uint256 btcValue = (btcAmount * priceFeed.getSolvBTCPrice()) / 1e8;  // Keep 18 decimals for BASKET tokens
+            return coreValue + btcValue; // Returns tokens with 18 decimals
         }
         
         uint256 totalValue = _getTotalValue();
-        uint256 depositValue = (coreAmount * priceFeed.getCorePrice() + btcAmount * priceFeed.getSolvBTCPrice()) / 1e18;
+        uint256 depositValue = (coreAmount * priceFeed.getCorePrice() / 1e18) + (btcAmount * priceFeed.getSolvBTCPrice() / 1e8);
         
         return (depositValue * basketToken.totalSupply()) / totalValue;
     }
@@ -718,8 +737,8 @@ contract DualStakingBasket is ReentrancyGuard, Ownable, Pausable {
      * @dev Get total portfolio value in USD
      */
     function _getTotalValue() internal view returns (uint256) {
-        uint256 coreValue = (totalPooledCORE * priceFeed.getCorePrice()) / 1e18;
-        uint256 btcValue = (totalPooledBTC * priceFeed.getSolvBTCPrice()) / 1e18;
+        uint256 coreValue = (totalPooledCORE * priceFeed.getCorePrice()) / 1e18; // Keep 18 decimals for proper valuation
+        uint256 btcValue = (totalPooledBTC * priceFeed.getSolvBTCPrice()) / 1e8;  // Keep 18 decimals for proper valuation
         return coreValue + btcValue;
     }
     

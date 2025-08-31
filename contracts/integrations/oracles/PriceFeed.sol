@@ -74,7 +74,9 @@ contract PriceFeed is Ownable {
     mapping(string => bytes32) public switchboardFeedIds; // Switchboard feed IDs
     
     // Enhanced Configuration
-    uint256 public constant MAX_PRICE_AGE = 86400; // 24 hours (more flexible)
+    uint256 public constant DEFAULT_MAX_PRICE_AGE = 3600; // 1 hour for production safety
+    uint256 public maxPriceAge = DEFAULT_MAX_PRICE_AGE; // Configurable for testing
+    bool public stalenessCheckEnabled = false; // Disabled by default - only enable if needed
     uint256 public constant PRICE_CACHE_DURATION = 30; // 30 seconds fresh price cache
     uint256 public constant PRICE_DEVIATION_THRESHOLD = 1000; // 10% (basis points)
     uint256 public constant EXTREME_DEVIATION_THRESHOLD = 2000; // 20% (basis points)
@@ -107,6 +109,8 @@ contract PriceFeed is Ownable {
     event SwitchboardPriceUpdated(string indexed asset, int128 result, uint256 timestamp);
     event CircuitBreakerTriggered(string indexed asset, uint256 oldPrice, uint256 newPrice, string reason);
     event CircuitBreakerReset(string indexed asset);
+    event MaxPriceAgeUpdated(uint256 oldMaxPriceAge, uint256 newMaxPriceAge);
+    event StalenessCheckToggled(bool enabled);
     event EmergencyModeActivated(string reason);
     event EmergencyModeDeactivated();
     event GradualPriceUpdateStarted(string indexed asset, uint256 fromPrice, uint256 toPrice, uint256 steps);
@@ -206,10 +210,14 @@ contract PriceFeed is Ownable {
         PriceData memory data = priceData[asset];
         
         require(data.isActive, "PriceFeed: asset not supported");
-        require(
-            block.timestamp - data.lastUpdated <= MAX_PRICE_AGE,
-            "PriceFeed: price data stale"
-        );
+        
+        // Only check staleness if enabled - for real-time pricing, this can be disabled
+        if (stalenessCheckEnabled) {
+            require(
+                block.timestamp - data.lastUpdated <= maxPriceAge,
+                "PriceFeed: price data stale"
+            );
+        }
         
         return data.price;
     }
@@ -231,7 +239,7 @@ contract PriceFeed is Ownable {
         IPyth.Price memory pythPrice = pythOracle.getPrice(priceId);
         require(pythPrice.price > 0, "PriceFeed: invalid Pyth price");
         require(
-            block.timestamp - pythPrice.publishTime <= MAX_PRICE_AGE,
+            block.timestamp - pythPrice.publishTime <= maxPriceAge,
             "PriceFeed: Pyth price data stale"
         );
         
@@ -442,7 +450,7 @@ contract PriceFeed is Ownable {
         require(answer > 0, "Invalid price from oracle");
         require(updatedAt > 0, "Price not updated");
         require(
-            block.timestamp - updatedAt <= MAX_PRICE_AGE,
+            block.timestamp - updatedAt <= maxPriceAge,
             "Oracle data stale"
         );
         require(roundId > 0, "Invalid round");
@@ -520,6 +528,29 @@ contract PriceFeed is Ownable {
             priceData[asset].decimals = 18;
         }
         emit PythPriceIdSet(asset, priceId);
+    }
+    
+    /**
+     * @dev Configure maximum price age for staleness checks
+     * @param _maxPriceAge Maximum price age in seconds (minimum 60 seconds, maximum 24 hours)
+     */
+    function setMaxPriceAge(uint256 _maxPriceAge) external onlyOwner {
+        require(_maxPriceAge >= 60, "PriceFeed: price age too short (min 1 minute)");
+        require(_maxPriceAge <= 86400, "PriceFeed: price age too long (max 24 hours)");
+        
+        uint256 oldMaxPriceAge = maxPriceAge;
+        maxPriceAge = _maxPriceAge;
+        
+        emit MaxPriceAgeUpdated(oldMaxPriceAge, _maxPriceAge);
+    }
+    
+    /**
+     * @dev Enable or disable staleness checks (useful for real-time pricing or testing)
+     * @param _enabled True to enable staleness checks, false to disable
+     */
+    function setStalenessCheckEnabled(bool _enabled) external onlyOwner {
+        stalenessCheckEnabled = _enabled;
+        emit StalenessCheckToggled(_enabled);
     }
     
     /**
@@ -732,7 +763,7 @@ contract PriceFeed is Ownable {
             revert("PriceFeed: asset not supported");
         }
         
-        bool priceIsStale = block.timestamp - data.lastUpdated > MAX_PRICE_AGE;
+        bool priceIsStale = block.timestamp - data.lastUpdated > maxPriceAge;
         
         if (!priceIsStale) {
             return (data.price, false);
@@ -822,7 +853,7 @@ contract PriceFeed is Ownable {
      */
     function isPriceValid(string memory asset) public view returns (bool isValid) {
         PriceData memory data = priceData[asset];
-        return data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
+        return data.isActive && (block.timestamp - data.lastUpdated <= maxPriceAge);
     }
     
     /**
@@ -868,7 +899,7 @@ contract PriceFeed is Ownable {
             uint256 updatedAt,
             uint80
         ) {
-            if (answer > 0 && block.timestamp - updatedAt <= MAX_PRICE_AGE) {
+            if (answer > 0 && block.timestamp - updatedAt <= maxPriceAge) {
                 uint8 feedDecimals = AggregatorV3Interface(backupFeed).decimals();
                 return _normalizePrice(uint256(answer), feedDecimals);
             }
@@ -1018,7 +1049,7 @@ contract PriceFeed is Ownable {
     {
         PriceData memory data = priceData[asset];
         isActive = data.isActive;
-        isPriceValidResult = data.isActive && (block.timestamp - data.lastUpdated <= MAX_PRICE_AGE);
+        isPriceValidResult = data.isActive && (block.timestamp - data.lastUpdated <= maxPriceAge);
         circuitBreakerTriggered = assetCircuitBreakerTriggered[asset];
         hasBackup = backupPriceFeeds[asset] != address(0);
         priceAge = block.timestamp - data.lastUpdated;

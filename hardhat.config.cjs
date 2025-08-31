@@ -11,10 +11,11 @@ module.exports = {
     hardhat: {
       chainId: 1337,
       initialBaseFeePerGas: 0,
+      allowUnlimitedContractSize: true,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
-      chainId: 1337,
+      chainId: 31337, // Anvil default chain ID
     },
     coreTestnet: {
       url: process.env.CORE_TESTNET_RPC_URL || "https://rpc.test.btcs.network",
