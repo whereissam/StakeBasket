@@ -69,10 +69,11 @@ Dual Staking requires a minimum stake threshold and rewards scale with both **ra
 
 | Tier | Min. CORE | Min. BTC | Optimal Ratio | Max Bonus | Base Requirement |
 |------|-----------|----------|---------------|-----------|------------------|
-| 🥉 **Bronze** | 1,000 | 0.01 | 50,000:1 | +10% | $1k+ total value |
-| 🥈 **Silver** | 5,000 | 0.1 | 50,000:1 | +25% | $10k+ total value |
-| 🥇 **Gold** | 25,000 | 0.5 | 50,000:1 | +40% | $100k+ total value |
-| 💎 **Platinum** | 100,000 | 2.0 | 50,000:1 | +50% | $500k+ total value |
+| 🔥 **Base** | 100 | 0.001 | 10,000:1 | +5% | $1k+ total value |
+| 🥉 **Bronze** | 1,000 | 0.01 | 50,000:1 | +10% | $10k+ total value |
+| 🥈 **Silver** | 5,000 | 0.1 | 50,000:1 | +25% | $100k+ total value |
+| 🥇 **Gold** | 25,000 | 0.5 | 50,000:1 | +40% | $500k+ total value |
+| 💎 **Platinum** | 100,000 | 2.0 | 50,000:1 | +50% | $1M+ total value |
 
 **How Bonuses Work:**
 - **Ratio Bonus**: Closer to optimal ratio = higher multiplier
