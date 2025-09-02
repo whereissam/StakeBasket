@@ -235,13 +235,18 @@ contract PriceFeed is Ownable {
         if (priceData[asset].isActive && priceData[asset].price > 0) {
             lastKnownGoodPrice[asset] = priceData[asset].price;
         }
-        
-        IPyth.Price memory pythPrice = pythOracle.getPrice(priceId);
+
+        // Fetch Pyth price (allow unsafe fetch if staleness check disabled)
+        IPyth.Price memory pythPrice = stalenessCheckEnabled
+            ? pythOracle.getPrice(priceId)
+            : pythOracle.getPriceUnsafe(priceId);
         require(pythPrice.price > 0, "PriceFeed: invalid Pyth price");
-        require(
-            block.timestamp - pythPrice.publishTime <= maxPriceAge,
-            "PriceFeed: Pyth price data stale"
-        );
+        if (stalenessCheckEnabled) {
+            require(
+                block.timestamp - pythPrice.publishTime <= maxPriceAge,
+                "PriceFeed: Pyth price data stale"
+            );
+        }
         
         // Convert Pyth price to uint256 with 18 decimals
         int256 price = int256(pythPrice.price);
@@ -449,10 +454,12 @@ contract PriceFeed is Ownable {
         
         require(answer > 0, "Invalid price from oracle");
         require(updatedAt > 0, "Price not updated");
-        require(
-            block.timestamp - updatedAt <= maxPriceAge,
-            "Oracle data stale"
-        );
+        if (stalenessCheckEnabled) {
+            require(
+                block.timestamp - updatedAt <= maxPriceAge,
+                "Oracle data stale"
+            );
+        }
         require(roundId > 0, "Invalid round");
         require(answeredInRound >= roundId, "Stale round");
         
