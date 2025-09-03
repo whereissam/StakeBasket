@@ -96,7 +96,6 @@ export function DualStakingForm({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {Object.entries(tierInfo)
-              .filter(([tierKey]) => Number(tierKey) !== DualTier.None)
               .reverse().map(([tierKey, info]) => (
               <button
                 key={tierKey}

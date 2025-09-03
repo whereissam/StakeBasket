@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { MIN_DEPOSIT_REQUIREMENTS } from '../config/dualStakingTiers'
-import { DualTier } from '../types/staking'
 
 export const useDualStakingValidation = (
   currentChainId: number,
@@ -16,8 +15,7 @@ export const useDualStakingValidation = (
   const validateDeposit = useCallback((
     coreAmount: string, 
     btcAmount: string, 
-    address: string | undefined,
-    calculateTier: (core: string, btc: string) => DualTier
+    address: string | undefined
   ): boolean => {
     const coreNum = Number(coreAmount) || 0
     const btcNum = Number(btcAmount) || 0

@@ -28,7 +28,6 @@ export function TierDisplay({
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {Object.entries(tiers)
-            .filter(([tierKey]) => Number(tierKey) !== DualTier.None)
             .map(([tierKey, info]) => {
               const tierNum = Number(tierKey) as DualTier
               const isCurrent = tierNum === currentTier

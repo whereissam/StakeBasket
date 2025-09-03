@@ -1,5 +1,5 @@
 // Contract addresses and configurations for different networks
-// CACHE BUSTER: v2.1 - Updated dual staking addresses
+// CACHE BUSTER: v2.2 - Production deployment 2025-09-03 with fixed DualTier enum
 export const NETWORKS = {
   hardhat: {
     chainId: 31337,
@@ -41,35 +41,36 @@ export const NETWORKS = {
 
 export const CONTRACT_ADDRESSES = {
   hardhat: {
-    // Mock Tokens (from local deployment)
-    MockCORE: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
-    MockCoreBTC: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
+    // Mock Tokens (UPDATED - 2025-09-03 Production Deployment)
+    MockCORE: '0xd3b893cd083f07Fe371c1a87393576e7B01C52C6',
+    MockCoreBTC: '0x3BFbbf82657577668144921b96aAb72BC170646C',
+    TestBTC: '0x3BFbbf82657577668144921b96aAb72BC170646C', // Same as MockCoreBTC
     
     // Mock Staking
     MockCoreStaking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
     MockLstBTC: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
     
-    // StakeBasket Core (UPDATED - 2025-08-25 with Pyth Network integration)
-    PriceFeed: '0x2c8ED11fd7A058096F2e5828799c68BE88744E2F',
+    // StakeBasket Core (UPDATED - 2025-09-03 Production Deployment)
+    PriceFeed: '0x930b218f3e63eE452c13561057a8d5E61367d5b7',
     StakingManager: '0x547382C0D1b23f707918D3c83A77317B71Aa8470',
-    StakeBasketToken: '0x22a9B82A6c3D2BFB68F324B2e8367f346Dd6f32a',
-    StakeBasket: '0x7C8BaafA542c57fF9B2B90612bf8aB9E86e22C09',
-    BasketStaking: '0xa82ff9afd8f496c3d6ac40e2a0f282e47488cfc9',
-    CoreOracle: '0x1343248Cbd4e291C6979e70a138f4c774e902561', // Using PriceFeed as oracle
+    StakeBasketToken: '0x9CC8B5379C40E24F374cd55973c138fff83ed214',
+    StakeBasket: '0xa8d297D643a11cE83b432e87eEBce6bee0fd2bAb',
+    BasketStaking: '0xa8d297D643a11cE83b432e87eEBce6bee0fd2bAb', // Using StakeBasket
+    CoreOracle: '0x930b218f3e63eE452c13561057a8d5E61367d5b7', // Using PriceFeed as oracle
     
     // Governance (newly deployed)
     BasketGovernance: '0xe70f935c32dA4dB13e7876795f1e175465e6458e',
-    BasketToken: '0xe039608E695D21aB11675EBBA00261A0e750526c', // Using newly deployed StakeBasketToken
+    BasketToken: '0x9CC8B5379C40E24F374cd55973c138fff83ed214', // Using newly deployed StakeBasketToken
     CoreDAOGovernanceProxy: '0x3904b8f5b0F49cD206b7d5AABeE5D1F37eE15D8d',
     
     // Liquid Staking
     CoreLiquidStakingManager: '0x0000000000000000000000000000000000000000',
     StCoreToken: '0x0000000000000000000000000000000000000000',
     
-    // Dual Staking Contracts (FRESH DEPLOYMENT - 2025-08-23)
-    MockDualStaking: '0x871ACbEabBaf8Bed65c22ba7132beCFaBf8c27B5',
-    DualStakingBasket: '0x6A59CC73e334b018C9922793d96Df84B538E6fD5',
-    SatoshiTierBasket: '0x6A59CC73e334b018C9922793d96Df84B538E6fD5', // Using DualStakingBasket
+    // Dual Staking Contracts (UPDATED - 2025-09-03 Production Deployment)
+    MockDualStaking: '0xb4e9A5BC64DC07f890367F72941403EEd7faDCbB',
+    DualStakingBasket: '0x6Da3D07a6BF01F02fB41c02984a49B5d9Aa6ea92',
+    SatoshiTierBasket: '0x6Da3D07a6BF01F02fB41c02984a49B5d9Aa6ea92', // Using DualStakingBasket
     
     // Unbonding
     UnbondingQueue: '0x0000000000000000000000000000000000000000',

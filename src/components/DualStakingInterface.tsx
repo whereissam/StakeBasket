@@ -58,7 +58,7 @@ export const DualStakingInterface = React.memo(() => {
   
   const [stakeInfo] = useState<DualStakeInfo>({
     coreStaked: '0', btcStaked: '0', shares: '0', rewards: '0',
-    tier: DualTier.None, ratio: '0', apy: '0'
+    tier: DualTier.Base, ratio: '0', apy: '0'
   })
   const [coreAmount, setCoreAmount] = useState('')
   const [btcAmount, setBtcAmount] = useState(MIN_DEPOSIT_REQUIREMENTS.BTC.toString())
@@ -157,7 +157,7 @@ export const DualStakingInterface = React.memo(() => {
   }
 
   const handleDualStake = async () => {
-    if (!validateDeposit(coreAmount, btcAmount, address, calculateTier)) return
+    if (!validateDeposit(coreAmount, btcAmount, address)) return
     
     if (Number(btcAmount) > 0 && needsBtcApprovalCheck) {
       logWalletError('BTC Approval Required', { btcAmount: Number(btcAmount), allowance: btcAllowance?.toString() || '0' })

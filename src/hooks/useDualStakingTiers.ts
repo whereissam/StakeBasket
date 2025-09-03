@@ -26,13 +26,13 @@ export const useDualStakingTiers = (priceData: { corePrice: number; btcPrice: nu
     const btcNum = Number(btc) || 0
     
     if (coreNum < MIN_DEPOSIT_REQUIREMENTS.CORE || btcNum < MIN_DEPOSIT_REQUIREMENTS.BTC) {
-      return DualTier.None
+      return DualTier.Base
     }
     
     const totalUSDValue = calculateTotalUSDValue(core, btc)
     
     if (totalUSDValue < MIN_DEPOSIT_REQUIREMENTS.USD_VALUE) {
-      return DualTier.None
+      return DualTier.Base
     }
     
     if (totalUSDValue >= TIER_USD_THRESHOLDS[DualTier.Satoshi].min) {
@@ -47,11 +47,11 @@ export const useDualStakingTiers = (priceData: { corePrice: number; btcPrice: nu
       return DualTier.Base
     }
     
-    return DualTier.None
+    return DualTier.Base
   }, [calculateTotalUSDValue])
 
   const calculateRatioBonus = useCallback((core: string, btc: string, tier: DualTier): number => {
-    if (tier === DualTier.None) return 0
+    if (tier === DualTier.Base) return 0
     
     const coreNum = Number(core) || 0
     const btcNum = Number(btc) || 0
@@ -72,7 +72,7 @@ export const useDualStakingTiers = (priceData: { corePrice: number; btcPrice: nu
   }, [calculateTotalUSDValue])
 
   const handleAutoCalculate = useCallback((targetTier: DualTier, setCoreAmount: (val: string) => void, setBtcAmount: (val: string) => void) => {
-    if (targetTier === DualTier.None || targetTier === DualTier.Base) {
+    if (targetTier === DualTier.Base) {
       setBtcAmount(MIN_DEPOSIT_REQUIREMENTS.BTC.toString())
       setCoreAmount(MIN_DEPOSIT_REQUIREMENTS.CORE.toString())
       return
