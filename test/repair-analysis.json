@@ -1,0 +1,48 @@
+{
+  "timestamp": "2025-08-31T12:07:01.236Z",
+  "workingContracts": [
+    "btcToken",
+    "dualStakingBasket"
+  ],
+  "brokenContracts": [
+    {
+      "name": "stakeBasketToken",
+      "address": "0x851356ae760d987E095750cCeb3bC6014560891C",
+      "contractName": "StakeBasketToken",
+      "failures": [
+        "Test 1: execution reverted",
+        "Test 2: execution reverted",
+        "Test 3: execution reverted",
+        "Test 4: execution reverted"
+      ]
+    },
+    {
+      "name": "mockCORE",
+      "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+      "contractName": "MockCORE",
+      "failures": [
+        "Test 1: execution reverted",
+        "Test 2: execution reverted",
+        "Test 3: execution reverted"
+      ]
+    },
+    {
+      "name": "priceFeed",
+      "address": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+      "contractName": "PriceFeed",
+      "failures": [
+        "Test 1: execution reverted",
+        "Test 2: execution reverted"
+      ]
+    },
+    {
+      "name": "stakeBasket",
+      "address": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+      "contractName": "StakeBasket",
+      "failures": [
+        "Test 1: execution reverted",
+        "Test 2: execution reverted"
+      ]
+    }
+  ]
+}

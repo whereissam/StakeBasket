@@ -40,9 +40,17 @@ describe("BasketGovernance", function () {
     );
     await stakeBasketToken.waitForDeployment();
 
+    // Deploy mock CORE token for MockCoreStaking
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const mockCoreToken = await MockERC20.deploy("CORE", "CORE", 18);
+    await mockCoreToken.waitForDeployment();
+
     // Deploy mock BasketStaking
     const MockBasketStaking = await ethers.getContractFactory("MockCoreStaking");
-    basketStaking = await MockBasketStaking.deploy();
+    basketStaking = await MockBasketStaking.deploy(
+      await mockCoreToken.getAddress(),
+      await owner.getAddress()
+    );
     await basketStaking.waitForDeployment();
 
     // Deploy BasketGovernance
@@ -53,6 +61,13 @@ describe("BasketGovernance", function () {
       await owner.getAddress()
     );
     await basketGovernance.waitForDeployment();
+
+    // Set up permissions for minting using proper two-step process
+    await stakeBasketToken.proposeStakeBasketContract(await owner.getAddress());
+    // Advance time by timelock delay
+    await ethers.provider.send("evm_increaseTime", [2 * 24 * 3600]); // 2 days
+    await ethers.provider.send("evm_mine");
+    await stakeBasketToken.confirmStakeBasketContract();
 
     // Mint tokens to users
     await stakeBasketToken.mint(await user1.getAddress(), ethers.parseEther("2000"));

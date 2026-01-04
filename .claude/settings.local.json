@@ -182,7 +182,15 @@
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test/test-fresh-deployment.cjs --network localhost)",
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run scripts/deploy-production-ready.cjs --network localhost)",
       "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test/verify-production-deployment.cjs --network localhost)",
-      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test/check-fee-configuration.cjs --network localhost)"
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test/check-fee-configuration.cjs --network localhost)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test-contract-interaction.cjs --network localhost)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test-contracts-automated.cjs --network localhost)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run scripts/update-prices.cjs --network localhost)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test-testnet-contracts.cjs --network coreTestnet2)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run update-testnet-prices.cjs --network coreTestnet2)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run debug-price-staleness.cjs --network coreTestnet2)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat run test-staking-with-fix.cjs --network coreTestnet2)",
+      "Bash(DOTENV_CONFIG_PATH=.env npx hardhat test test/unit/SimplePriceFeed.test.cjs --network localhost)"
     ],
     "deny": []
   }

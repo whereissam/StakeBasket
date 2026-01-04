@@ -61,9 +61,9 @@ class TestSetup {
     this.contracts.mockPriceFeed = await MockPriceFeed.deploy();
     await this.contracts.mockPriceFeed.waitForDeployment();
 
-    // Set initial prices
-    await this.contracts.mockPriceFeed.setPrice("CORE", ethers.parseUnits("1.5", 8)); // $1.5
-    await this.contracts.mockPriceFeed.setPrice("BTC", ethers.parseUnits("95000", 8)); // $95k
+    // Set initial prices (MockPriceFeed uses 18 decimals) - Current market prices
+    await this.contracts.mockPriceFeed.setPrice("CORE", ethers.parseEther("0.4481")); // $0.4481 current CORE price
+    await this.contracts.mockPriceFeed.setPrice("BTC", ethers.parseEther("108916.96")); // $108,916.96 current BTC price
   }
 
   async deployCoreContracts() {
@@ -126,6 +126,14 @@ class TestSetup {
     // For testing, use emergency function to set the StakeBasket contract
     await this.contracts.stakeBasketToken.emergencySetStakeBasketContract(basketAddress);
     
+    // Deploy BasketStaking
+    const BasketStaking = await ethers.getContractFactory("BasketStaking");
+    this.contracts.basketStaking = await BasketStaking.deploy(
+      await this.contracts.stakeBasketToken.getAddress(),
+      this.owner.address
+    );
+    await this.contracts.basketStaking.waitForDeployment();
+
     // Note: This simple approach only allows one contract to mint/burn
     // In production, you might need a more sophisticated approach for multiple baskets
   }
@@ -135,6 +143,7 @@ class TestSetup {
     const BasketGovernance = await ethers.getContractFactory("BasketGovernance");
     this.contracts.basketGovernance = await BasketGovernance.deploy(
       await this.contracts.stakeBasket.getAddress(),
+      await this.contracts.basketStaking.getAddress(),
       this.owner.address
     );
     await this.contracts.basketGovernance.waitForDeployment();

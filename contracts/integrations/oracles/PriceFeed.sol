@@ -207,6 +207,10 @@ contract PriceFeed is Ownable {
      * @return price Asset price with 18 decimals
      */
     function _getPrice(string memory asset) internal view returns (uint256 price) {
+        // Fallback for generic BTC symbol to primary SolvBTC asset
+        if (keccak256(bytes(asset)) == keccak256(bytes("BTC"))) {
+            return _getPrice("SolvBTC");
+        }
         PriceData memory data = priceData[asset];
         
         require(data.isActive, "PriceFeed: asset not supported");

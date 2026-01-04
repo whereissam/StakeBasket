@@ -25,7 +25,7 @@ module.exports = {
     coreTestnet2: {
       url: process.env.CORE_TESTNET2_RPC_URL || "https://rpc.test2.btcs.network",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 1116,
+      chainId: 1114,
     },
   },
   etherscan: {

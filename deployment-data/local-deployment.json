@@ -3,14 +3,22 @@
     "name": "hardhat",
     "chainId": "31337"
   },
-  "timestamp": "2025-08-22T15:59:46.452Z",
+  "timestamp": "2025-08-31T12:11:33.883Z",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "contracts": {
-    "stakeBasketToken": "0x851356ae760d987E095750cCeb3bC6014560891C",
-    "stakeBasket": "0xf5059a5D33d5853360D16C683c16e67980206f36",
-    "mockCORE": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
-    "priceFeed": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
-    "stakingManager": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0"
+    "stakeBasketToken": "0x6533158b042775e2FdFeF3cA1a782EFDbB8EB9b1",
+    "stakeBasket": "0x73C68f1f41e4890D06Ba3e71b9E9DfA555f1fb46",
+    "mockCORE": "0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799",
+    "priceFeed": "0x8f119cd256a0FfFeed643E830ADCD9767a1d517F",
+    "stakingManager": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+    "btcToken": "0xB7ca895F81F20e05A5eb11B05Cbaab3DAe5e23cd",
+    "mockDualStaking": "0xd0EC100F1252a53322051a95CF05c32f0C174354",
+    "dualStakingBasket": "0x9D3DA37d36BB0B825CD319ed129c2872b893f538",
+    "dualStakingBasketFixed": "0x245e77E56b1514D77910c9303e4b44dDb44B788c",
+    "dualStakingBasketFinal": "0x0c03eCB91Cb50835e560a7D52190EB1a5ffba797",
+    "dualStakingBasketWithMock": "0x9D3DA37d36BB0B825CD319ed129c2872b893f538",
+    "mockDualStakingContract": "0x43cA9bAe8dF108684E5EAaA720C25e1b32B0A075",
+    "mockDualStakingContractFixed": "0x6DcBc91229d812910b54dF91b5c2b592572CD6B0"
   },
   "config": {
     "CORE_PRICE": "1500000000000000000",

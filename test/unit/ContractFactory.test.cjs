@@ -33,7 +33,7 @@ describe("ContractFactory", function () {
     let deployedAddresses;
 
     it("Should deploy basic system successfully", async function () {
-      const tx = await contractFactory.connect(owner).deployBasicSystem(
+      const tx = await contractFactory.deployBasicSystem(
         await owner.getAddress(),
         await treasury.getAddress(),
         await operator.getAddress()

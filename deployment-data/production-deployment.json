@@ -1,16 +1,30 @@
 {
-  "network": "coreTestnet2",
-  "deployer": "0x2b44f71B6EB9f2F981B08EA9Af582157075B34B9",
-  "timestamp": "2025-08-08T20:54:09.616Z",
-  "contracts": {
-    "priceFeed": "0x6383a1E50b86573ADe785A94Da4117673E6970B8",
-    "stakingManager": "0xF5624f3cf0bfa5595dFCF9d31D252720840A6514",
-    "stakeBasketToken": "0x8F541be038FDd36112f554aea3EE1aC1aa5CDB02",
-    "stakeBasket": "0xB16DD7cAAE9Ed2f498F68EE3EAdbC6c8289EB4b4"
+  "network": {
+    "name": "localhost",
+    "chainId": "31337"
   },
-  "integration": {
-    "coreToken": "native",
-    "coreBTC": "to_be_configured",
-    "lstBTC": "to_be_configured"
+  "timestamp": "2025-09-03T11:47:40.809Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "stakeBasketToken": "0x9CC8B5379C40E24F374cd55973c138fff83ed214",
+    "mockCORE": "0xd3b893cd083f07Fe371c1a87393576e7B01C52C6",
+    "testBTC": "0x3BFbbf82657577668144921b96aAb72BC170646C",
+    "priceFeed": "0x930b218f3e63eE452c13561057a8d5E61367d5b7",
+    "mockDualStaking": "0xb4e9A5BC64DC07f890367F72941403EEd7faDCbB",
+    "stakeBasket": "0xa8d297D643a11cE83b432e87eEBce6bee0fd2bAb",
+    "dualStakingBasket": "0x6Da3D07a6BF01F02fB41c02984a49B5d9Aa6ea92"
+  },
+  "config": {
+    "corePrice": "0.70",
+    "btcPrice": "110000.0",
+    "bronzeTierMin": "100",
+    "managementFee": "500",
+    "targetTier": "BRONZE"
+  },
+  "verification": {
+    "permissionsSet": true,
+    "pricesConfigured": true,
+    "tierAccessible": true,
+    "freshDeployment": true
   }
 }

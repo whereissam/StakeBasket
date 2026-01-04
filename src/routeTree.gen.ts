@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StakingRouteImport } from './routes/staking'
 import { Route as SparksRouteImport } from './routes/sparks'
+import { Route as SimpleStakingRouteImport } from './routes/simple-staking'
 import { Route as GovernanceRouteImport } from './routes/governance'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as FaucetRouteImport } from './routes/faucet'
@@ -28,6 +29,11 @@ const StakingRoute = StakingRouteImport.update({
 const SparksRoute = SparksRouteImport.update({
   id: '/sparks',
   path: '/sparks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SimpleStakingRoute = SimpleStakingRouteImport.update({
+  id: '/simple-staking',
+  path: '/simple-staking',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GovernanceRoute = GovernanceRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/simple-staking': typeof SimpleStakingRoute
   '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/simple-staking': typeof SimpleStakingRoute
   '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/faucet': typeof FaucetRoute
   '/features': typeof FeaturesRoute
   '/governance': typeof GovernanceRoute
+  '/simple-staking': typeof SimpleStakingRoute
   '/sparks': typeof SparksRoute
   '/staking': typeof StakingRoute
 }
@@ -119,6 +128,7 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/features'
     | '/governance'
+    | '/simple-staking'
     | '/sparks'
     | '/staking'
   fileRoutesByTo: FileRoutesByTo
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/features'
     | '/governance'
+    | '/simple-staking'
     | '/sparks'
     | '/staking'
   id:
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/faucet'
     | '/features'
     | '/governance'
+    | '/simple-staking'
     | '/sparks'
     | '/staking'
   fileRoutesById: FileRoutesById
@@ -156,6 +168,7 @@ export interface RootRouteChildren {
   FaucetRoute: typeof FaucetRoute
   FeaturesRoute: typeof FeaturesRoute
   GovernanceRoute: typeof GovernanceRoute
+  SimpleStakingRoute: typeof SimpleStakingRoute
   SparksRoute: typeof SparksRoute
   StakingRoute: typeof StakingRoute
 }
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/sparks'
       fullPath: '/sparks'
       preLoaderRoute: typeof SparksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/simple-staking': {
+      id: '/simple-staking'
+      path: '/simple-staking'
+      fullPath: '/simple-staking'
+      preLoaderRoute: typeof SimpleStakingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/governance': {
@@ -244,6 +264,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaucetRoute: FaucetRoute,
   FeaturesRoute: FeaturesRoute,
   GovernanceRoute: GovernanceRoute,
+  SimpleStakingRoute: SimpleStakingRoute,
   SparksRoute: SparksRoute,
   StakingRoute: StakingRoute,
 }
